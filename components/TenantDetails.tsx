@@ -135,7 +135,7 @@ export default function TenantDetails({
 
           {/* Payment History Tab - Now receives tenantId instead of payments array */}
           {activeTab === 1 && (
-            <PaymentHistoryTab tenantId={tenant.id} tenant={tenant} />
+            <PaymentHistoryTab tenantId={tenant.id} />
           )}
         </Box>
       </Card>
