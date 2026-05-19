@@ -13,11 +13,32 @@ export async function GET(
   try {
     const { id: tenantId } = await params;
 
-    const allPayments = await getSheetRows("payments");
+    // FETCH DATA
+    const allPayments =
+      await getSheetRows("payments");
+
+    const tenants =
+      await getSheetRows("tenants");
+
+    const tenant = tenants.find(
+      (t: any) =>
+        String(t.id) ===
+        String(tenantId)
+    );
+
+    if (!tenant) {
+      return NextResponse.json(
+        {
+          error: "Tenant not found",
+        },
+        { status: 404 }
+      );
+    }
 
     // FILTER PAYMENTS
     const tenantPayments = allPayments
       .filter((p: any) => {
+        // tenant mismatch
         if (
           String(p.tenant_id) !==
           String(tenantId)
@@ -25,6 +46,7 @@ export async function GET(
           return false;
         }
 
+        // invalid month
         if (!p.month) {
           return false;
         }
@@ -33,24 +55,50 @@ export async function GET(
           p.month
         ).slice(0, 7);
 
-        return paymentMonth >= GLOBAL_CUTOFF;
+        // before global cutoff
+        return (
+          paymentMonth >=
+          GLOBAL_CUTOFF
+        );
       })
-      .map((p: any) => ({
-        id:
-          p.id ||
-          `payment_${Date.now()}`,
-        tenant_id: String(p.tenant_id),
-        amount: Number(p.amount) || 0,
-        paid_on: p.paid_on,
-        month: String(p.month).slice(0, 7),
-        status: "success",
-        method:
-          p.method ||
-          "Bank Transfer",
-        receipt_url:
-          p.receipt_url || undefined,
-      }));
 
+      .map((p: any) => {
+        const month = String(
+          p.month
+        ).slice(0, 7);
+
+        return {
+          id:
+            p.id ||
+            `payment_${Date.now()}`,
+
+          tenant_id: String(
+            p.tenant_id
+          ),
+
+          // derive amount from rent
+          amount: calculateRent(
+            tenant,
+            month
+          ),
+
+          paid_on: p.paid_on,
+
+          month,
+
+          status: "success",
+
+          method:
+            p.method ||
+            "Bank Transfer",
+
+          receipt_url:
+            p.receipt_url ||
+            undefined,
+        };
+      });
+
+    // SORT NEWEST FIRST
     tenantPayments.sort((a, b) => {
       const aDate = new Date(
         a.paid_on ||
@@ -65,22 +113,14 @@ export async function GET(
       return bDate - aDate;
     });
 
-    // GET TENANT
-    const tenants =
-      await getSheetRows("tenants");
-
-    const tenant = tenants.find(
-      (t: any) =>
-        String(t.id) ===
-        String(tenantId)
-    );
-
+    // MONTHLY BREAKDOWN
     const monthlyBreakdown =
       await generateMonthlyBreakdown(
         tenant,
         tenantPayments
       );
 
+    // SUMMARY
     const summary = calculateSummary(
       tenantPayments,
       monthlyBreakdown
@@ -119,16 +159,14 @@ async function generateMonthlyBreakdown(
   const breakdown: any[] = [];
 
   // tenant_since should be YYYY-MM
-  const tenantSince = tenant.tenant_since
-    ? String(tenant.tenant_since).slice(
-        0,
-        7
-      )
+  const tenantSince = tenant
+    .tenant_since
+    ? String(
+        tenant.tenant_since
+      ).slice(0, 7)
     : GLOBAL_CUTOFF;
 
-  // START MONTH = LATER OF:
-  // - GLOBAL CUTOFF
-  // - TENANT ONBOARD DATE
+  // start from whichever is later
   const startMonth =
     tenantSince > GLOBAL_CUTOFF
       ? tenantSince
@@ -164,18 +202,20 @@ async function generateMonthlyBreakdown(
 
     breakdown.push({
       month: monthStr,
+
       amount: calculateRent(
         tenant,
         monthStr
       ),
+
       status: payment
         ? "paid"
         : "pending",
+
       paid_on:
         payment?.paid_on || null,
     });
 
-    // IMPORTANT:
     // NEVER MUTATE DATE OBJECTS
     current = new Date(
       current.getFullYear(),
@@ -236,8 +276,10 @@ function calculateSummary(
 
     averagePaymentAmount:
       successfulPayments.length > 0
-        ? totalPaid /
-          successfulPayments.length
+        ? Math.round(
+            totalPaid /
+              successfulPayments.length
+          )
         : 0,
   };
 }
