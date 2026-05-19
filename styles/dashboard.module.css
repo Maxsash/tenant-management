@@ -1,6 +1,6 @@
 .container {
   padding: 16px 12px;
-  background: #f4f6f8;
+  background: transparent;
   min-height: 100vh;
 }
 
@@ -18,15 +18,15 @@
 }
 
 .monthInput {
-  background: white;
-  border-radius: 16px;
+  background: var(--white);
+  border-radius: var(--radius-md);
 }
 
 .broadcastButton {
   padding: 14px !important;
   font-size: 18px !important;
   font-weight: 700 !important;
-  border-radius: 16px !important;
+  border-radius: var(--radius-md) !important;
   text-transform: none !important;
 }
 
@@ -38,9 +38,9 @@
 }
 
 .summaryCard {
-  border-radius: 18px !important;
+  border-radius: var(--radius-lg) !important;
   cursor: pointer;
-  transition: 0.2s;
+  transition: var(--transition-fast);
 }
 
 .summaryCard:active {
@@ -48,11 +48,11 @@
 }
 
 .summaryPaid {
-  background: #e8f5e9 !important;
+  background: var(--success-bg) !important;
 }
 
 .summaryUnpaid {
-  background: #ffebee !important;
+  background: var(--error-soft) !important;
 }
 
 .summaryTitle {
@@ -76,29 +76,28 @@
 }
 
 .paidText {
-  color: #2e7d32;
+  color: var(--success-text);
 }
 
 .unpaidText {
-  color: #d32f2f;
+  color: var(--error-text);
 }
 
 .tenantCard {
-  border-radius: 20px !important;
+  border-radius: var(--radius-xl) !important;
   cursor: pointer;
   overflow: hidden;
-  box-shadow: 0 4px 12px
-    rgba(0, 0, 0, 0.08) !important;
+  box-shadow: var(--card-shadow) !important;
 }
 
 .paidCard {
-  border: 3px solid #66bb6a;
-  background: white;
+  border: 3px solid var(--success-border);
+  background: var(--white);
 }
 
 .unpaidCard {
-  border: 3px solid #ef5350;
-  background: #fff8f8;
+  border: 3px solid var(--error-border);
+  background: var(--error-bg);
 }
 
 .cardContent {
@@ -117,7 +116,7 @@
 }
 
 .propertyType {
-  color: #666;
+  color: var(--muted-text);
   margin-top: 4px !important;
 }
 
@@ -128,11 +127,11 @@
 }
 
 .amountPaid {
-  color: #2e7d32;
+  color: var(--success-text);
 }
 
 .amountUnpaid {
-  color: #d32f2f;
+  color: var(--error-text);
 }
 
 .statusBox {
@@ -143,20 +142,20 @@
 }
 
 .paidChip {
-  background: #43a047 !important;
-  color: white !important;
+  background: var(--success-chip) !important;
+  color: var(--white) !important;
   font-weight: 700 !important;
 }
 
 .unpaidChip {
-  background: #e53935 !important;
-  color: white !important;
+  background: var(--error-chip) !important;
+  color: var(--white) !important;
   font-weight: 700 !important;
 }
 
 .markPaidButton {
   padding: 12px !important;
-  border-radius: 12px !important;
+  border-radius: var(--radius-sm) !important;
   font-weight: 700 !important;
   font-size: 16px !important;
   text-transform: none !important;
