@@ -46,7 +46,6 @@ export default function TenantTabs({ tenant, onBack }: TenantTabsProps) {
         {activeTab === 1 && (
           <PaymentHistoryTab 
             tenantId={tenant.id} 
-            tenant={tenant} 
           />
         )}
       </Box>
