@@ -105,7 +105,7 @@ export default function Dashboard({
           variant="h4"
           className={styles.title}
         >
-          🏠 Rent Manager
+          🏠 Tenant Manager
         </Typography>
 
         <TextField
