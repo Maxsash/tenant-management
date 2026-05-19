@@ -6,6 +6,9 @@ import { NextResponse } from "next/server";
 
 const GLOBAL_CUTOFF = "2023-12";
 
+// Payment before 8th = on time
+const ON_TIME_DAY_LIMIT = 7;
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -35,10 +38,10 @@ export async function GET(
       );
     }
 
-    // FILTER PAYMENTS
+    // FILTER + NORMALIZE PAYMENTS
     const tenantPayments = allPayments
       .filter((p: any) => {
-        // tenant mismatch
+        // wrong tenant
         if (
           String(p.tenant_id) !==
           String(tenantId)
@@ -55,7 +58,7 @@ export async function GET(
           p.month
         ).slice(0, 7);
 
-        // before global cutoff
+        // before cutoff
         return (
           paymentMonth >=
           GLOBAL_CUTOFF
@@ -67,6 +70,23 @@ export async function GET(
           p.month
         ).slice(0, 7);
 
+        const amount = calculateRent(
+          tenant,
+          month
+        );
+
+        const paidDate = p.paid_on
+          ? new Date(p.paid_on)
+          : null;
+
+        const paidDay = paidDate
+          ? paidDate.getDate()
+          : null;
+
+        const isLate =
+          paidDay !== null &&
+          paidDay > ON_TIME_DAY_LIMIT;
+
         return {
           id:
             p.id ||
@@ -76,17 +96,19 @@ export async function GET(
             p.tenant_id
           ),
 
-          // derive amount from rent
-          amount: calculateRent(
-            tenant,
-            month
-          ),
+          // derive rent automatically
+          amount,
 
           paid_on: p.paid_on,
 
           month,
 
-          status: "success",
+          // NEW STATUS SYSTEM
+          status: isLate
+            ? "late"
+            : "paid",
+
+          isLate,
 
           method:
             p.method ||
@@ -158,7 +180,7 @@ async function generateMonthlyBreakdown(
 
   const breakdown: any[] = [];
 
-  // tenant_since should be YYYY-MM
+  // tenant_since expected YYYY-MM
   const tenantSince = tenant
     .tenant_since
     ? String(
@@ -166,7 +188,9 @@ async function generateMonthlyBreakdown(
       ).slice(0, 7)
     : GLOBAL_CUTOFF;
 
-  // start from whichever is later
+  // later of:
+  // - global cutoff
+  // - tenant onboarding
   const startMonth =
     tenantSince > GLOBAL_CUTOFF
       ? tenantSince
@@ -200,23 +224,28 @@ async function generateMonthlyBreakdown(
         monthStr
     );
 
+    const amount = calculateRent(
+      tenant,
+      monthStr
+    );
+
     breakdown.push({
       month: monthStr,
 
-      amount: calculateRent(
-        tenant,
-        monthStr
-      ),
+      amount,
 
       status: payment
-        ? "paid"
+        ? payment.status // paid | late
         : "pending",
 
       paid_on:
         payment?.paid_on || null,
+
+      isLate:
+        payment?.isLate || false,
     });
 
-    // NEVER MUTATE DATE OBJECTS
+    // NEVER mutate Date objects
     current = new Date(
       current.getFullYear(),
       current.getMonth() + 1,
@@ -231,14 +260,23 @@ function calculateSummary(
   payments: any[],
   monthlyBreakdown: any[]
 ) {
-  const successfulPayments =
+  const paidPayments =
     payments.filter(
       (p: any) =>
-        p.status === "success"
+        p.status === "paid"
     );
 
+  const latePayments =
+    payments.filter(
+      (p: any) =>
+        p.status === "late"
+    );
+
+  const allSuccessfulPayments =
+    [...paidPayments, ...latePayments];
+
   const totalPaid =
-    successfulPayments.reduce(
+    allSuccessfulPayments.reduce(
       (
         sum: number,
         p: any
@@ -264,21 +302,26 @@ function calculateSummary(
     totalPending:
       totalExpected - totalPaid,
 
+    // ON-TIME ONLY
     onTimeCount:
-      successfulPayments.length,
+      paidPayments.length,
+
+    // LATE PAYMENTS
+    latePaymentCount:
+      latePayments.length,
 
     totalExpected:
       expectedMonthsCount,
 
     lastPaymentDate:
-      successfulPayments[0]
+      allSuccessfulPayments[0]
         ?.paid_on,
 
     averagePaymentAmount:
-      successfulPayments.length > 0
+      allSuccessfulPayments.length > 0
         ? Math.round(
             totalPaid /
-              successfulPayments.length
+              allSuccessfulPayments.length
           )
         : 0,
   };

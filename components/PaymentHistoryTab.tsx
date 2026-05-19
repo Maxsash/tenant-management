@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
+
 import {
   Box,
   Typography,
@@ -23,7 +24,9 @@ interface PaymentHistoryTabProps {
 export default function PaymentHistoryTab({
   tenantId,
 }: PaymentHistoryTabProps) {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
+
   const [paymentData, setPaymentData] =
     useState<any>(null);
 
@@ -43,6 +46,7 @@ export default function PaymentHistoryTab({
   const loadPaymentHistory = async () => {
     try {
       setLoading(true);
+
       setError(null);
 
       const data =
@@ -122,11 +126,14 @@ export default function PaymentHistoryTab({
     ? monthlyBreakdown
     : monthlyBreakdown.slice(0, 6);
 
-  const onTimePercentage = Math.round(
-    (summary.onTimeCount /
-      summary.totalExpected) *
-      100
-  );
+  const onTimePercentage =
+    summary.totalExpected > 0
+      ? Math.round(
+          (summary.onTimeCount /
+            summary.totalExpected) *
+            100
+        )
+      : 0;
 
   return (
     <Box className={styles.container}>
@@ -140,7 +147,7 @@ export default function PaymentHistoryTab({
         </Typography>
       </Alert>
 
-      {/* Summary */}
+      {/* SUMMARY */}
       <Box className={styles.summaryGrid}>
         <Box className={styles.summaryCard}>
           <Typography
@@ -153,6 +160,13 @@ export default function PaymentHistoryTab({
             className={`${styles.summaryValue} ${styles.summarySuccess}`}
           >
             {formatCurrency(summary.totalPaid)}
+          </Typography>
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+          >
+            All successful payments
           </Typography>
         </Box>
 
@@ -167,6 +181,13 @@ export default function PaymentHistoryTab({
             className={`${styles.summaryValue} ${styles.summaryWarning}`}
           >
             {formatCurrency(summary.totalPending)}
+          </Typography>
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+          >
+            Outstanding balance
           </Typography>
         </Box>
 
@@ -187,13 +208,17 @@ export default function PaymentHistoryTab({
             variant="caption"
             color="text.secondary"
           >
-            {summary.onTimeCount}/
-            {summary.totalExpected} months
+            {
+              summary.onTimeCount
+            } on-time •{" "}
+            {
+              summary.latePaymentCount
+            } late
           </Typography>
         </Box>
       </Box>
 
-      {/* Monthly Breakdown */}
+      {/* MONTHLY HISTORY */}
       <Typography
         variant="h6"
         className={styles.sectionTitle}
@@ -204,59 +229,115 @@ export default function PaymentHistoryTab({
       <Divider className={styles.divider} />
 
       <Box className={styles.monthlyList}>
-        {visibleMonths.map((month: any) => (
-          <Box
-            key={month.month}
-            className={styles.monthlyItem}
-          >
-            <Box className={styles.monthlyHeader}>
-              <Typography
-                className={styles.monthName}
+        {visibleMonths.map(
+          (month: any) => {
+            const isPaid =
+              month.status === "paid";
+
+            const isLate =
+              month.status === "late";
+
+            const isPending =
+              month.status ===
+              "pending";
+
+            return (
+              <Box
+                key={month.month}
+                className={
+                  styles.monthlyItem
+                }
               >
-                {formatMonthYear(month.month)}
-              </Typography>
-
-              <Chip
-                label={
-                  month.status === "paid"
-                    ? "Paid"
-                    : "Pending"
-                }
-                color={
-                  month.status === "paid"
-                    ? "success"
-                    : "warning"
-                }
-                size="small"
-                className={styles.monthlyStatus}
-              />
-            </Box>
-
-            <Typography
-              className={styles.monthlyAmount}
-            >
-              {formatCurrency(month.amount)}
-            </Typography>
-
-            {month.status === "paid" &&
-              month.paid_on && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  className={styles.paidDate}
+                <Box
+                  className={
+                    styles.monthlyHeader
+                  }
                 >
-                  Paid on:{" "}
-                  {formatFullDate(
-                    month.paid_on
+                  <Typography
+                    className={
+                      styles.monthName
+                    }
+                  >
+                    {formatMonthYear(
+                      month.month
+                    )}
+                  </Typography>
+
+                  <Chip
+                    label={
+                      isPaid
+                        ? "Paid"
+                        : isLate
+                        ? "Late"
+                        : "Pending"
+                    }
+                    color={
+                      isPaid
+                        ? "success"
+                        : isLate
+                        ? "warning"
+                        : "error"
+                    }
+                    size="small"
+                    className={
+                      styles.monthlyStatus
+                    }
+                  />
+                </Box>
+
+                <Typography
+                  className={
+                    styles.monthlyAmount
+                  }
+                >
+                  {formatCurrency(
+                    month.amount
                   )}
                 </Typography>
-              )}
-          </Box>
-        ))}
+
+                {(isPaid ||
+                  isLate) &&
+                  month.paid_on && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      className={
+                        styles.paidDate
+                      }
+                    >
+                      Paid on:{" "}
+                      {formatFullDate(
+                        month.paid_on
+                      )}
+
+                      {isLate &&
+                        " (Late payment)"}
+                    </Typography>
+                  )}
+
+                {isPending && (
+                  <Typography
+                    variant="caption"
+                    color="warning.main"
+                    className={
+                      styles.paidDate
+                    }
+                  >
+                    Payment pending
+                  </Typography>
+                )}
+              </Box>
+            );
+          }
+        )}
       </Box>
 
       {monthlyBreakdown.length > 6 && (
-        <Box className={styles.showMoreContainer}>
+        <Box
+          className={
+            styles.showMoreContainer
+          }
+        >
           <Button
             onClick={() =>
               setShowAllMonths(
@@ -265,12 +346,15 @@ export default function PaymentHistoryTab({
             }
             variant="text"
             size="small"
-            className={styles.showMoreButton}
+            className={
+              styles.showMoreButton
+            }
           >
             {showAllMonths
               ? "Show Less ↑"
               : `Show More (${
-                  monthlyBreakdown.length - 6
+                  monthlyBreakdown.length -
+                  6
                 } more months) ↓`}
           </Button>
         </Box>
