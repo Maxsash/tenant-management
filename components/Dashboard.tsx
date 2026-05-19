@@ -4,7 +4,13 @@ import {
 } from "@mui/material";
 import styles from "@/styles/dashboard.module.css";
 
-export default function Dashboard({ data, month, onMonthChange, loading }: any) {
+export default function Dashboard({
+  data,
+  month,
+  onMonthChange,
+  loading,
+  onTenantClick,
+}: any) {
   const paid = data?.tenants.filter((t: any) => t.paid) ?? [];
   const unpaid = data?.tenants.filter((t: any) => !t.paid) ?? [];
 
@@ -84,7 +90,18 @@ export default function Dashboard({ data, month, onMonthChange, loading }: any) 
           <Grid container spacing={2}>
             {data?.tenants.map((t: any) => (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={t.id}>
-                <Card className={`${styles.card} ${t.paid ? styles.paid : styles.unpaid}`}>
+                <Card
+                      className={`${styles.card} ${
+                        t.paid
+                          ? styles.paid
+                          : styles.unpaid
+                      }`}
+                      onClick={() => onTenantClick(t)}
+                      sx={{
+                        cursor: "pointer",
+                        borderRadius: 4,
+                      }}
+                    >
                   <CardContent>
                     <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t.name}</Typography>
                     <Typography variant="body2" color="text.secondary">{t.property_type}</Typography>

@@ -49,10 +49,8 @@ export function calculateRent(
   );
 
   const referenceDate = new Date(
-    2026,
-    4,
-    1
-  ); // May 2026
+    tenant.base_rent_as_of
+  );
 
   const [targetYear, targetMonthNum] =
     targetMonth.split("-");
