@@ -2,6 +2,7 @@ import {
   Container, Typography, Grid, Card, CardContent,
   Chip, Button, CircularProgress, TextField, Box, Divider
 } from "@mui/material";
+import React from "react";
 import styles from "@/styles/dashboard.module.css";
 
 export default function Dashboard({
@@ -52,6 +53,28 @@ export default function Dashboard({
       headers: { "Content-Type": "application/json" },
     });
     window.location.reload();
+  }
+
+  const unpaidRef = React.useRef<HTMLDivElement>(
+  null
+);
+
+  const paidRef = React.useRef<HTMLDivElement>(
+    null
+  );
+
+  function scrollToSection(
+    section: "paid" | "unpaid"
+  ) {
+    if (section === "paid") {
+      paidRef.current?.scrollIntoView({
+        behavior: "smooth",
+      });
+    } else {
+      unpaidRef.current?.scrollIntoView({
+        behavior: "smooth",
+      });
+    }
   }
 
   return (
@@ -127,9 +150,17 @@ export default function Dashboard({
         }}
       >
         <Card
+          onClick={() =>
+            scrollToSection("paid")
+          }
           sx={{
             borderRadius: 4,
             background: "#e8f5e9",
+            cursor: "pointer",
+            transition: "0.2s",
+            "&:active": {
+              transform: "scale(0.98)",
+            },
           }}
         >
           <CardContent>
@@ -156,9 +187,17 @@ export default function Dashboard({
         </Card>
 
         <Card
+          onClick={() =>
+            scrollToSection("unpaid")
+          }
           sx={{
             borderRadius: 4,
             background: "#ffebee",
+            cursor: "pointer",
+            transition: "0.2s",
+            "&:active": {
+              transform: "scale(0.98)",
+            },
           }}
         >
           <CardContent>
@@ -196,84 +235,196 @@ export default function Dashboard({
           <CircularProgress size={50} />
         </Box>
       ) : (
-        <Grid container spacing={2}>
-          {data?.tenants.map((t: any) => (
-            <Grid
-              size={{ xs: 12 }}
-              key={t.id}
-            >
-              <Card
-                onClick={() =>
-                  onTenantClick(t)
-                }
-                sx={{
-                  borderRadius: 5,
-                  cursor: "pointer",
-                  overflow: "hidden",
-                  border: t.paid
-                    ? "3px solid #66bb6a"
-                    : "3px solid #ef5350",
-                  background: t.paid
-                    ? "#ffffff"
-                    : "#fff8f8",
-                  boxShadow:
-                    "0 4px 12px rgba(0,0,0,0.08)",
-                }}
+        <>
+        {/* UNPAID SECTION */}
+        <Box
+          ref={unpaidRef}
+          sx={{ mb: 4 }}
+        >
+          <Typography
+            sx={{
+              fontSize: 22,
+              fontWeight: 800,
+              color: "#d32f2f",
+              mb: 2,
+            }}
+          >
+            ❌ Pending Rent
+          </Typography>
+
+          <Grid container spacing={2}>
+            {unpaid.map((t: any) => (
+              <Grid
+                size={{ xs: 12 }}
+                key={t.id}
               >
-                <CardContent
+                <Card
+                  onClick={() =>
+                    onTenantClick(t)
+                  }
                   sx={{
-                    p: 2.5,
+                    borderRadius: 5,
+                    cursor: "pointer",
+                    overflow: "hidden",
+                    border:
+                      "3px solid #ef5350",
+                    background: "#fff8f8",
+                    boxShadow:
+                      "0 4px 12px rgba(0,0,0,0.08)",
                   }}
                 >
-                  {/* TOP ROW */}
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems: "flex-start",
-                      gap: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography
-                        sx={{
-                          fontSize: 22,
-                          fontWeight: 800,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {t.name}
-                      </Typography>
+                  <CardContent sx={{ p: 2.5 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent:
+                          "space-between",
+                      }}
+                    >
+                      <Box>
+                        <Typography
+                          sx={{
+                            fontSize: 22,
+                            fontWeight: 800,
+                          }}
+                        >
+                          {t.name}
+                        </Typography>
+
+                        <Typography
+                          sx={{
+                            color: "#666",
+                          }}
+                        >
+                          {t.property_type}
+                        </Typography>
+                      </Box>
 
                       <Typography
                         sx={{
-                          mt: 0.5,
-                          color: "#666",
-                          fontSize: 15,
+                          fontSize: 26,
+                          fontWeight: 900,
+                          color: "#d32f2f",
                         }}
                       >
-                        {t.property_type}
+                        ₹{t.amount}
                       </Typography>
                     </Box>
 
-                    <Typography
+                    <Box sx={{ mt: 2 }}>
+                      <Chip
+                        label="❌ Rent Pending"
+                        sx={{
+                          background:
+                            "#e53935",
+                          color: "white",
+                          fontWeight: 700,
+                          fontSize: 15,
+                          py: 2.2,
+                        }}
+                      />
+
+                      <Button
+                        variant="contained"
+                        color="success"
+                        fullWidth
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarkPaid(t);
+                        }}
+                        sx={{
+                          mt: 1.5,
+                          py: 1.4,
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          fontSize: 16,
+                          textTransform:
+                            "none",
+                        }}
+                      >
+                        Mark as Paid
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+
+        {/* PAID SECTION */}
+        <Box ref={paidRef}>
+          <Typography
+            sx={{
+              fontSize: 22,
+              fontWeight: 800,
+              color: "#2e7d32",
+              mb: 2,
+            }}
+          >
+            ✅ Paid Rent
+          </Typography>
+
+          <Grid container spacing={2}>
+            {paid.map((t: any) => (
+              <Grid
+                size={{ xs: 12 }}
+                key={t.id}
+              >
+                <Card
+                  onClick={() =>
+                    onTenantClick(t)
+                  }
+                  sx={{
+                    borderRadius: 5,
+                    cursor: "pointer",
+                    overflow: "hidden",
+                    border:
+                      "3px solid #66bb6a",
+                    background: "#ffffff",
+                    boxShadow:
+                      "0 4px 12px rgba(0,0,0,0.08)",
+                  }}
+                >
+                  <CardContent sx={{ p: 2.5 }}>
+                    <Box
                       sx={{
-                        fontSize: 26,
-                        fontWeight: 900,
-                        color: t.paid
-                          ? "#2e7d32"
-                          : "#d32f2f",
-                        whiteSpace: "nowrap",
+                        display: "flex",
+                        justifyContent:
+                          "space-between",
                       }}
                     >
-                      ₹{t.amount}
-                    </Typography>
-                  </Box>
+                      <Box>
+                        <Typography
+                          sx={{
+                            fontSize: 22,
+                            fontWeight: 800,
+                          }}
+                        >
+                          {t.name}
+                        </Typography>
 
-                  {/* STATUS */}
-                  <Box sx={{ mt: 2 }}>
-                    {t.paid ? (
+                        <Typography
+                          sx={{
+                            color: "#666",
+                          }}
+                        >
+                          {t.property_type}
+                        </Typography>
+                      </Box>
+
+                      <Typography
+                        sx={{
+                          fontSize: 26,
+                          fontWeight: 900,
+                          color: "#2e7d32",
+                        }}
+                      >
+                        ₹{t.amount}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ mt: 2 }}>
                       <Chip
                         label={`✓ Paid on ${new Date(
                           t.paid_on
@@ -294,54 +445,14 @@ export default function Dashboard({
                           py: 2.2,
                         }}
                       />
-                    ) : (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          flexDirection:
-                            "column",
-                          gap: 1.5,
-                        }}
-                      >
-                        <Chip
-                          label="❌ Rent Pending"
-                          sx={{
-                            background:
-                              "#e53935",
-                            color: "white",
-                            fontWeight: 700,
-                            fontSize: 15,
-                            py: 2.2,
-                          }}
-                        />
-
-                        <Button
-                          variant="contained"
-                          color="success"
-                          fullWidth
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleMarkPaid(t);
-                          }}
-                          sx={{
-                            py: 1.4,
-                            borderRadius: 3,
-                            fontWeight: 700,
-                            fontSize: 16,
-                            textTransform:
-                              "none",
-                          }}
-                        >
-                          Mark as Paid
-                        </Button>
-                      </Box>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      </>
       )}
     </Container>
   );
