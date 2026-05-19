@@ -107,7 +107,18 @@ export default function Dashboard({
                     <Typography variant="body2" color="text.secondary">{t.property_type}</Typography>
                     <Typography variant="h6" sx={{ mt: 1 }}>₹{t.amount}</Typography>
                     {t.paid ? (
-                      <Chip label={`Paid ${t.paid_on}`} color="success" size="small" sx={{ mt: 1 }} />
+                      <Chip
+                        label={`Paid ${new Date(
+                          t.paid_on
+                        ).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}`}
+                        color="success"
+                        size="small"
+                        sx={{ mt: 1 }}
+                      />
                     ) : (
                       <Box sx={{ mt: 1, display: "flex", gap: 1 }}>
                         <Chip label="Unpaid" color="error" size="small" />

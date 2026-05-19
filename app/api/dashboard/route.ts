@@ -17,32 +17,40 @@ export async function GET(req: Request) {
     (p) => p.month === month
   );
 
-  const activeTenants = tenants.filter(
-  (t) => {
-    if (t.active === false) {
-      return false;
+  const activeTenants = tenants.filter((t) => {
+    const targetMonth = month;
+
+    // hide tenants before onboarding
+    if (t.tenant_since) {
+      const onboardMonth = String(
+        t.tenant_since
+      ).slice(0, 7);
+
+      if (targetMonth < onboardMonth) {
+        return false;
+      }
     }
 
-    if (!t.vacated_on) {
+    // active tenants always visible
+    if (
+      String(t.active).toLowerCase() ===
+      "true"
+    ) {
       return true;
     }
 
-    const vacatedDate = new Date(
+    // inactive tenants without vacated date
+    if (!t.vacated_on) {
+      return false;
+    }
+
+    // show inactive tenants only BEFORE vacating
+    const vacatedMonth = String(
       t.vacated_on
-    );
+    ).slice(0, 7);
 
-    const [year, monthNum] =
-      month.split("-");
-
-    const targetDate = new Date(
-      Number(year),
-      Number(monthNum) - 1,
-      1
-    );
-
-    return vacatedDate >= targetDate;
-  }
-);
+    return targetMonth <= vacatedMonth;
+  });
 
   const result = activeTenants.map((t) => {
     const payment = paymentsThisMonth.find(
