@@ -24,6 +24,11 @@ export default function TenantCard({
 }: Props) {
   const isPaid = tenant.paid;
 
+    const ENABLE_ADMIN_ACTIONS =
+    process.env
+        .NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS ===
+    "true";
+
   return (
     <Card
       onClick={onClick}
@@ -80,7 +85,7 @@ export default function TenantCard({
                   styles.unpaidChip
                 }
               />
-
+            {ENABLE_ADMIN_ACTIONS && (
               <Button
                 variant="contained"
                 color="success"
@@ -95,6 +100,7 @@ export default function TenantCard({
               >
                 Mark as Paid
               </Button>
+            )}
             </>
           )}
         </Box>

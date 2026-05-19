@@ -40,6 +40,11 @@ export default function Dashboard({
   const paidRef =
     React.useRef<HTMLDivElement>(null);
 
+  const ENABLE_ADMIN_ACTIONS =
+    process.env
+      .NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS ===
+    "true";
+
   function scrollToSection(
     section: "paid" | "unpaid"
   ) {
@@ -113,6 +118,7 @@ export default function Dashboard({
           className={styles.monthInput}
         />
 
+      {ENABLE_ADMIN_ACTIONS && (
         <Button
           variant="contained"
           color="warning"
@@ -124,6 +130,7 @@ export default function Dashboard({
           📢 Send Reminders (
           {unpaid.length})
         </Button>
+      )}
       </Box>
 
       <Box className={styles.summaryGrid}>
