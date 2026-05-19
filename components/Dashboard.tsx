@@ -55,84 +55,293 @@ export default function Dashboard({
   }
 
   return (
-    <Container maxWidth="lg" className={styles.container}>
-      <Box className={styles.header}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            🏠 Rent Manager
+    <Container
+      maxWidth="sm"
+      sx={{
+        py: 2,
+        px: 1.5,
+        background: "#f4f6f8",
+        minHeight: "100vh",
+      }}
+    >
+      {/* HEADER */}
+      <Box
+        sx={{
+          mb: 3,
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 800,
+            fontSize: 32,
+            textAlign: "center",
+          }}
+        >
+          🏠 Rent Manager
         </Typography>
-        <Box className={styles.controls}>
-          <TextField
-            type="month"
-            value={month}
-            onChange={(e) => onMonthChange(e.target.value)}
-            size="small"
-          />
-          <Button
-            variant="contained"
-            color="warning"
-            disabled={unpaid.length === 0}
-            onClick={handleBroadcast}
-          >
-            Send Reminders ({unpaid.length})
-          </Button>
-        </Box>
+
+        <TextField
+          type="month"
+          value={month}
+          onChange={(e) =>
+            onMonthChange(e.target.value)
+          }
+          fullWidth
+          size="medium"
+          sx={{
+            background: "white",
+            borderRadius: 3,
+          }}
+        />
+
+        <Button
+          variant="contained"
+          color="warning"
+          disabled={unpaid.length === 0}
+          onClick={handleBroadcast}
+          fullWidth
+          sx={{
+            py: 1.8,
+            fontSize: 18,
+            fontWeight: 700,
+            borderRadius: 4,
+            textTransform: "none",
+          }}
+        >
+          📢 Send Reminders (
+          {unpaid.length})
+        </Button>
+      </Box>
+
+      {/* SUMMARY */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        <Card
+          sx={{
+            borderRadius: 4,
+            background: "#e8f5e9",
+          }}
+        >
+          <CardContent>
+            <Typography
+              sx={{
+                fontSize: 14,
+                color: "#2e7d32",
+                fontWeight: 600,
+              }}
+            >
+              Paid
+            </Typography>
+
+            <Typography
+              sx={{
+                fontSize: 34,
+                fontWeight: 800,
+                color: "#1b5e20",
+              }}
+            >
+              {paid.length}
+            </Typography>
+          </CardContent>
+        </Card>
+
+        <Card
+          sx={{
+            borderRadius: 4,
+            background: "#ffebee",
+          }}
+        >
+          <CardContent>
+            <Typography
+              sx={{
+                fontSize: 14,
+                color: "#c62828",
+                fontWeight: 600,
+              }}
+            >
+              Unpaid
+            </Typography>
+
+            <Typography
+              sx={{
+                fontSize: 34,
+                fontWeight: 800,
+                color: "#b71c1c",
+              }}
+            >
+              {unpaid.length}
+            </Typography>
+          </CardContent>
+        </Card>
       </Box>
 
       {loading ? (
-        <Box className={styles.center}><CircularProgress /></Box>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            mt: 10,
+          }}
+        >
+          <CircularProgress size={50} />
+        </Box>
       ) : (
-        <>
-          <Box className={styles.summary}>
-            <Typography color="success.main">✓ Paid: {paid.length}</Typography>
-            <Typography color="error.main">✗ Unpaid: {unpaid.length}</Typography>
-          </Box>
-          <Divider sx={{ my: 2 }} />
-          <Grid container spacing={2}>
-            {data?.tenants.map((t: any) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={t.id}>
-                <Card
-                      className={`${styles.card} ${
-                        t.paid
-                          ? styles.paid
-                          : styles.unpaid
-                      }`}
-                      onClick={() => onTenantClick(t)}
+        <Grid container spacing={2}>
+          {data?.tenants.map((t: any) => (
+            <Grid
+              size={{ xs: 12 }}
+              key={t.id}
+            >
+              <Card
+                onClick={() =>
+                  onTenantClick(t)
+                }
+                sx={{
+                  borderRadius: 5,
+                  cursor: "pointer",
+                  overflow: "hidden",
+                  border: t.paid
+                    ? "3px solid #66bb6a"
+                    : "3px solid #ef5350",
+                  background: t.paid
+                    ? "#ffffff"
+                    : "#fff8f8",
+                  boxShadow:
+                    "0 4px 12px rgba(0,0,0,0.08)",
+                }}
+              >
+                <CardContent
+                  sx={{
+                    p: 2.5,
+                  }}
+                >
+                  {/* TOP ROW */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems: "flex-start",
+                      gap: 2,
+                    }}
+                  >
+                    <Box>
+                      <Typography
+                        sx={{
+                          fontSize: 22,
+                          fontWeight: 800,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {t.name}
+                      </Typography>
+
+                      <Typography
+                        sx={{
+                          mt: 0.5,
+                          color: "#666",
+                          fontSize: 15,
+                        }}
+                      >
+                        {t.property_type}
+                      </Typography>
+                    </Box>
+
+                    <Typography
                       sx={{
-                        cursor: "pointer",
-                        borderRadius: 4,
+                        fontSize: 26,
+                        fontWeight: 900,
+                        color: t.paid
+                          ? "#2e7d32"
+                          : "#d32f2f",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                  <CardContent>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">{t.property_type}</Typography>
-                    <Typography variant="h6" sx={{ mt: 1 }}>₹{t.amount}</Typography>
+                      ₹{t.amount}
+                    </Typography>
+                  </Box>
+
+                  {/* STATUS */}
+                  <Box sx={{ mt: 2 }}>
                     {t.paid ? (
                       <Chip
-                        label={`Paid ${new Date(
+                        label={`✓ Paid on ${new Date(
                           t.paid_on
-                        ).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}`}
-                        color="success"
-                        size="small"
-                        sx={{ mt: 1 }}
+                        ).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "numeric",
+                            month: "short",
+                          }
+                        )}`}
+                        sx={{
+                          background:
+                            "#43a047",
+                          color: "white",
+                          fontWeight: 700,
+                          fontSize: 15,
+                          px: 1,
+                          py: 2.2,
+                        }}
                       />
                     ) : (
-                      <Box sx={{ mt: 1, display: "flex", gap: 1 }}>
-                        <Chip label="Unpaid" color="error" size="small" />
-                        <Button size="small" variant="outlined" onClick={() => handleMarkPaid(t)}>
-                          Mark Paid
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection:
+                            "column",
+                          gap: 1.5,
+                        }}
+                      >
+                        <Chip
+                          label="❌ Rent Pending"
+                          sx={{
+                            background:
+                              "#e53935",
+                            color: "white",
+                            fontWeight: 700,
+                            fontSize: 15,
+                            py: 2.2,
+                          }}
+                        />
+
+                        <Button
+                          variant="contained"
+                          color="success"
+                          fullWidth
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkPaid(t);
+                          }}
+                          sx={{
+                            py: 1.4,
+                            borderRadius: 3,
+                            fontWeight: 700,
+                            fontSize: 16,
+                            textTransform:
+                              "none",
+                          }}
+                        >
+                          Mark as Paid
                         </Button>
                       </Box>
                     )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       )}
     </Container>
   );
