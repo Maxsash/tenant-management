@@ -1,0 +1,281 @@
+.container {
+  padding: 16px;
+  width: 100%;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.summaryCard {
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.summaryCard:active {
+  transform: scale(0.98);
+}
+
+.summaryTitle {
+  font-size: 0.875rem;
+  margin-bottom: 8px;
+}
+
+.summaryValue {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.summarysuccess {
+  color: #2e7d32;
+}
+
+.summaryprimary {
+  color: #1976d2;
+}
+
+.summaryinfo {
+  color: #0288d1;
+}
+
+.historyCard {
+  margin-top: 8px;
+}
+
+.sectionTitle {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.divider {
+  margin: 12px 0;
+}
+
+.paymentList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.paymentItem {
+  padding: 12px;
+  border-radius: 8px;
+  background-color: #f5f5f5;
+  transition: background-color 0.2s;
+}
+
+.paymentItem:active {
+  background-color: #eeeeee;
+}
+
+.paymentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.paymentDate {
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.paymentStatus {
+  font-size: 0.75rem;
+}
+
+.paymentDetails {
+  margin-top: 8px;
+}
+
+.paymentAmount {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.receiptLink {
+  display: inline-block;
+  margin-top: 8px;
+  color: #1976d2;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.receiptLink:active {
+  opacity: 0.7;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+/* Mobile optimizations */
+@media (max-width: 600px) {
+  .container {
+    padding: 12px;
+  }
+  
+  .summaryGrid {
+    gap: 8px;
+  }
+  
+  .paymentItem {
+    padding: 10px;
+  }
+  
+  .paymentDate {
+    font-size: 0.75rem;
+  }
+  
+  .paymentAmount {
+    font-size: 1.125rem;
+  }
+}
+
+/* Add these to existing payment-history.module.css */
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  gap: 16px;
+}
+
+.loadingText {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  gap: 16px;
+}
+
+.errorText {
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.summaryWarning {
+  color: #ed6c02;
+}
+
+.monthlyList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.monthlyItem {
+  background-color: #f9f9f9;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.monthlyItem:active {
+  background-color: #f0f0f0;
+}
+
+.monthlyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.monthName {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.monthlyStatus {
+  font-size: 0.75rem;
+}
+
+.monthlyAmount {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.paidDate {
+  font-size: 0.7rem;
+}
+
+.showMoreContainer {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.showMoreButton {
+  text-transform: none;
+  font-size: 0.875rem;
+}
+
+.receiptsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.receiptLink {
+  display: block;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 6px;
+  color: #1976d2;
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.receiptLink:active {
+  background-color: #e0e0e0;
+}
+
+/* Mobile optimizations */
+@media (max-width: 600px) {
+  .monthlyItem {
+    padding: 10px;
+  }
+  
+  .monthName {
+    font-size: 0.8125rem;
+  }
+  
+  .monthlyAmount {
+    font-size: 0.9375rem;
+  }
+}
+
+/* Touch-friendly tap targets */
+.paymentItem,
+.summaryCard,
+.receiptLink {
+  cursor: pointer;
+  min-height: 44px; /* Minimum touch target size */
+}
+
+/* Large text mode for accessibility */
+@media (prefers-reduced-motion: no-preference) {
+  .summaryCard {
+    transition: transform 0.2s ease;
+  }
+}
