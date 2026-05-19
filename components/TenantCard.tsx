@@ -9,7 +9,7 @@ import {
 
 import styles from "@/styles/dashboard.module.css";
 
-import { formatDate } from "@/utils/date";
+import { formatShortDate } from "@/utils/date";
 
 type Props = {
   tenant: any;
@@ -72,7 +72,7 @@ export default function TenantCard({
         <Box className={styles.statusBox}>
           {isPaid ? (
             <Chip
-              label={`✓ Paid on ${formatDate(
+              label={`✓ Paid on ${formatShortDate(
                 tenant.paid_on
               )}`}
               className={styles.paidChip}
