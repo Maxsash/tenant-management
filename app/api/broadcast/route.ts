@@ -20,7 +20,18 @@ export async function POST(req: Request) {
       .filter((p: any) => p.month === month && p.paid_on)
       .map((p: any) => p.tenant_id);
 
-    const unpaid = tenants.filter(
+    const activeTenants = tenants.filter((t: any) => {
+      if (t.tenant_since) {
+        const onboardMonth = String(t.tenant_since).slice(0, 7);
+        if (month < onboardMonth) return false;
+      }
+      if (String(t.active).toLowerCase() === "true") return true;
+      if (!t.vacated_on) return false;
+      const vacatedMonth = String(t.vacated_on).slice(0, 7);
+      return month <= vacatedMonth;
+    });
+
+    const unpaid = activeTenants.filter(
       (t: any) => !paidIds.includes(t.id) && t.phone
     );
 
