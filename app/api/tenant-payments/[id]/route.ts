@@ -83,9 +83,33 @@ export async function GET(
           ? paidDate.getDate()
           : null;
 
-        const isLate =
-          paidDay !== null &&
-          paidDay > ON_TIME_DAY_LIMIT;
+        const isLate = (() => {
+        if (!paidDate) {
+            return false;
+        }
+
+        const paymentMonth = month; // YYYY-MM
+
+        const paidYearMonth = `${paidDate.getFullYear()}-${String(
+            paidDate.getMonth() + 1
+        ).padStart(2, "0")}`;
+
+        // Paid in a future month
+        if (paidYearMonth > paymentMonth) {
+            return true;
+        }
+
+        // Paid in same month but after cutoff date
+        if (
+            paidYearMonth === paymentMonth &&
+            paidDate.getDate() > ON_TIME_DAY_LIMIT
+        ) {
+            return true;
+        }
+
+        return false;
+        })();
+
 
         return {
           id:
