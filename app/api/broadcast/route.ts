@@ -1,5 +1,6 @@
 import { getSheetRows } from "@/lib/sheets";
 import { NextResponse } from "next/server";
+import { calculateRent } from "@/lib/rent";
 
 const GLOBAL_CUTOFF = "2023-12";
 
@@ -39,7 +40,10 @@ export async function POST(req: Request) {
       id: t.id,
       name: t.name,
       phone: t.phone,
+      rent: calculateRent(t, month),
     }));
+
+    console.log("RECIPIENT SAMPLE:", recipients[0]);
 
     // 🚀 CALL WHATSAPP WORKER
     const whatsappRes = await fetch(

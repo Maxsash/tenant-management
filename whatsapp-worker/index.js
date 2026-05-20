@@ -74,7 +74,7 @@ app.post("/send-broadcast", async (req, res) => {
     }
 
     const { recipients, month } = req.body;
-
+    
     if (!recipients || !Array.isArray(recipients)) {
       return res.status(400).json({
         error: "Invalid recipients list",
@@ -85,7 +85,7 @@ app.post("/send-broadcast", async (req, res) => {
 
     for (const user of recipients) {
       try {
-        const message = `Hi ${user.name}, rent for ${month} is pending. Please pay at your earliest convenience.`;
+        const message = `Hi, rent ₹${user.rent} for ${month} is pending. Please pay at your earliest convenience.`;
 
         const chatId = `91${user.phone}@c.us`;
 

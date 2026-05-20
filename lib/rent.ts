@@ -44,9 +44,18 @@ export function calculateRent(
     return Math.round(rent);
   }
 
-  const increaseBy = Number(
-    tenant.increase_by
-  );
+  const increaseByRaw = tenant.increase_by;
+
+  const increaseBy =
+    increaseByRaw === "" ||
+    increaseByRaw === null ||
+    increaseByRaw === undefined
+      ? null
+      : Number(increaseByRaw);
+
+  if (increaseBy === null || Number.isNaN(increaseBy)) {
+    return Math.round(rent);
+  }
 
   const referenceDate = new Date(
     tenant.base_rent_as_of
