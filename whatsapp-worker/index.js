@@ -74,18 +74,15 @@ app.post("/send-broadcast", async (req, res) => {
     }
 
     const { recipients, month } = req.body;
-    
-    if (!recipients || !Array.isArray(recipients)) {
-      return res.status(400).json({
-        error: "Invalid recipients list",
-      });
-    }
+
+    const [year, monthNumber] = month.split("-"); 
+    const monthName = new Date( Number(year), Number(monthNumber) - 1 ).toLocaleString("hi-IN", { month: "long", });
 
     const results = [];
 
     for (const user of recipients) {
       try {
-        const message = `Hi, rent ₹${user.rent} for ${month} is pending. Please pay at your earliest convenience.`;
+        const message = `नमस्कार,\n\nयह ${monthName} माह के किराये ₹${user.rent} के संबंध में एक विनम्र स्मरण है। कृपया लंबित किराया शीघ्र जमा करने का कष्ट करें।\n\nयदि भुगतान पहले ही किया जा चुका है, तो कृपया पुष्टि कर दें। अन्यथा कृपया इस संदेश को अनदेखा करें।\n\nसादर।`;
 
         const chatId = `91${user.phone}@c.us`;
 
