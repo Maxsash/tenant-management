@@ -120,6 +120,79 @@ app.post("/send-broadcast", async (req, res) => {
   }
 });
 
+
+/* ========================
+   MONTH START GREETING ROUTE
+======================== */
+
+app.post("/send-monthly-greeting", async (req, res) => {
+  try {
+    if (!isReady) {
+      return res.status(503).json({
+        error: "WhatsApp client not ready yet",
+      });
+    }
+
+    const { recipients, month } = req.body;
+
+    if (!recipients || !Array.isArray(recipients)) {
+      return res.status(400).json({
+        error: "Invalid recipients list",
+      });
+    }
+
+    // month format: "2026-05"
+    const [year, monthNumber] = month.split("-");
+
+    const monthName = new Date(
+      Number(year),
+      Number(monthNumber) - 1
+    ).toLocaleString("hi-IN", {
+      month: "long",
+    });
+
+    const results = [];
+
+    for (const user of recipients) {
+      try {
+        const message = `नमस्कार,\n\nआपको ${monthName} माह की हार्दिक शुभकामनाएँ। आशा है कि आप और आपका परिवार स्वस्थ एवं सुखी होंगे।\n\n${monthName} माह के लिए देय किराया ₹${user.rent} है। कृपया सुविधानुसार समय पर भुगतान करें।\n\nआपके सहयोग हेतु धन्यवाद।\n\nसादर।`;
+
+        const chatId = `91${user.phone}@c.us`;
+
+        const result = await client.sendMessage(chatId, message);
+
+        results.push({
+          phone: user.phone,
+          status: "sent",
+          messageId: result.id?._serialized,
+        });
+
+        // ⏳ Prevent WhatsApp throttling
+        await new Promise((r) => setTimeout(r, 1500));
+      } catch (err) {
+        results.push({
+          phone: user.phone,
+          status: "failed",
+          error: err.message,
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      sent: results.filter((r) => r.status === "sent").length,
+      failed: results.filter((r) => r.status === "failed").length,
+      results,
+    });
+  } catch (err) {
+    console.error("Monthly greeting error:", err);
+
+    return res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
 /* ========================
    START SERVER
 ======================== */

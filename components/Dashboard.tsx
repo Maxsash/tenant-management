@@ -16,6 +16,7 @@ import TenantCard from "@/components/TenantCard";
 import SummaryCard from "@/components/SummaryCard";
 
 import { sendBroadcast } from "@/services/broadcast";
+import { sendMonthlyGreeting } from "@/services/monthly-greeting";
 
 export default function Dashboard({
   data,
@@ -72,6 +73,19 @@ export default function Dashboard({
     }
   }
 
+  async function handleMonthlyGreeting() {
+    try {
+      const result =
+        await sendMonthlyGreeting(month);
+
+      alert(
+        `Monthly greetings sent to ${result.totalRecipients} tenants`
+      );
+    } catch (err: any) {
+      alert(err.message);
+    }
+  }
+
   async function handleMarkPaid(
     tenant: any
   ) {
@@ -118,19 +132,37 @@ export default function Dashboard({
           className={styles.monthInput}
         />
 
-      {ENABLE_ADMIN_ACTIONS && (
-        <Button
-          variant="contained"
-          color="warning"
-          disabled={unpaid.length === 0}
-          onClick={handleBroadcast}
-          fullWidth
-          className={styles.broadcastButton}
-        >
-          📢 Send Reminders (
-          {unpaid.length})
-        </Button>
-      )}
+        {ENABLE_ADMIN_ACTIONS && (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.5,
+            }}
+          >
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleMonthlyGreeting}
+              fullWidth
+            >
+              🌸 Send Monthly Greeting
+            </Button>
+
+            <Button
+              variant="contained"
+              color="warning"
+              disabled={unpaid.length === 0}
+              onClick={handleBroadcast}
+              fullWidth
+              className={styles.broadcastButton}
+            >
+              📢 Send Reminders (
+              {unpaid.length})
+            </Button>
+          </Box>
+        )}
+
       </Box>
 
       <Box className={styles.summaryGrid}>
