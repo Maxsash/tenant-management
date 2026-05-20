@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+whatsapp-worker/.wwebjs_auth
+whatsapp-worker/.wwebjs_cache
+whatsapp-worker/node_modules
