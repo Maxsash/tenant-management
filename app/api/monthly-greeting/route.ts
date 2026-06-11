@@ -2,7 +2,7 @@
 
 import { getSheetRows } from "@/lib/sheets";
 import { NextResponse } from "next/server";
-import { calculateRent } from "@/lib/rent";
+import { calculateRent, getRentMonth } from "@/lib/rent";
 
 const WHATSAPP_WORKER_URL =
   process.env.WHATSAPP_WORKER_URL || "http://localhost:4005";
@@ -14,10 +14,12 @@ export async function POST(req: Request) {
     const tenants = await getSheetRows("tenants");
 
     // Active tenants only
+    const rentMonth = getRentMonth(month);
+
     const activeTenants = tenants.filter((t: any) => {
       if (t.tenant_since) {
         const onboardMonth = String(t.tenant_since).slice(0, 7);
-        if (month < onboardMonth) return false;
+        if (rentMonth <= onboardMonth) return false;
       }
 
       if (String(t.active).toLowerCase() === "true") return true;
@@ -26,7 +28,7 @@ export async function POST(req: Request) {
 
       const vacatedMonth = String(t.vacated_on).slice(0, 7);
 
-      return month <= vacatedMonth;
+      return rentMonth <= vacatedMonth;
     });
 
     const recipients = activeTenants
@@ -35,7 +37,7 @@ export async function POST(req: Request) {
         id: t.id,
         name: t.name,
         phone: t.phone,
-        rent: calculateRent(t, month),
+        rent: calculateRent(t, rentMonth),
       }));
 
     // 🚀 CALL WHATSAPP WORKER

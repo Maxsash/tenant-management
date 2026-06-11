@@ -13,7 +13,27 @@ const MONTHS = [
   "December",
 ];
 
-const REFERENCE_MONTH = "2026-05";
+export function getRentMonth(
+  paymentMonth: string
+) {
+  const [year, month] = String(paymentMonth)
+    .split("-")
+    .map(Number);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(month) ||
+    month < 1 ||
+    month > 12
+  ) {
+    return paymentMonth;
+  }
+
+  const date = new Date(year, month - 2, 1);
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}`;
+}
 
 export function calculateRent(
   tenant: any,

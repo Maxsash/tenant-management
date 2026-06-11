@@ -1,6 +1,6 @@
 import { getSheetRows } from "@/lib/sheets";
 import { NextResponse } from "next/server";
-import { calculateRent } from "@/lib/rent";
+import { calculateRent, getRentMonth } from "@/lib/rent";
 
 const GLOBAL_CUTOFF = "2023-12";
 
@@ -21,10 +21,12 @@ export async function POST(req: Request) {
       .filter((p: any) => p.month === month && p.paid_on)
       .map((p: any) => p.tenant_id);
 
+    const rentMonth = getRentMonth(month);
+
     const activeTenants = tenants.filter((t: any) => {
       if (t.tenant_since) {
         const onboardMonth = String(t.tenant_since).slice(0, 7);
-        if (month < onboardMonth) return false;
+        if (month <= onboardMonth) return false;
       }
       if (String(t.active).toLowerCase() === "true") return true;
       if (!t.vacated_on) return false;
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
       id: t.id,
       name: t.name,
       phone: t.phone,
-      rent: calculateRent(t, month),
+      rent: calculateRent(t, rentMonth),
     }));
 
     // 🚀 CALL WHATSAPP WORKER

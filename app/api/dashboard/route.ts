@@ -1,5 +1,5 @@
 import { getSheetRows } from "@/lib/sheets";
-import { calculateRent } from "@/lib/rent";
+import { calculateRent, getRentMonth } from "@/lib/rent";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -17,16 +17,18 @@ export async function GET(req: Request) {
     (p) => p.month === month
   );
 
-  const activeTenants = tenants.filter((t) => {
-    const targetMonth = month;
+  const rentMonth = getRentMonth(month);
 
-    // hide tenants before onboarding
+  const activeTenants = tenants.filter((t) => {
+    const targetMonth = rentMonth;
+
+    // hide tenants before onboarding or in their onboarding month
     if (t.tenant_since) {
       const onboardMonth = String(
         t.tenant_since
       ).slice(0, 7);
 
-      if (targetMonth < onboardMonth) {
+      if (targetMonth <= onboardMonth) {
         return false;
       }
     }
@@ -57,7 +59,7 @@ export async function GET(req: Request) {
       (p) => p.tenant_id === t.id
     );
 
-    const amount = calculateRent(t, month);
+    const amount = calculateRent(t, rentMonth);
 
     return {
       id: t.id,
