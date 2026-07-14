@@ -1,6 +1,9 @@
 import { getSheetRows } from "@/lib/sheets";
 import { NextResponse } from "next/server";
 import { calculateRent, getRentMonth } from "@/lib/rent";
+import { getActiveTenants } from "@/lib/tenant";
+import { Tenant } from "@/types/tenant";
+import { Payment } from "@/services/paymentHistory";
 
 const GLOBAL_CUTOFF = "2023-12";
 
@@ -13,26 +16,17 @@ export async function POST(req: Request) {
     const { month } = await req.json();
 
     const [tenants, payments] = await Promise.all([
-      getSheetRows("tenants"),
-      getSheetRows("payments"),
+      getSheetRows<Tenant>("tenants"),
+      getSheetRows<Payment>("payments"),
     ]);
 
     const paidIds = payments
-      .filter((p: any) => p.month === month && p.paid_on)
-      .map((p: any) => p.tenant_id);
+      .filter((p: Payment) => p.month === month && p.paid_on)
+      .map((p: Payment) => p.tenant_id);
 
     const rentMonth = getRentMonth(month);
 
-    const activeTenants = tenants.filter((t: any) => {
-      if (t.tenant_since) {
-        const onboardMonth = String(t.tenant_since).slice(0, 7);
-        if (month <= onboardMonth) return false;
-      }
-      if (String(t.active).toLowerCase() === "true") return true;
-      if (!t.vacated_on) return false;
-      const vacatedMonth = String(t.vacated_on).slice(0, 7);
-      return month <= vacatedMonth;
-    });
+    const activeTenants = getActiveTenants(tenants, rentMonth);
 
     const unpaid = activeTenants.filter(
       (t: any) => !paidIds.includes(t.id) && t.phone

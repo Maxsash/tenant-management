@@ -1,6 +1,9 @@
 import { getSheetRows } from "@/lib/sheets";
 import { calculateRent, getRentMonth } from "@/lib/rent";
 import { NextResponse } from "next/server";
+import { getActiveTenants } from "@/lib/tenant";
+import { Tenant } from "@/types/tenant";
+import { Payment } from "@/types/payment";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -9,8 +12,8 @@ export async function GET(req: Request) {
     searchParams.get("month") ?? currentMonth();
 
   const [tenants, payments] = await Promise.all([
-    getSheetRows("tenants"),
-    getSheetRows("payments"),
+    getSheetRows<Tenant>("tenants"),
+    getSheetRows<Payment>("payments"),
   ]);
 
   const paymentsThisMonth = payments.filter(
@@ -19,40 +22,7 @@ export async function GET(req: Request) {
 
   const rentMonth = getRentMonth(month);
 
-  const activeTenants = tenants.filter((t) => {
-    const targetMonth = rentMonth;
-
-    // hide tenants before onboarding or in their onboarding month
-    if (t.tenant_since) {
-      const onboardMonth = String(
-        t.tenant_since
-      ).slice(0, 7);
-
-      if (targetMonth <= onboardMonth) {
-        return false;
-      }
-    }
-
-    // active tenants always visible
-    if (
-      String(t.active).toLowerCase() ===
-      "true"
-    ) {
-      return true;
-    }
-
-    // inactive tenants without vacated date
-    if (!t.vacated_on) {
-      return false;
-    }
-
-    // show inactive tenants only BEFORE vacating
-    const vacatedMonth = String(
-      t.vacated_on
-    ).slice(0, 7);
-
-    return targetMonth <= vacatedMonth;
-  });
+  const activeTenants = getActiveTenants(tenants, rentMonth);
 
   const result = activeTenants.map((t) => {
     const payment = paymentsThisMonth.find(

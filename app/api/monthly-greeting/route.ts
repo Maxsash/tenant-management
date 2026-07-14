@@ -3,6 +3,8 @@
 import { getSheetRows } from "@/lib/sheets";
 import { NextResponse } from "next/server";
 import { calculateRent, getRentMonth } from "@/lib/rent";
+import { getActiveTenants } from "@/lib/tenant";
+import { Tenant } from "@/types/tenant";
 
 const WHATSAPP_WORKER_URL =
   process.env.WHATSAPP_WORKER_URL || "http://localhost:4005";
@@ -11,25 +13,12 @@ export async function POST(req: Request) {
   try {
     const { month } = await req.json();
 
-    const tenants = await getSheetRows("tenants");
+    const tenants = await getSheetRows<Tenant>("tenants");
 
     // Active tenants only
     const rentMonth = getRentMonth(month);
-
-    const activeTenants = tenants.filter((t: any) => {
-      if (t.tenant_since) {
-        const onboardMonth = String(t.tenant_since).slice(0, 7);
-        if (rentMonth <= onboardMonth) return false;
-      }
-
-      if (String(t.active).toLowerCase() === "true") return true;
-
-      if (!t.vacated_on) return false;
-
-      const vacatedMonth = String(t.vacated_on).slice(0, 7);
-
-      return rentMonth <= vacatedMonth;
-    });
+//here
+    const activeTenants = getActiveTenants(tenants, rentMonth);
 
     const recipients = activeTenants
       .filter((t: any) => t.phone)

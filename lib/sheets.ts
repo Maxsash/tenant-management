@@ -10,16 +10,22 @@ function getAuth() {
   });
 }
 
-export async function getSheetRows(sheetName: string) {
+export async function getSheetRows<T>(sheetName: string): Promise<T[]> {
   const auth = getAuth();
   const sheets = google.sheets({ version: "v4", auth });
+
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: `${sheetName}!A1:Z`,
   });
+
   const [headers, ...rows] = res.data.values ?? [];
-  return rows.map((row) =>
-    Object.fromEntries(headers.map((h: string, i: number) => [h, row[i] ?? ""]))
+
+  return rows.map(
+    (row) =>
+      Object.fromEntries(
+        headers.map((h: string, i: number) => [h, row[i] ?? ""])
+      ) as T
   );
 }
 
