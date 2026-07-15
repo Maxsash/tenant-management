@@ -100,7 +100,7 @@ export default function Dashboard({
           `Check console for details.`
         );
       } else {
-        alert(`✅ Successfully sent reminders to all ${total} tenants!`);
+        alert(`✅ Successfully sent reminder to ${total} tenant(s)!`);
       }
     } catch (err: any) {
       alert(`Error: ${err.message}`);
