@@ -1,8 +1,11 @@
 // app/api/tenant-payments/[id]/route.ts
 
 import { getSheetRows } from "@/lib/sheets";
-import { calculateRent } from "@/lib/rent";
+import { calculateRent, getRentMonth } from "@/lib/rent";
+import { evaluatePaymentStatus } from "@/lib/payment-status";
 import { NextResponse } from "next/server";
+import { Tenant } from "@/types/tenant";
+import { Payment } from "@/types/payment";
 
 const GLOBAL_CUTOFF = "2023-12";
 
@@ -18,15 +21,13 @@ export async function GET(
 
     // FETCH DATA
     const allPayments =
-      await getSheetRows("payments");
+      await getSheetRows<Payment>("payments");
 
     const tenants =
-      await getSheetRows("tenants");
+      await getSheetRows<Tenant>("tenants");
 
     const tenant = tenants.find(
-      (t: any) =>
-        String(t.id) ===
-        String(tenantId)
+      (t) => t.id === tenantId
     );
 
     if (!tenant) {
@@ -40,12 +41,9 @@ export async function GET(
 
     // FILTER + NORMALIZE PAYMENTS
     const tenantPayments = allPayments
-      .filter((p: any) => {
+      .filter((p) => {
         // wrong tenant
-        if (
-          String(p.tenant_id) !==
-          String(tenantId)
-        ) {
+        if (p.tenant_id !== tenantId) {
           return false;
         }
 
@@ -65,51 +63,26 @@ export async function GET(
         );
       })
 
-      .map((p: any) => {
-        const month = String(
+      .map((p) => {
+        const paymentDueMonth = String(
           p.month
         ).slice(0, 7);
 
-        const amount = calculateRent(
-          tenant,
-          month
+        const rentMonth = getRentMonth(
+          paymentDueMonth
         );
 
-        const paidDate = p.paid_on
-          ? new Date(p.paid_on)
-          : null;
+        const amount = calculateRent(
+          tenant,
+          rentMonth
+        );
 
-        const paidDay = paidDate
-          ? paidDate.getDate()
-          : null;
-
-        const isLate = (() => {
-        if (!paidDate) {
-            return false;
-        }
-
-        const paymentMonth = month; // YYYY-MM
-
-        const paidYearMonth = `${paidDate.getFullYear()}-${String(
-            paidDate.getMonth() + 1
-        ).padStart(2, "0")}`;
-
-        // Paid in a future month
-        if (paidYearMonth > paymentMonth) {
-            return true;
-        }
-
-        // Paid in same month but after cutoff date
-        if (
-            paidYearMonth === paymentMonth &&
-            paidDate.getDate() > ON_TIME_DAY_LIMIT
-        ) {
-            return true;
-        }
-
-        return false;
-        })();
-
+        const paymentStatus = evaluatePaymentStatus({
+          tenant,
+          payments: [p],
+          paymentDueMonth,
+          onTimeDayLimit: ON_TIME_DAY_LIMIT,
+        });
 
         return {
           id:
@@ -120,19 +93,15 @@ export async function GET(
             p.tenant_id
           ),
 
-          // derive rent automatically
           amount,
 
-          paid_on: p.paid_on,
+          paid_on: paymentStatus.paid_on,
 
-          month,
+          month: paymentDueMonth,
 
-          // NEW STATUS SYSTEM
-          status: isLate
-            ? "late"
-            : "paid",
+          status: paymentStatus.status,
 
-          isLate,
+          isLate: paymentStatus.isLate,
 
           method:
             p.method ||
@@ -195,7 +164,7 @@ export async function GET(
 }
 
 async function generateMonthlyBreakdown(
-  tenant: any,
+  tenant: Tenant,
   payments: any[]
 ) {
   if (!tenant) {
@@ -238,35 +207,36 @@ async function generateMonthlyBreakdown(
   );
 
   while (current <= end) {
-    const monthStr = `${current.getFullYear()}-${String(
+    const paymentDueMonth = `${current.getFullYear()}-${String(
       current.getMonth() + 1
     ).padStart(2, "0")}`;
 
-    const payment = payments.find(
-      (p: any) =>
-        String(p.month).slice(0, 7) ===
-        monthStr
+    const paymentStatus = evaluatePaymentStatus({
+      tenant,
+      payments,
+      paymentDueMonth,
+      onTimeDayLimit: ON_TIME_DAY_LIMIT,
+    });
+
+    const rentMonth = getRentMonth(
+      paymentDueMonth
     );
 
     const amount = calculateRent(
       tenant,
-      monthStr
+      rentMonth
     );
 
     breakdown.push({
-      month: monthStr,
+      month: paymentDueMonth,
 
       amount,
 
-      status: payment
-        ? payment.status // paid | late
-        : "pending",
+      status: paymentStatus.status,
 
-      paid_on:
-        payment?.paid_on || null,
+      paid_on: paymentStatus.paid_on,
 
-      isLate:
-        payment?.isLate || false,
+      isLate: paymentStatus.isLate,
     });
 
     // NEVER mutate Date objects

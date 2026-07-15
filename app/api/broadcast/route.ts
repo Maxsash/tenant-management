@@ -2,8 +2,9 @@ import { getSheetRows } from "@/lib/sheets";
 import { NextResponse } from "next/server";
 import { calculateRent, getRentMonth } from "@/lib/rent";
 import { getActiveTenants } from "@/lib/tenant";
+import { evaluatePaymentStatus } from "@/lib/payment-status";
 import { Tenant } from "@/types/tenant";
-import { Payment } from "@/services/paymentHistory";
+import { Payment } from "@/types/payment";
 
 const GLOBAL_CUTOFF = "2023-12";
 
@@ -13,26 +14,28 @@ const WHATSAPP_WORKER_URL =
 
 export async function POST(req: Request) {
   try {
-    const { month } = await req.json();
+    const { month: paymentDueMonth } = await req.json();
 
     const [tenants, payments] = await Promise.all([
       getSheetRows<Tenant>("tenants"),
       getSheetRows<Payment>("payments"),
     ]);
 
-    const paidIds = payments
-      .filter((p: Payment) => p.month === month && p.paid_on)
-      .map((p: Payment) => p.tenant_id);
-
-    const rentMonth = getRentMonth(month);
+    const rentMonth = getRentMonth(paymentDueMonth);
 
     const activeTenants = getActiveTenants(tenants, rentMonth);
 
-    const unpaid = activeTenants.filter(
-      (t: any) => !paidIds.includes(t.id) && t.phone
-    );
+    const unpaid = activeTenants.filter((t) => {
+      const paymentStatus = evaluatePaymentStatus({
+        tenant: t,
+        payments,
+        paymentDueMonth,
+      });
 
-    const recipients = unpaid.map((t: any) => ({
+      return paymentStatus.status === "pending" && t.phone;
+    });
+
+    const recipients = unpaid.map((t) => ({
       id: t.id,
       name: t.name,
       phone: t.phone,
@@ -49,7 +52,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           recipients,
-          month,
+          month: paymentDueMonth,
         }),
       }
     );
