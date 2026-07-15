@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { getRentMonth } from "@/lib/rent";
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID!;
 
@@ -21,12 +22,28 @@ export async function getSheetRows<T>(sheetName: string): Promise<T[]> {
 
   const [headers, ...rows] = res.data.values ?? [];
 
-  return rows.map(
-    (row) =>
-      Object.fromEntries(
-        headers.map((h: string, i: number) => [h, row[i] ?? ""])
-      ) as T
+  const mapped = rows.map((row) =>
+    Object.fromEntries(
+      headers.map((h: string, i: number) => [h, row[i] ?? ""])
+    ) as any
   );
+
+  // For payments, provide explicit `payment_month` and computed `rent_month` fields.
+  if (sheetName === "payments") {
+    return mapped.map((r: any) => {
+      const rawMonth = String(r.month ?? r.payment_month ?? r.paid_on ?? "").slice(0, 7);
+      const payment_month = rawMonth || "";
+      const rent_month = payment_month ? getRentMonth(payment_month) : "";
+
+      return {
+        ...r,
+        payment_month,
+        rent_month,
+      } as T;
+    });
+  }
+
+  return mapped as T[];
 }
 
 export async function appendSheetRow(sheetName: string, values: string[]) {

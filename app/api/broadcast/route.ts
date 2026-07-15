@@ -14,14 +14,14 @@ const WHATSAPP_WORKER_URL =
 
 export async function POST(req: Request) {
   try {
-    const { month: paymentDueMonth } = await req.json();
+    const { month: paymentMonth } = await req.json();
 
     const [tenants, payments] = await Promise.all([
       getSheetRows<Tenant>("tenants"),
       getSheetRows<Payment>("payments"),
     ]);
 
-    const rentMonth = getRentMonth(paymentDueMonth);
+    const rentMonth = getRentMonth(paymentMonth);
 
     const activeTenants = getActiveTenants(tenants, rentMonth);
 
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       const paymentStatus = evaluatePaymentStatus({
         tenant: t,
         payments,
-        paymentDueMonth,
+        rentMonth,
       });
 
       return paymentStatus.status === "pending" && t.phone;
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           recipients,
-          month: paymentDueMonth,
+          month: paymentMonth,
         }),
       }
     );

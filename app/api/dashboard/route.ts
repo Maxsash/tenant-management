@@ -9,21 +9,20 @@ import { Payment } from "@/types/payment";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
-  // paymentDueMonth: the month when rent payment is due (e.g., "2026-07" for June rent)
-  const paymentDueMonth =
-    searchParams.get("month") ?? currentMonth();
+  // `paymentMonth`: the month the payment occurred / UI selection (e.g., "2026-07")
+  const paymentMonth = searchParams.get("month") ?? currentMonth();
 
   const [tenants, payments] = await Promise.all([
     getSheetRows<Tenant>("tenants"),
     getSheetRows<Payment>("payments"),
   ]);
 
-  // rentMonth: the month the rent is for (e.g., "2026-06" if payment is due in July)
-  const rentMonth = getRentMonth(paymentDueMonth);
+  // rentMonth: the month the rent is for (e.g., "2026-06" if payment is in July)
+  const rentMonth = getRentMonth(paymentMonth);
 
-  const paymentsForRent = payments.filter(
-    (p) => p.month === paymentDueMonth
-  );
+  // Payments were read from the sheet and `getSheetRows` now provides
+  // `payment_month` and `rent_month` fields. Filter by `rent_month`.
+  const paymentsForRent = payments.filter((p) => (p as any).rent_month === rentMonth);
 
   const activeTenants = getActiveTenants(tenants, rentMonth);
 
@@ -31,7 +30,7 @@ export async function GET(req: Request) {
     const paymentStatus = evaluatePaymentStatus({
       tenant: t,
       payments: paymentsForRent,
-      paymentDueMonth,
+      rentMonth,
     });
 
     const amount = calculateRent(t, rentMonth);
@@ -54,7 +53,8 @@ export async function GET(req: Request) {
   });
 
   return NextResponse.json({
-    month: paymentDueMonth,
+    payment_month: paymentMonth,
+    rent_month: rentMonth,
     tenants: result,
   });
 }

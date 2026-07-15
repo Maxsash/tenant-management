@@ -1,10 +1,13 @@
 import type { Payment } from "../types/payment.ts";
 import type { Tenant } from "../types/tenant.ts";
+import { getRentMonth } from "@/lib/rent";
 
 export type PaymentStatus = "paid" | "late" | "pending";
 
 export interface PaymentMonthStatus {
-  month: string; // payment due month (YYYY-MM format)
+  month: string; // rent_month (YYYY-MM format)
+  // explicit alias
+  rent_month?: string;
   status: PaymentStatus;
   isLate: boolean;
   paid_on: string | null;
@@ -13,9 +16,10 @@ export interface PaymentMonthStatus {
 
 export interface PaymentStatusResult extends PaymentMonthStatus {}
 
-function createPendingStatus(paymentDueMonth: string): PaymentStatusResult {
+function createPendingStatus(rentMonth: string): PaymentStatusResult {
   return {
-    month: paymentDueMonth,
+    month: rentMonth,
+    rent_month: rentMonth,
     status: "pending",
     isLate: false,
     paid_on: null,
@@ -37,37 +41,44 @@ function createPendingStatus(paymentDueMonth: string): PaymentStatusResult {
 export function evaluatePaymentStatus({
   tenant,
   payments,
-  paymentDueMonth,
+  rentMonth,
   onTimeDayLimit = 7,
 }: {
   tenant: Tenant;
   payments: Payment[];
-  paymentDueMonth: string;
+  rentMonth: string;
   onTimeDayLimit?: number;
 }): PaymentStatusResult {
   // Validate rent month format
-  if (!paymentDueMonth || !/^\d{4}-\d{2}$/.test(paymentDueMonth)) {
-    return createPendingStatus(paymentDueMonth);
+  if (!rentMonth || !/^\d{4}-\d{2}$/.test(rentMonth)) {
+    return createPendingStatus(rentMonth);
   }
 
-  console.log(`Evaluating payment status for tenant ${tenant.id} for rent month ${paymentDueMonth}`);
-  console.log('Payments:', payments);
+  // Find a payment that belongs to the tenant and maps to this rentMonth.
+  const payment = payments.find((row) => {
+    if (row.tenant_id !== tenant.id) return false;
 
-  // Find payment record for this tenant and rent month
-  const payment = payments.find(
-    (row) => row.tenant_id === tenant.id && row.month === paymentDueMonth
-  );
+    // If the row already has explicit rent_month, use it
+    if ((row as any).rent_month) {
+      return (row as any).rent_month === rentMonth;
+    }
 
-  console.log('Found payment:', payment, 'For tenant:', tenant.id, 'rent month:', paymentDueMonth);
+    // Otherwise derive rent month from payment_month or month
+    const pm = String((row as any).payment_month ?? row.month ?? "").slice(0, 7);
+    if (!pm) return false;
+
+    const derivedRent = getRentMonth(pm);
+    return derivedRent === rentMonth;
+  });
 
   if (!payment || !payment.paid_on) {
-    return createPendingStatus(paymentDueMonth);
+    return createPendingStatus(rentMonth);
   }
 
   const paidDate = new Date(payment.paid_on);
 
   if (Number.isNaN(paidDate.getTime())) {
-    return createPendingStatus(paymentDueMonth);
+    return createPendingStatus(rentMonth);
   }
 
   // Extract the month from paid_on date
@@ -75,13 +86,12 @@ export function evaluatePaymentStatus({
   const paidMonthNum = paidDate.getMonth() + 1;
   const paidMonth = `${paidYear}-${String(paidMonthNum).padStart(2, "0")}`;
 
-  // Determine if late: paid in a different month, or paid after day 7 in the same month
-  const isLate =
-    paidMonth > paymentDueMonth ||
-    (paidMonth === paymentDueMonth && paidDate.getDate() > onTimeDayLimit);
+  // Determine if late: paid in a different month, or paid after day limit in same month
+  const isLate = paidMonth > rentMonth || (paidMonth === rentMonth && paidDate.getDate() > onTimeDayLimit);
 
   return {
-    month: paymentDueMonth,
+    month: rentMonth,
+    rent_month: rentMonth,
     status: isLate ? "late" : "paid",
     isLate,
     paid_on: payment.paid_on,
@@ -128,15 +138,13 @@ export function buildPaymentHistory({
   const end = new Date(toYear, toMonthNum - 1, 1);
 
   while (current <= end) {
-    const paymentDueMonth = `${current.getFullYear()}-${String(
-      current.getMonth() + 1
-    ).padStart(2, "0")}`;
+    const rentMonth = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
 
     history.push(
       evaluatePaymentStatus({
         tenant,
         payments,
-        paymentDueMonth,
+        rentMonth,
         onTimeDayLimit,
       })
     );

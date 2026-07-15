@@ -28,7 +28,7 @@ const payments = [
 const paidStatus = evaluatePaymentStatus({
   tenant,
   payments,
-  paymentDueMonth: "2026-07",
+  rentMonth: "2026-07",
 });
 assert.equal(paidStatus.status, "paid");
 assert.equal(paidStatus.isLate, false);
@@ -36,7 +36,7 @@ assert.equal(paidStatus.isLate, false);
 const lateStatus = evaluatePaymentStatus({
   tenant,
   payments,
-  paymentDueMonth: "2026-06",
+  rentMonth: "2026-06",
   onTimeDayLimit: 7,
 });
 assert.equal(lateStatus.status, "late");
@@ -45,7 +45,7 @@ assert.equal(lateStatus.isLate, true);
 const pendingStatus = evaluatePaymentStatus({
   tenant,
   payments,
-  paymentDueMonth: "2026-08",
+  rentMonth: "2026-08",
 });
 assert.equal(pendingStatus.status, "pending");
 assert.equal(pendingStatus.isLate, false);
@@ -63,7 +63,7 @@ const normalizedPayment = {
 const normalizedStatus = evaluatePaymentStatus({
   tenant: normalizedTenant,
   payments: [normalizedPayment],
-  paymentDueMonth: "2026-06",
+  rentMonth: "2026-06",
 });
 assert.equal(normalizedStatus.status, "paid");
 assert.equal(normalizedStatus.payment?.tenant_id, "t1");

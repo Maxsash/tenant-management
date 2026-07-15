@@ -52,9 +52,7 @@ export async function GET(
           return false;
         }
 
-        const paymentMonth = String(
-          p.month
-        ).slice(0, 7);
+        const paymentMonth = String(p.month ?? p.payment_month ?? "").slice(0, 7);
 
         // before cutoff
         return (
@@ -64,66 +62,46 @@ export async function GET(
       })
 
       .map((p) => {
-        const paymentDueMonth = String(
-          p.month
-        ).slice(0, 7);
+        const payment_month = String(p.month ?? p.payment_month ?? "").slice(0, 7);
+        const rentMonth = getRentMonth(payment_month);
 
-        const rentMonth = getRentMonth(
-          paymentDueMonth
-        );
-
-        const amount = calculateRent(
-          tenant,
-          rentMonth
-        );
+        const amount = calculateRent(tenant, rentMonth);
 
         const paymentStatus = evaluatePaymentStatus({
           tenant,
           payments: [p],
-          paymentDueMonth,
+          rentMonth,
           onTimeDayLimit: ON_TIME_DAY_LIMIT,
         });
 
         return {
-          id:
-            p.id ||
-            `payment_${Date.now()}`,
+          id: p.id || `payment_${Date.now()}`,
 
-          tenant_id: String(
-            p.tenant_id
-          ),
+          tenant_id: String(p.tenant_id),
 
           amount,
 
           paid_on: paymentStatus.paid_on,
 
-          month: paymentDueMonth,
+          // include both for clarity
+          payment_month,
+          rent_month: rentMonth,
 
           status: paymentStatus.status,
 
           isLate: paymentStatus.isLate,
 
-          method:
-            p.method ||
-            "Bank Transfer",
+          method: p.method || "Bank Transfer",
 
-          receipt_url:
-            p.receipt_url ||
-            undefined,
+          receipt_url: p.receipt_url || undefined,
         };
       });
 
     // SORT NEWEST FIRST
     tenantPayments.sort((a, b) => {
-      const aDate = new Date(
-        a.paid_on ||
-          `${a.month}-01`
-      ).getTime();
+      const aDate = new Date(a.paid_on || `${a.payment_month || (a as any).month || ""}-01`).getTime();
 
-      const bDate = new Date(
-        b.paid_on ||
-          `${b.month}-01`
-      ).getTime();
+      const bDate = new Date(b.paid_on || `${b.payment_month || (b as any).month || ""}-01`).getTime();
 
       return bDate - aDate;
     });
@@ -207,35 +185,22 @@ async function generateMonthlyBreakdown(
   );
 
   while (current <= end) {
-    const paymentDueMonth = `${current.getFullYear()}-${String(
-      current.getMonth() + 1
-    ).padStart(2, "0")}`;
+    const rentMonth = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
 
     const paymentStatus = evaluatePaymentStatus({
       tenant,
       payments,
-      paymentDueMonth,
+      rentMonth,
       onTimeDayLimit: ON_TIME_DAY_LIMIT,
     });
 
-    const rentMonth = getRentMonth(
-      paymentDueMonth
-    );
-
-    const amount = calculateRent(
-      tenant,
-      rentMonth
-    );
+    const amount = calculateRent(tenant, rentMonth);
 
     breakdown.push({
-      month: paymentDueMonth,
-
+      month: rentMonth,
       amount,
-
       status: paymentStatus.status,
-
       paid_on: paymentStatus.paid_on,
-
       isLate: paymentStatus.isLate,
     });
 
