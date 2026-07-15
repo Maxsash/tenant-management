@@ -18,6 +18,14 @@ import SummaryCard from "@/components/tenants/SummaryCard";
 import { sendBroadcast } from "@/services/broadcast";
 import { sendMonthlyGreeting } from "@/services/monthly-greeting";
 
+type BroadcastResult = {
+  id?: string;
+  name?: string;
+  phone?: string;
+  status?: string;
+  error?: string;
+};
+
 export default function Dashboard({
   data,
   month,
@@ -67,10 +75,28 @@ export default function Dashboard({
       const total = (result.sent || 0) + (result.failed || 0);
       
       if (result.failed > 0) {
+        const failedResults =
+          result.failedResults ??
+          result.results?.filter(
+            (item: BroadcastResult) => item.status === "failed"
+          ) ??
+          [];
+        const firstFailure = failedResults[0];
+        const failureSummary = firstFailure
+          ? `\nFirst failure: ${firstFailure.name || firstFailure.id || firstFailure.phone}: ${firstFailure.error || "Unknown error"}`
+          : "";
+
+        console.group("Broadcast failures");
+        console.error("Broadcast response", result);
+        console.table(failedResults);
+        console.groupEnd();
+
         alert(
           `Total tenants: ${total}\n` +
           `✅ Successfully sent: ${result.sent}\n` +
-          `❌ Failed: ${result.failed}\n\n` +
+          `❌ Failed: ${result.failed}` +
+          failureSummary +
+          `\n\n` +
           `Check console for details.`
         );
       } else {

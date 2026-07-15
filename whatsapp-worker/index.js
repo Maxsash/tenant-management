@@ -105,7 +105,17 @@ Helpers
 ======================== */
 
 function normalizePhone(phone) {
-  return String(phone).replace(/\D/g, "");
+  const digits = String(phone).replace(/\D/g, "");
+
+  if (digits.startsWith("91") && digits.length === 12) {
+    return digits;
+  }
+
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+
+  throw new Error(`Invalid Indian phone number: ${phone}`);
 }
 
 function getMonthName(month) {
@@ -116,6 +126,14 @@ function getMonthName(month) {
   ).toLocaleString("hi-IN", {
     month: "long",
   });
+}
+
+function serializeError(error) {
+  return {
+    name: error?.name || "Error",
+    message: error?.message || String(error),
+    stack: error?.stack,
+  };
 }
 
 async function ensureWhatsAppConnected() {
@@ -144,29 +162,49 @@ async function sendMessages(recipients, messageBuilder) {
   const results = [];
 
   for (const user of recipients) {
+    let phone;
+
     try {
-      const phone = normalizePhone(user.phone);
-      if (!phone) {
-        throw new Error("Invalid phone number");
+      phone = normalizePhone(user.phone);
+
+      const message = messageBuilder(user);
+
+      console.log("Resolving WhatsApp number:", {
+        name: user.name,
+        phone,
+      });
+
+      const numberId = await client.getNumberId(phone);
+
+      if (!numberId) {
+        throw new Error(
+          `WhatsApp number not registered: ${phone}`
+        );
       }
 
-      const chatId = `${phone}@c.us`;
-      const message = messageBuilder(user);
-      const result = await client.sendMessage(chatId, message);
+      const chatId = numberId._serialized;
+
+      console.log("Resolved WhatsApp chat:", {
+        phone,
+        chatId,
+      });
+
+      const result = await client.sendMessage(
+        chatId,
+        message
+      );
 
       results.push({
         phone,
-        status: "sent",
-        messageId: result.id?._serialized,
+        status: "sent"
       });
 
-      // Prevent sending too quickly
       await new Promise((resolve) => {
         setTimeout(resolve, 1500);
       });
     } catch (error) {
       results.push({
-        phone: user.phone,
+        phone: phone || user.phone,
         status: "failed",
         error: error.message,
       });
@@ -229,11 +267,21 @@ app.post("/send-broadcast", async (req, res) => {
         "यदि भुगतान पहले ही किया जा चुका है, तो कृपया पुष्टि कर दें। अन्यथा कृपया इस संदेश को अनदेखा करें।\n\n" +
         "सादर।"
     );
+    const failedResults = results.filter((result) => result.status === "failed");
+
+    if (failedResults.length > 0) {
+      console.error("WhatsApp broadcast completed with failures", {
+        month,
+        totalRecipients: recipients.length,
+        failed: failedResults.length,
+        failedResults,
+      });
+    }
 
     return res.json({
       success: true,
       sent: results.filter((result) => result.status === "sent").length,
-      failed: results.filter((result) => result.status === "failed").length,
+      failed: failedResults.length,
       results,
     });
   } catch (error) {

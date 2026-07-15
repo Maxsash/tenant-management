@@ -6,11 +6,13 @@ import { evaluatePaymentStatus } from "@/lib/payment-status";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
 
-const GLOBAL_CUTOFF = "2023-12";
-
 // WhatsApp worker URL
 const WHATSAPP_WORKER_URL =
   process.env.WHATSAPP_WORKER_URL || "http://localhost:4005";
+
+type BroadcastResult = {
+  status?: string;
+};
 
 export async function POST(req: Request) {
   try {
@@ -60,16 +62,44 @@ export async function POST(req: Request) {
     const data = await whatsappRes.json();
 
     if (!whatsappRes.ok) {
+      console.error("WhatsApp worker failed broadcast request", {
+        paymentMonth,
+        rentMonth,
+        status: whatsappRes.status,
+        workerResponse: data,
+      });
+
       return NextResponse.json(
-        { error: data.error || "WhatsApp worker failed" },
+        {
+          error: data.error || "WhatsApp worker failed",
+          workerResponse: data,
+        },
         { status: 500 }
       );
+    }
+
+    const failedResults =
+      data.results?.filter(
+        (result: BroadcastResult) => result.status === "failed"
+      ) ?? [];
+
+    if (failedResults.length > 0) {
+      console.error("Broadcast completed with failed WhatsApp sends", {
+        paymentMonth,
+        rentMonth,
+        totalRecipients: recipients.length,
+        sent: data.sent,
+        failed: data.failed,
+        failedResults,
+      });
     }
 
     return NextResponse.json({
       success: true,
       sent: data.sent,
       totalRecipients: recipients.length,
+      failed: data.failed,
+      failedResults,
       results: data.results,
     });
   } catch (err) {
