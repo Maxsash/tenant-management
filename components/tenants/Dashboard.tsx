@@ -62,14 +62,22 @@ export default function Dashboard({
 
   async function handleBroadcast() {
     try {
-      const result =
-        await sendBroadcast(month);
-
-      alert(
-        `Reminders sent to ${result.total} tenants`
-      );
+      const result = await sendBroadcast(month);
+      
+      const total = (result.sent || 0) + (result.failed || 0);
+      
+      if (result.failed > 0) {
+        alert(
+          `Total tenants: ${total}\n` +
+          `✅ Successfully sent: ${result.sent}\n` +
+          `❌ Failed: ${result.failed}\n\n` +
+          `Check console for details.`
+        );
+      } else {
+        alert(`✅ Successfully sent reminders to all ${total} tenants!`);
+      }
     } catch (err: any) {
-      alert(err.message);
+      alert(`Error: ${err.message}`);
     }
   }
 
