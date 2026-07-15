@@ -12,8 +12,8 @@ import {
 
 import styles from "@/styles/dashboard.module.css";
 
-import TenantCard from "@/components/TenantCard";
-import SummaryCard from "@/components/SummaryCard";
+import TenantCard from "@/components/tenants/TenantCard";
+import SummaryCard from "@/components/tenants/SummaryCard";
 
 import { sendBroadcast } from "@/services/broadcast";
 import { sendMonthlyGreeting } from "@/services/monthly-greeting";
