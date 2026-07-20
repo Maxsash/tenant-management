@@ -166,6 +166,11 @@
   font-weight: 700;
 }
 
+.entryChips {
+  display: flex;
+  gap: 4px;
+}
+
 .entryChip {
   background: var(--background) !important;
   font-size: 0.7rem !important;

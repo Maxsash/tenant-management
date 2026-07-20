@@ -18,6 +18,7 @@ export async function PATCH(
     amount,
     payment_method,
     notes,
+    is_itemized,
   } = body;
 
   const updated = await updateExpense(id, {
@@ -30,6 +31,7 @@ export async function PATCH(
     ...(amount !== undefined && { amount: Number(amount) }),
     ...(payment_method !== undefined && { payment_method }),
     ...(notes !== undefined && { notes }),
+    ...(is_itemized !== undefined && { is_itemized }),
   });
 
   return NextResponse.json({ expense: updated });

@@ -1,5 +1,14 @@
 -- Run once in the Supabase SQL editor to set up the expenses module.
 
+create table if not exists expense_categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  icon text not null default '📦',
+  sort_order integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists expense_items (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
@@ -20,11 +29,28 @@ create table if not exists expenses (
   amount numeric not null,
   payment_method text not null,
   notes text,
+  is_itemized boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz
 );
 
+-- safety net in case this script already ran once before is_itemized existed
+alter table expenses add column if not exists is_itemized boolean not null default true;
+
 create index if not exists expenses_expense_date_idx on expenses (expense_date);
+
+insert into expense_categories (name, icon, sort_order) values
+  ('Dairy', '🥛', 0),
+  ('Vegetables & Fruits', '🥕', 1),
+  ('Groceries', '🛒', 2),
+  ('Utilities', '💡', 3),
+  ('Household', '🏠', 4),
+  ('Household Help', '🧹', 5),
+  ('Subscriptions', '📺', 6),
+  ('Transport', '⛽', 7),
+  ('Personal Care', '🧴', 8),
+  ('Other', '📦', 9)
+on conflict (name) do nothing;
 
 insert into expense_items (name, category, default_unit) values
   ('Milk', 'Dairy', 'L'),

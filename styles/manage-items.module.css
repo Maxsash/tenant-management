@@ -14,6 +14,17 @@
   font-weight: 700 !important;
 }
 
+.tabs {
+  margin-bottom: 16px;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+}
+
+.tabPanel {
+  padding-top: 4px;
+}
+
 .emptyText {
   color: var(--muted-text);
   text-align: center;

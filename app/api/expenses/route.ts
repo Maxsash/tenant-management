@@ -35,6 +35,7 @@ export async function POST(req: Request) {
     amount,
     payment_method,
     notes,
+    is_itemized,
   } = body;
 
   if (!expense_date || !item_name || !category || !amount || !payment_method) {
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
     amount: Number(amount),
     payment_method,
     notes: notes ?? null,
+    is_itemized: is_itemized ?? true,
   });
 
   return NextResponse.json({ expense: created });

@@ -33,8 +33,15 @@
   gap: 8px;
 }
 
-.otherChip {
-  margin-top: 4px;
+.modeToggle {
+  margin-top: 16px !important;
+  margin-bottom: 8px !important;
+}
+
+.emptyText {
+  color: var(--muted-text);
+  font-size: 0.85rem;
+  padding: 8px 0;
 }
 
 .customFields {

@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 
 import ExpenseDashboard from "./ExpenseDashboard";
 import ExpenseFormDialog from "./ExpenseFormDialog";
-import type { Expense, ExpenseItem, ExpenseMonthData } from "@/types/expense";
+import type {
+  Expense,
+  ExpenseCategory,
+  ExpenseItem,
+  ExpenseMonthData,
+} from "@/types/expense";
 
 const ENABLE_ADMIN_ACTIONS =
   process.env.NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS === "true";
@@ -18,6 +23,7 @@ export default function ExpenseHome() {
   const [data, setData] = useState<ExpenseMonthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ExpenseItem[]>([]);
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
@@ -42,6 +48,14 @@ export default function ExpenseHome() {
   useEffect(() => {
     fetchExpenses();
   }, [fetchExpenses]);
+
+  // Categories drive display icons for everyone, not just admins.
+  useEffect(() => {
+    fetch("/api/expense-categories")
+      .then((r) => r.json())
+      .then((d) => setCategories(d.categories ?? []))
+      .catch((err) => console.error("Expense categories fetch failed:", err));
+  }, [formOpen]);
 
   useEffect(() => {
     if (!ENABLE_ADMIN_ACTIONS) return;
@@ -70,6 +84,7 @@ export default function ExpenseHome() {
         onMonthChange={setMonth}
         loading={loading}
         adminEnabled={ENABLE_ADMIN_ACTIONS}
+        categories={categories}
         onAdd={openAdd}
         onEditEntry={openEdit}
       />
@@ -80,6 +95,7 @@ export default function ExpenseHome() {
           onClose={() => setFormOpen(false)}
           onSaved={fetchExpenses}
           items={items}
+          categories={categories}
           editingExpense={editingExpense}
         />
       )}

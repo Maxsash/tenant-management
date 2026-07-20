@@ -13,7 +13,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 
 import { formatCurrency } from "@/utils/currency";
 import { getCategoryIcon } from "@/lib/expense-categories";
-import type { Expense, ExpenseMonthData } from "@/types/expense";
+import type { Expense, ExpenseCategory, ExpenseMonthData } from "@/types/expense";
 import ExpenseEntryRow from "./ExpenseEntryRow";
 
 import styles from "@/styles/expense-dashboard.module.css";
@@ -24,6 +24,7 @@ type Props = {
   onMonthChange: (month: string) => void;
   loading: boolean;
   adminEnabled: boolean;
+  categories: ExpenseCategory[];
   onAdd: () => void;
   onEditEntry: (expense: Expense) => void;
 };
@@ -34,6 +35,7 @@ export default function ExpenseDashboard({
   onMonthChange,
   loading,
   adminEnabled,
+  categories,
   onAdd,
   onEditEntry,
 }: Props) {
@@ -49,7 +51,7 @@ export default function ExpenseDashboard({
         </Typography>
 
         {adminEnabled && (
-          <Link href="/expense/items">
+          <Link href="/expense/settings">
             <IconButton className={styles.settingsButton}>
               <SettingsIcon />
             </IconButton>
@@ -87,7 +89,7 @@ export default function ExpenseDashboard({
                   <Box key={c.category} className={styles.breakdownRow}>
                     <Box className={styles.breakdownTop}>
                       <Typography className={styles.breakdownLabel}>
-                        {getCategoryIcon(c.category)} {c.category}
+                        {getCategoryIcon(categories, c.category)} {c.category}
                       </Typography>
                       <Typography className={styles.breakdownAmount}>
                         {formatCurrency(c.amount)}
@@ -118,6 +120,7 @@ export default function ExpenseDashboard({
                   <ExpenseEntryRow
                     key={expense.id}
                     expense={expense}
+                    categories={categories}
                     onClick={
                       adminEnabled ? () => onEditEntry(expense) : undefined
                     }

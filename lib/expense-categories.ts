@@ -1,15 +1,4 @@
-export const EXPENSE_CATEGORIES = [
-  "Dairy",
-  "Vegetables & Fruits",
-  "Groceries",
-  "Utilities",
-  "Household",
-  "Household Help",
-  "Subscriptions",
-  "Transport",
-  "Personal Care",
-  "Other",
-] as const;
+import type { ExpenseCategory } from "@/types/expense";
 
 export const PAYMENT_METHODS = [
   "Cash",
@@ -18,19 +7,11 @@ export const PAYMENT_METHODS = [
   "Bank Transfer",
 ] as const;
 
-export const CATEGORY_ICONS: Record<string, string> = {
-  Dairy: "🥛",
-  "Vegetables & Fruits": "🥕",
-  Groceries: "🛒",
-  Utilities: "💡",
-  Household: "🏠",
-  "Household Help": "🧹",
-  Subscriptions: "📺",
-  Transport: "⛽",
-  "Personal Care": "🧴",
-  Other: "📦",
-};
+export const DEFAULT_CATEGORY_ICON = "📦";
 
-export function getCategoryIcon(category: string) {
-  return CATEGORY_ICONS[category] ?? "📦";
+export function getCategoryIcon(
+  categories: ExpenseCategory[],
+  name: string
+) {
+  return categories.find((c) => c.name === name)?.icon ?? DEFAULT_CATEGORY_ICON;
 }

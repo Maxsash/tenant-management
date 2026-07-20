@@ -1,5 +1,13 @@
 export type PaymentMethod = "Cash" | "UPI" | "Card" | "Bank Transfer";
 
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  icon: string;
+  sort_order: number;
+  active: boolean;
+}
+
 export interface ExpenseItem {
   id: string;
   name: string;
@@ -20,6 +28,7 @@ export interface Expense {
   amount: number;
   payment_method: PaymentMethod | string;
   notes?: string | null;
+  is_itemized: boolean;
   created_at?: string;
   updated_at?: string | null;
 }

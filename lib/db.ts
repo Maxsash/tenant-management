@@ -67,6 +67,7 @@ export async function insertExpense(expense: {
   amount: number;
   payment_method: string;
   notes?: string | null;
+  is_itemized?: boolean;
 }) {
   const { data, error } = await supabase
     .from("expenses")
@@ -93,6 +94,7 @@ export async function updateExpense(
     amount: number;
     payment_method: string;
     notes: string | null;
+    is_itemized: boolean;
   }>
 ) {
   const { data, error } = await supabase
@@ -192,5 +194,133 @@ export async function deleteExpenseItem(id: string) {
 
   if (error) {
     throw new Error(`Failed to delete expense item: ${error.message}`);
+  }
+}
+
+export async function getExpenseCategories<T>(
+  includeInactive = false
+): Promise<T[]> {
+  let query = supabase
+    .from("expense_categories")
+    .select("*")
+    .order("sort_order")
+    .order("name");
+
+  if (!includeInactive) {
+    query = query.eq("active", true);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to fetch expense categories: ${error.message}`);
+  }
+
+  return (data ?? []) as T[];
+}
+
+export async function insertExpenseCategory(category: {
+  name: string;
+  icon: string;
+  sort_order?: number;
+}) {
+  let sortOrder = category.sort_order;
+
+  if (sortOrder === undefined) {
+    const { data: maxRow } = await supabase
+      .from("expense_categories")
+      .select("sort_order")
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    sortOrder = (maxRow?.sort_order ?? -1) + 1;
+  }
+
+  const { data, error } = await supabase
+    .from("expense_categories")
+    .insert({ ...category, sort_order: sortOrder })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to insert expense category: ${error.message}`);
+  }
+
+  return data;
+}
+
+export async function getExpenseCategoryById<T>(id: string): Promise<T | null> {
+  const { data, error } = await supabase
+    .from("expense_categories")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch expense category: ${error.message}`);
+  }
+
+  return (data ?? null) as T | null;
+}
+
+export async function updateExpenseCategory(
+  id: string,
+  patch: Partial<{
+    name: string;
+    icon: string;
+    sort_order: number;
+    active: boolean;
+  }>
+) {
+  const { data, error } = await supabase
+    .from("expense_categories")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update expense category: ${error.message}`);
+  }
+
+  return data;
+}
+
+export async function isExpenseCategoryInUse(name: string): Promise<boolean> {
+  const [itemsResult, expensesResult] = await Promise.all([
+    supabase
+      .from("expense_items")
+      .select("id", { count: "exact", head: true })
+      .eq("category", name),
+    supabase
+      .from("expenses")
+      .select("id", { count: "exact", head: true })
+      .eq("category", name),
+  ]);
+
+  if (itemsResult.error) {
+    throw new Error(
+      `Failed to check expense category usage: ${itemsResult.error.message}`
+    );
+  }
+
+  if (expensesResult.error) {
+    throw new Error(
+      `Failed to check expense category usage: ${expensesResult.error.message}`
+    );
+  }
+
+  return (itemsResult.count ?? 0) > 0 || (expensesResult.count ?? 0) > 0;
+}
+
+export async function deleteExpenseCategory(id: string) {
+  const { error } = await supabase
+    .from("expense_categories")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(`Failed to delete expense category: ${error.message}`);
   }
 }

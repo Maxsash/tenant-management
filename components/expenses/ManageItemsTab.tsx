@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   Alert,
   Box,
   Button,
   Chip,
-  Container,
   Dialog,
   DialogActions,
   DialogContent,
@@ -19,24 +17,23 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 
-import { EXPENSE_CATEGORIES, getCategoryIcon } from "@/lib/expense-categories";
-import type { ExpenseItem } from "@/types/expense";
+import type { ExpenseCategory, ExpenseItem } from "@/types/expense";
 
 import styles from "@/styles/manage-items.module.css";
 
-const ENABLE_ADMIN_ACTIONS =
-  process.env.NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS === "true";
+type Props = {
+  categories: ExpenseCategory[];
+};
 
-export default function ManageItems() {
+export default function ManageItemsTab({ categories }: Props) {
   const [items, setItems] = useState<ExpenseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ExpenseItem | null>(null);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<string>(EXPENSE_CATEGORIES[0]);
+  const [category, setCategory] = useState<string>("");
   const [defaultUnit, setDefaultUnit] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -63,7 +60,7 @@ export default function ManageItems() {
   function openAdd() {
     setEditingItem(null);
     setName("");
-    setCategory(EXPENSE_CATEGORIES[0]);
+    setCategory(categories[0]?.name ?? "");
     setDefaultUnit("");
     setError(null);
     setDialogOpen(true);
@@ -143,40 +140,23 @@ export default function ManageItems() {
     fetchItems();
   }
 
-  if (!ENABLE_ADMIN_ACTIONS) {
-    return (
-      <Container maxWidth="sm" className={styles.container}>
-        <Typography>This page is not available.</Typography>
-      </Container>
-    );
-  }
-
-  const grouped = EXPENSE_CATEGORIES.map((cat) => ({
-    category: cat,
-    items: items.filter((i) => i.category === cat),
-  })).filter((g) => g.items.length > 0);
+  const grouped = categories
+    .map((cat) => ({
+      category: cat.name,
+      icon: cat.icon,
+      items: items.filter((i) => i.category === cat.name),
+    }))
+    .filter((g) => g.items.length > 0);
 
   return (
-    <Container maxWidth="sm" className={styles.container}>
-      <Box className={styles.header}>
-        <Link href="/expense">
-          <IconButton>
-            <ArrowBackIcon />
-          </IconButton>
-        </Link>
-
-        <Typography variant="h5" className={styles.title}>
-          Manage Items
-        </Typography>
-      </Box>
-
+    <Box>
       {loading ? (
         <Typography className={styles.emptyText}>Loading…</Typography>
       ) : (
         grouped.map((group) => (
           <Box key={group.category} className={styles.group}>
             <Typography className={styles.groupTitle}>
-              {getCategoryIcon(group.category)} {group.category}
+              {group.icon} {group.category}
             </Typography>
 
             {group.items.map((item) => (
@@ -247,9 +227,9 @@ export default function ManageItems() {
             fullWidth
             margin="normal"
           >
-            {EXPENSE_CATEGORIES.map((c) => (
-              <MenuItem key={c} value={c}>
-                {getCategoryIcon(c)} {c}
+            {categories.map((c) => (
+              <MenuItem key={c.id} value={c.name}>
+                {c.icon} {c.name}
               </MenuItem>
             ))}
           </TextField>
@@ -285,6 +265,6 @@ export default function ManageItems() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 }
