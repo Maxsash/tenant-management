@@ -6,7 +6,6 @@ export type PaymentStatus = "paid" | "late" | "pending";
 
 export interface PaymentMonthStatus {
   month: string; // rent_month (YYYY-MM format)
-  // explicit alias
   rent_month?: string;
   status: PaymentStatus;
   isLate: boolean;
@@ -14,7 +13,11 @@ export interface PaymentMonthStatus {
   payment: Payment | null;
 }
 
-export interface PaymentStatusResult extends PaymentMonthStatus {}
+export type PaymentStatusResult = PaymentMonthStatus;
+
+type PaymentWithRentMonth = Payment & {
+  rent_month?: string;
+};
 
 function createPendingStatus(rentMonth: string): PaymentStatusResult {
   return {
@@ -27,14 +30,63 @@ function createPendingStatus(rentMonth: string): PaymentStatusResult {
   };
 }
 
+function parseMonth(month: string): { year: number; month: number } | null {
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return null;
+  }
+
+  const [year, monthNumber] = month.split("-").map(Number);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(monthNumber) ||
+    monthNumber < 1 ||
+    monthNumber > 12
+  ) {
+    return null;
+  }
+
+  return {
+    year,
+    month: monthNumber,
+  };
+}
+
+function parseDate(date: string): Date | null {
+  const match = String(date).match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (!match) {
+    return null;
+  }
+
+  const [, year, month, day] = match;
+  const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function getDueDate(rentMonth: string, onTimeDayLimit: number): Date | null {
+  const parsed = parseMonth(rentMonth);
+
+  if (!parsed) {
+    return null;
+  }
+
+  return new Date(parsed.year, parsed.month, onTimeDayLimit);
+}
+
 /**
  * Evaluate payment status for a tenant's rent for a specific month.
  *
  * Business rule: Rent for June is due in July, classified as late if paid after July 7.
  *
  * @param tenant - The tenant record
- * @param payments - All payment records (should have month = rent_month)
- * @param paymentDueMonth - The month the rent will be paid on (YYYY-MM format)
+ * @param payments - Payment records. `month` / `payment_month` is the payment month; `rent_month` is optional.
+ * @param rentMonth - The month the rent is for (YYYY-MM format)
  * @param onTimeDayLimit - Day limit for on-time payment (default: 7)
  * @returns Payment status result
  */
@@ -50,7 +102,7 @@ export function evaluatePaymentStatus({
   onTimeDayLimit?: number;
 }): PaymentStatusResult {
   // Validate rent month format
-  if (!rentMonth || !/^\d{4}-\d{2}$/.test(rentMonth)) {
+  if (!parseMonth(rentMonth)) {
     return createPendingStatus(rentMonth);
   }
 
@@ -58,16 +110,16 @@ export function evaluatePaymentStatus({
   const payment = payments.find((row) => {
     if (row.tenant_id !== tenant.id) return false;
 
-    // If the row already has explicit rent_month, use it
-    if ((row as any).rent_month) {
-      return (row as any).rent_month === rentMonth;
+    const normalizedRow = row as PaymentWithRentMonth;
+
+    if (normalizedRow.rent_month) {
+      return normalizedRow.rent_month === rentMonth;
     }
 
-    // Otherwise derive rent month from payment_month or month
-    const pm = String((row as any).payment_month ?? row.month ?? "").slice(0, 7);
-    if (!pm) return false;
+    const paymentMonth = String(normalizedRow.payment_month ?? normalizedRow.month ?? "").slice(0, 7);
+    if (!paymentMonth) return false;
 
-    const derivedRent = getRentMonth(pm);
+    const derivedRent = getRentMonth(paymentMonth);
     return derivedRent === rentMonth;
   });
 
@@ -75,19 +127,14 @@ export function evaluatePaymentStatus({
     return createPendingStatus(rentMonth);
   }
 
-  const paidDate = new Date(payment.paid_on);
+  const paidDate = parseDate(payment.paid_on);
+  const dueDate = getDueDate(rentMonth, onTimeDayLimit);
 
-  if (Number.isNaN(paidDate.getTime())) {
+  if (!paidDate || !dueDate) {
     return createPendingStatus(rentMonth);
   }
 
-  // Extract the month from paid_on date
-  const paidYear = paidDate.getFullYear();
-  const paidMonthNum = paidDate.getMonth() + 1;
-  const paidMonth = `${paidYear}-${String(paidMonthNum).padStart(2, "0")}`;
-
-  // Determine if late: paid in a different month, or paid after day limit in same month
-  const isLate = paidMonth > rentMonth || (paidMonth === rentMonth && paidDate.getDate() > onTimeDayLimit);
+  const isLate = paidDate > dueDate;
 
   return {
     month: rentMonth,
