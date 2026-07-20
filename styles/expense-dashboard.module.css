@@ -1,0 +1,179 @@
+.container {
+  padding-top: 24px;
+  padding-bottom: 96px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-weight: 700 !important;
+}
+
+.settingsButton {
+  color: var(--muted-text) !important;
+}
+
+.monthInput {
+  margin-bottom: 16px !important;
+  background: var(--white);
+  border-radius: var(--radius-md);
+}
+
+.totalCard {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.totalLabel {
+  color: var(--success-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.totalValue {
+  color: var(--success-text);
+  font-size: 2.25rem;
+  font-weight: 800;
+}
+
+.loader {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.breakdownCard {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.breakdownRow {
+  margin-bottom: 12px;
+}
+
+.breakdownRow:last-child {
+  margin-bottom: 0;
+}
+
+.breakdownTop {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.breakdownLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.breakdownAmount {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted-text);
+}
+
+.breakdownBarTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--success-bg);
+  overflow: hidden;
+}
+
+.breakdownBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--success-chip);
+  transition: width var(--transition-fast);
+}
+
+.section {
+  margin-bottom: 8px;
+}
+
+.sectionTitle {
+  font-weight: 700 !important;
+  margin-bottom: 12px !important;
+}
+
+.emptyText {
+  color: var(--muted-text);
+  text-align: center;
+  padding: 24px 0;
+}
+
+.entryList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.entryCard {
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+.entryCardClickable {
+  cursor: pointer;
+}
+
+.entryContent {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px !important;
+}
+
+.entryIcon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.entryMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.entryName {
+  font-weight: 600;
+}
+
+.entryMeta {
+  font-size: 0.8rem;
+  color: var(--muted-text);
+}
+
+.entryRight {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.entryAmount {
+  font-weight: 700;
+}
+
+.entryChip {
+  background: var(--background) !important;
+  font-size: 0.7rem !important;
+  height: 20px !important;
+}
+
+.fab {
+  position: fixed !important;
+  bottom: 24px;
+  right: 24px;
+}

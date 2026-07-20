@@ -1,0 +1,77 @@
+.title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.content {
+  padding-top: 8px !important;
+}
+
+.sectionLabel {
+  margin-top: 16px !important;
+  margin-bottom: 8px !important;
+  font-weight: 600;
+  color: var(--muted-text);
+  font-size: 0.875rem;
+}
+
+.chipGroup {
+  margin-bottom: 12px;
+}
+
+.chipGroupLabel {
+  font-size: 0.8rem;
+  color: var(--muted-text);
+  margin-bottom: 6px !important;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.otherChip {
+  margin-top: 4px;
+}
+
+.customFields {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--success-bg);
+}
+
+.divider {
+  margin: 20px 0 4px !important;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+}
+
+.paymentToggle {
+  margin-top: 8px !important;
+  flex-wrap: wrap;
+}
+
+.alert {
+  margin-top: 16px !important;
+}
+
+.actions {
+  padding: 16px 24px !important;
+}
+
+.actionsRight {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.deleteButton {
+  margin-right: auto;
+}
