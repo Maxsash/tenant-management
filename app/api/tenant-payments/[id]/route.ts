@@ -178,9 +178,11 @@ async function generateMonthlyBreakdown(
 
   const now = new Date();
 
+  // Rent for month M is due the following month (1st-7th),
+  // so the current calendar month's rent isn't due yet.
   const end = new Date(
     now.getFullYear(),
-    now.getMonth(),
+    now.getMonth() - 1,
     1
   );
 
@@ -243,8 +245,14 @@ function calculateSummary(
       0
     );
 
-  const totalExpected =
-    monthlyBreakdown.reduce(
+  const pendingMonths =
+    monthlyBreakdown.filter(
+      (m: any) =>
+        m.status === "pending"
+    );
+
+  const totalPending =
+    pendingMonths.reduce(
       (
         sum: number,
         m: any
@@ -258,8 +266,7 @@ function calculateSummary(
   return {
     totalPaid,
 
-    totalPending:
-      totalExpected - totalPaid,
+    totalPending,
 
     // ON-TIME ONLY
     onTimeCount:
