@@ -1,11 +1,11 @@
 export type PaymentStatus = "paid" | "late" | "pending";
 
 export interface Payment {
-  id?: string;
+  id?: string | number;
   tenant_id: string;
-  // `payment_month` is the month the payment occurred (YYYY-MM).
-  // Keep `month` for compatibility with existing sheet headers, but
-  // prefer `payment_month` in application code.
+  // `payment_month` is the month the payment occurred (YYYY-MM), derived
+  // from the `payments.month` DB column. Prefer `payment_month` in
+  // application code; `month` is kept as the raw DB field.
   payment_month?: string;
   month?: string;
   paid_on?: string;

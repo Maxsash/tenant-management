@@ -1,6 +1,6 @@
 // app/api/tenant-payments/[id]/route.ts
 
-import { getSheetRows } from "@/lib/sheets";
+import { getPayments, getTenants } from "@/lib/db";
 import { calculateRent, getRentMonth } from "@/lib/rent";
 import { evaluatePaymentStatus } from "@/lib/payment-status";
 import { NextResponse } from "next/server";
@@ -21,10 +21,10 @@ export async function GET(
 
     // FETCH DATA
     const allPayments =
-      await getSheetRows<Payment>("payments");
+      await getPayments<Payment>();
 
     const tenants =
-      await getSheetRows<Tenant>("tenants");
+      await getTenants<Tenant>();
 
     const tenant = tenants.find(
       (t) => t.id === tenantId

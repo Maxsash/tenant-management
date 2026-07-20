@@ -1,6 +1,6 @@
 // app/api/whatsapp/monthly-greeting/route.ts
 
-import { getSheetRows } from "@/lib/sheets";
+import { getTenants } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { calculateRent } from "@/lib/rent";
 import { getActiveTenants } from "@/lib/tenant";
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     // the dashboard's month selector), not the payment month.
     const { month: rentMonth } = await req.json();
 
-    const tenants = await getSheetRows<Tenant>("tenants");
+    const tenants = await getTenants<Tenant>();
 
     // Active tenants only
     const activeTenants = getActiveTenants(tenants, rentMonth);

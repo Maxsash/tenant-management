@@ -1,4 +1,4 @@
-import { getSheetRows } from "@/lib/sheets";
+import { getTenants, getPayments } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { calculateRent } from "@/lib/rent";
 import { getActiveTenants } from "@/lib/tenant";
@@ -21,8 +21,8 @@ export async function POST(req: Request) {
     const { month: rentMonth } = await req.json();
 
     const [tenants, payments] = await Promise.all([
-      getSheetRows<Tenant>("tenants"),
-      getSheetRows<Payment>("payments"),
+      getTenants<Tenant>(),
+      getPayments<Payment>(),
     ]);
 
     const activeTenants = getActiveTenants(tenants, rentMonth);

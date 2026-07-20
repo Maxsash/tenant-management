@@ -1,4 +1,4 @@
-import { getSheetRows } from "@/lib/sheets";
+import { getTenants, getPayments } from "@/lib/db";
 import { calculateRent } from "@/lib/rent";
 import { NextResponse } from "next/server";
 import { getActiveTenants } from "@/lib/tenant";
@@ -15,12 +15,12 @@ export async function GET(req: Request) {
   const rentMonth = searchParams.get("month") ?? currentMonth();
 
   const [tenants, payments] = await Promise.all([
-    getSheetRows<Tenant>("tenants"),
-    getSheetRows<Payment>("payments"),
+    getTenants<Tenant>(),
+    getPayments<Payment>(),
   ]);
 
-  // Payments were read from the sheet and `getSheetRows` now provides
-  // `payment_month` and `rent_month` fields. Filter by `rent_month`.
+  // `getPayments` provides `payment_month` and `rent_month` fields
+  // derived from the DB's `month` column. Filter by `rent_month`.
   const paymentsForRent = payments.filter((p) => (p as any).rent_month === rentMonth);
 
   const activeTenants = getActiveTenants(tenants, rentMonth);
