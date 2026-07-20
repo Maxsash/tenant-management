@@ -1,5 +1,5 @@
 import { getSheetRows } from "@/lib/sheets";
-import { calculateRent, getRentMonth } from "@/lib/rent";
+import { calculateRent } from "@/lib/rent";
 import { NextResponse } from "next/server";
 import { getActiveTenants } from "@/lib/tenant";
 import { evaluatePaymentStatus } from "@/lib/payment-status";
@@ -9,16 +9,15 @@ import { Payment } from "@/types/payment";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
-  // `paymentMonth`: the month the payment occurred / UI selection (e.g., "2026-07")
-  const paymentMonth = searchParams.get("month") ?? currentMonth();
+  // The month selector on the dashboard represents the rent month
+  // being checked (e.g. "2026-07" = rent for July), not the month the
+  // payment occurred.
+  const rentMonth = searchParams.get("month") ?? currentMonth();
 
   const [tenants, payments] = await Promise.all([
     getSheetRows<Tenant>("tenants"),
     getSheetRows<Payment>("payments"),
   ]);
-
-  // rentMonth: the month the rent is for (e.g., "2026-06" if payment is in July)
-  const rentMonth = getRentMonth(paymentMonth);
 
   // Payments were read from the sheet and `getSheetRows` now provides
   // `payment_month` and `rent_month` fields. Filter by `rent_month`.
@@ -53,7 +52,6 @@ export async function GET(req: Request) {
   });
 
   return NextResponse.json({
-    payment_month: paymentMonth,
     rent_month: rentMonth,
     tenants: result,
   });

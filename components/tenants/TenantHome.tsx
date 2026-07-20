@@ -5,9 +5,12 @@ import Dashboard from "./Dashboard";
 import TenantDetails from "./TenantDetails";
 
 export default function TenantHome() {
-  const [month, setMonth] = useState(
-    new Date().toISOString().slice(0, 7)
-  );
+  const [month, setMonth] = useState(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 1);
+
+    return date.toISOString().slice(0, 7);
+  });
 
   const [data, setData] = useState(null);
 

@@ -1,6 +1,6 @@
 import { getSheetRows } from "@/lib/sheets";
 import { NextResponse } from "next/server";
-import { calculateRent, getRentMonth } from "@/lib/rent";
+import { calculateRent } from "@/lib/rent";
 import { getActiveTenants } from "@/lib/tenant";
 import { evaluatePaymentStatus } from "@/lib/payment-status";
 import { Tenant } from "@/types/tenant";
@@ -16,14 +16,14 @@ type BroadcastResult = {
 
 export async function POST(req: Request) {
   try {
-    const { month: paymentMonth } = await req.json();
+    // `month` from the client is the rent month being checked (matches
+    // the dashboard's month selector), not the payment month.
+    const { month: rentMonth } = await req.json();
 
     const [tenants, payments] = await Promise.all([
       getSheetRows<Tenant>("tenants"),
       getSheetRows<Payment>("payments"),
     ]);
-
-    const rentMonth = getRentMonth(paymentMonth);
 
     const activeTenants = getActiveTenants(tenants, rentMonth);
 
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           recipients,
-          month: paymentMonth,
+          month: rentMonth,
         }),
       }
     );
@@ -63,7 +63,6 @@ export async function POST(req: Request) {
 
     if (!whatsappRes.ok) {
       console.error("WhatsApp worker failed broadcast request", {
-        paymentMonth,
         rentMonth,
         status: whatsappRes.status,
         workerResponse: data,
@@ -85,7 +84,6 @@ export async function POST(req: Request) {
 
     if (failedResults.length > 0) {
       console.error("Broadcast completed with failed WhatsApp sends", {
-        paymentMonth,
         rentMonth,
         totalRecipients: recipients.length,
         sent: data.sent,

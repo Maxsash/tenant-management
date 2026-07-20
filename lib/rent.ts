@@ -35,6 +35,32 @@ export function getRentMonth(
   ).padStart(2, "0")}`;
 }
 
+/**
+ * Inverse of getRentMonth: the month a rent payment is due in
+ * (rent for June is due in July).
+ */
+export function getPaymentMonth(
+  rentMonth: string
+) {
+  const [year, month] = String(rentMonth)
+    .split("-")
+    .map(Number);
+
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(month) ||
+    month < 1 ||
+    month > 12
+  ) {
+    return rentMonth;
+  }
+
+  const date = new Date(year, month, 1);
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}`;
+}
+
 export function calculateRent(
   tenant: any,
   targetMonth: string

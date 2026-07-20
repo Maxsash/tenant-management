@@ -2,7 +2,7 @@
 
 import { getSheetRows } from "@/lib/sheets";
 import { NextResponse } from "next/server";
-import { calculateRent, getRentMonth } from "@/lib/rent";
+import { calculateRent } from "@/lib/rent";
 import { getActiveTenants } from "@/lib/tenant";
 import { Tenant } from "@/types/tenant";
 
@@ -11,13 +11,13 @@ const WHATSAPP_WORKER_URL =
 
 export async function POST(req: Request) {
   try {
-    const { month } = await req.json();
+    // `month` from the client is the rent month being checked (matches
+    // the dashboard's month selector), not the payment month.
+    const { month: rentMonth } = await req.json();
 
     const tenants = await getSheetRows<Tenant>("tenants");
 
     // Active tenants only
-    const rentMonth = getRentMonth(month);
-//here
     const activeTenants = getActiveTenants(tenants, rentMonth);
 
     const recipients = activeTenants
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           recipients,
-          month,
+          month: rentMonth,
         }),
       }
     );
