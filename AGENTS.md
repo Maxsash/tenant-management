@@ -114,10 +114,13 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
 - **`GLOBAL_CUTOFF = "2023-12"`** (`app/api/tenant-payments/[id]/route.ts`) —
   the earliest month the app will ever generate payment-history rows for,
   regardless of how far back `tenant_since` goes (predates reliable data).
-- **`active` on a tenant** was free-text in the old Google Sheets world
-  (`"true"`/`"yes"`/`"y"` etc., case-sensitive-ish) and is a real boolean in
-  Supabase now. `isActiveTenant` (in `lib/tenant.ts`) still has migration-era
-  string-matching left over — see "Known deferred bugs."
+- **`active` on a tenant** is a plain `boolean` (`types/tenant.ts`), matching
+  the current Supabase column. It used to be free text left over from the
+  pre-migration Google Sheets era (`"true"`/`"yes"`/`"y"` in any casing,
+  handled by an `isActiveTenant` helper in `lib/tenant.ts`); that legacy
+  fallback was deliberately removed — this app targets the current Supabase
+  schema only, not historical data shapes. `getActiveTenants` now reads
+  `tenant.active` directly as a boolean, no coercion.
 
 ## whatsapp-worker (separate service)
 
@@ -167,48 +170,64 @@ Conventions:
 - `test/mocks/supabase.ts` — chainable/awaitable Supabase query-builder mock.
 - `test/fixtures/{tenants,payments,expenses}.ts` — `makeTenant()` etc.
   factories with sane defaults.
-- `test/hang-repro/` — narrow escape hatch for one genuine synchronous
-  infinite-loop bug in `calculateRent` that can't be safely reproduced inline
-  (Vitest's own per-test timeout can't interrupt a blocking `while` loop).
-  Runs in an isolated child process via `vitest.hang-repro.config.ts` and
-  `test/hang-repro/run-hang-repro.ts`'s `runHangRepro()`, which applies a
-  hard OS-level timeout. Don't extend this pattern casually.
+- `test/hang-repro/` — narrow escape hatch for regression-testing a
+  synchronous infinite-loop bug in `calculateRent` (see below) that can't be
+  safely reproduced inline (Vitest's own per-test timeout can't interrupt a
+  blocking `while` loop). Runs in an isolated child process via
+  `vitest.hang-repro.config.ts` and `test/hang-repro/run-hang-repro.ts`'s
+  `runHangRepro()`, which applies a hard OS-level timeout. Don't extend this
+  pattern casually — it exists only because this one bug class genuinely
+  can't be tested any other way.
 
-### Known deferred bugs (intentionally failing tests, not regressions)
+`pnpm test` is fully green (no intentionally-failing tests) — a failure
+always means a real regression.
 
-As of the `09d5d97` test-suite commit, `pnpm test` shows 15 intentionally
-**failing** tests, each prefixed `[KNOWN BUG]` and grouped under
-`describe("deferred bugs (failing — fix pending, see plan)")` blocks. These
-encode the *correct* expected behavior for real bugs found during the test
-audit; the implementation was deliberately left unfixed (TDD red/green
-split — tests now, fix later, as a separate pass). If `pnpm test` fails,
-check whether the failures are exactly these known ones before assuming a
-regression:
+### Bugs found and fixed during the test-suite build (`09d5d97`, follow-up fix pass)
 
-1. **`calculateRent` infinite loop** (`lib/rent.ts`) — an unparseable
-   `base_rent_as_of` or malformed `targetMonth` produces an Invalid Date;
-   every loop comparison against it is `false`, so the month-walking
-   `while` loop never terminates.
+The initial backend-test-suite pass found 5 real correctness bugs and
+deliberately shipped them as failing characterization tests first (TDD
+red/green split), fixing the implementations in a separate follow-up pass.
+All 5 are now fixed and their tests pass; documented here since the failure
+modes are easy to reintroduce by accident during a future refactor:
+
+1. **`calculateRent` infinite loop** (`lib/rent.ts#calculateRent`) — an
+   unparseable `base_rent_as_of` or malformed `targetMonth` produced an
+   Invalid Date; every loop comparison against it was `false`, so the
+   month-walking `while` loop never terminated. Fixed by checking
+   `Number.isNaN(referenceDate.getTime()) || Number.isNaN(targetDate.getTime())`
+   right after both dates are constructed and falling back to the
+   unmodified base rent instead of entering the loop.
 2. **`getRentMonth`/`getPaymentMonth` garbage output** (`lib/rent.ts`) — a
-   hyphen-less input (e.g. `""`, `"2026"`) slips past the malformed-input
-   guard and produces `"NaN-NaN"` instead of passing through unchanged like
-   every other malformed input does.
+   hyphen-less input (e.g. `""`, `"2026"`) slipped past the malformed-input
+   guard (`month` destructured to `undefined`, and `Number.isNaN(undefined)`
+   is `false` since it isn't literally `NaN`) and produced `"NaN-NaN"`
+   instead of passing through unchanged like every other malformed input.
+   Fixed by requiring `parts.length === 2` (from `.split("-")`) before
+   attempting the numeric guard at all.
 3. **`isActiveTenant` case-sensitivity** (`lib/tenant.ts`) — only an exact
-   allowlist (`"true"`, `"TRUE"`, `"yes"`, `"YES"`, `"y"`, `"1"`) counts as
-   active; mixed-case legacy strings like `"True"`/`"Yes"`/`"Y"` don't, even
-   though `active` is a real boolean in Supabase now and should really only
-   need case-insensitive string fallback for old data.
+   allowlist (`"true"`, `"TRUE"`, `"yes"`, `"YES"`, `"y"`, `"1"`) counted as
+   active, a leftover from when `active` was free text in Google Sheets.
+   Initially fixed by case-insensitive matching, but then the legacy
+   string/number handling was removed entirely — `active` is a plain
+   `boolean` in `types/tenant.ts` and `getActiveTenants` reads
+   `tenant.active` directly, no coercion helper at all. This app targets the
+   current Supabase schema only; it doesn't need to keep handling a data
+   shape (free-text `active`) that no longer exists in the DB.
 4. **`lastPaymentDate` staleness**
-   (`app/api/tenant-payments/[id]/route.ts#calculateSummary`) — groups all
-   "paid" entries ahead of all "late" entries before picking the first one,
-   so it can report a stale date when the truly most recent payment was late.
-5. **`mark-paid` missing validation** (`app/api/mark-paid/route.ts`) — no
-   input validation, no try/catch (every sibling route has both), and trusts
-   a client-computed `paid_on` instead of stamping it server-side when
-   omitted.
-
-Fixing these is intentionally out of scope until a follow-up task explicitly
-picks them up.
+   (`app/api/tenant-payments/[id]/route.ts#calculateSummary`) — grouped all
+   "paid" entries ahead of all "late" entries (`[...paidPayments,
+   ...latePayments]`) before picking the first one, so it could report a
+   stale date when the truly most recent payment was late. Fixed by
+   filtering the already newest-first-sorted `payments` array directly
+   (`payments.filter(p => p.status === "paid" || p.status === "late")`)
+   instead of concatenating two separately-filtered arrays, which preserves
+   the caller's sort order.
+5. **`mark-paid` missing validation** (`app/api/mark-paid/route.ts`) — had
+   no input validation and no try/catch (every sibling route has both), and
+   trusted a client-computed `paid_on` instead of stamping it server-side.
+   Fixed: the route now 400s when `tenant_id` or `month` is missing, wraps
+   the body in try/catch (malformed JSON → controlled `500`), and falls back
+   to `lib/date.ts#currentDate()` when the client omits `paid_on`.
 
 ## Package manager
 

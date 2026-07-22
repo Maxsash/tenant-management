@@ -55,15 +55,14 @@ describe("POST /api/mark-paid", () => {
     expect(insertPayment).not.toHaveBeenCalled();
   });
 
-  describe("deferred bugs (failing — fix pending, see plan)", () => {
-    // Unlike every sibling route (broadcast, monthly-greeting,
-    // tenant-payments), this route has no input validation at all — these
-    // fields currently pass straight through to insertPayment.
+  describe("validation and error handling", () => {
+    // Unlike this route, every sibling route (broadcast, monthly-greeting,
+    // tenant-payments) validates required fields and has a try/catch —
+    // this route now matches that pattern.
     it.each([
       ["tenant_id", { month: "2026-06", paid_on: "2026-07-03" }],
       ["month", { tenant_id: "t1", paid_on: "2026-07-03" }],
-      ["paid_on", { tenant_id: "t1", month: "2026-06" }],
-    ])("[KNOWN BUG] returns 400 when %s is missing", async (_field, body) => {
+    ])("returns 400 when %s is missing", async (_field, body) => {
       vi.mocked(getPayments).mockResolvedValue([]);
       vi.mocked(insertPayment).mockResolvedValue(undefined);
 
@@ -72,7 +71,7 @@ describe("POST /api/mark-paid", () => {
       expect(res.status).toBe(400);
     });
 
-    it("[KNOWN BUG] returns a controlled 500 JSON response for a malformed JSON body, instead of throwing", async () => {
+    it("returns a controlled 500 JSON response for a malformed JSON body, instead of throwing", async () => {
       const badRequest = new Request("http://localhost/api/mark-paid", {
         method: "POST",
         body: "not valid json{{{",
@@ -86,7 +85,7 @@ describe("POST /api/mark-paid", () => {
       expect(body.error).toBeDefined();
     });
 
-    it("[KNOWN BUG] stamps paid_on with the server's current date when the client omits it", async () => {
+    it("stamps paid_on with the server's current date when the client omits it", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-07-20T12:00:00Z"));
       vi.mocked(getPayments).mockResolvedValue([]);

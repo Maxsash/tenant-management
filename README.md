@@ -76,7 +76,8 @@ starter set of categories/items. Safe to re-run (uses `if not exists` /
 ## Testing
 
 Backend-only test suite (Vitest) — see AGENTS.md for why there are no
-frontend tests and what the ~15 intentionally-failing `[KNOWN BUG]` tests are.
+frontend tests. `pnpm test` should always be fully green; a failure means a
+real regression.
 
 ```bash
 pnpm test            # run once

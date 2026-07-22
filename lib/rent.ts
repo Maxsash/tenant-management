@@ -16,11 +16,11 @@ const MONTHS = [
 export function getRentMonth(
   paymentMonth: string
 ) {
-  const [year, month] = String(paymentMonth)
-    .split("-")
-    .map(Number);
+  const parts = String(paymentMonth).split("-");
+  const [year, month] = parts.map(Number);
 
   if (
+    parts.length !== 2 ||
     Number.isNaN(year) ||
     Number.isNaN(month) ||
     month < 1 ||
@@ -42,11 +42,11 @@ export function getRentMonth(
 export function getPaymentMonth(
   rentMonth: string
 ) {
-  const [year, month] = String(rentMonth)
-    .split("-")
-    .map(Number);
+  const parts = String(rentMonth).split("-");
+  const [year, month] = parts.map(Number);
 
   if (
+    parts.length !== 2 ||
     Number.isNaN(year) ||
     Number.isNaN(month) ||
     month < 1 ||
@@ -115,6 +115,16 @@ export function calculateRent(
     Number(targetMonthNum) - 1,
     1
   );
+
+  if (
+    Number.isNaN(referenceDate.getTime()) ||
+    Number.isNaN(targetDate.getTime())
+  ) {
+    // An unparseable base_rent_as_of or malformed targetMonth means we
+    // can't walk the increase schedule at all — fall back to the base
+    // rent unmodified rather than looping against Invalid Date forever.
+    return Math.round(rent);
+  }
 
   let cursor = new Date(referenceDate);
 

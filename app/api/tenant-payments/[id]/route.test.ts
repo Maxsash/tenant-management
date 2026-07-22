@@ -208,24 +208,19 @@ describe("GET /api/tenant-payments/[id]", () => {
     expect(body).toEqual({ error: "Failed to fetch payment history" });
   });
 
-  describe("deferred bugs (failing — fix pending, see plan)", () => {
-    it("[KNOWN BUG] lastPaymentDate reflects the truly most recent payment, not just the most recent 'paid' one", async () => {
-      const tenant = makeTenant({ id: "t1", tenant_since: "2026-04-01" });
-      vi.mocked(getTenants).mockResolvedValue([tenant]);
-      vi.mocked(getPayments).mockResolvedValue([
-        // rent for April, paid on time in May
-        { tenant_id: "t1", month: "2026-05", rent_month: "2026-04", paid_on: "2026-05-03" },
-        // rent for May, paid LATE in June — this is the truly most recent payment
-        { tenant_id: "t1", month: "2026-06", rent_month: "2026-05", paid_on: "2026-06-20" },
-      ]);
+  it("lastPaymentDate reflects the truly most recent payment, not just the most recent 'paid' one", async () => {
+    const tenant = makeTenant({ id: "t1", tenant_since: "2026-04-01" });
+    vi.mocked(getTenants).mockResolvedValue([tenant]);
+    vi.mocked(getPayments).mockResolvedValue([
+      // rent for April, paid on time in May
+      { tenant_id: "t1", month: "2026-05", rent_month: "2026-04", paid_on: "2026-05-03" },
+      // rent for May, paid LATE in June — this is the truly most recent payment
+      { tenant_id: "t1", month: "2026-06", rent_month: "2026-05", paid_on: "2026-06-20" },
+    ]);
 
-      const res = await callGet("t1");
-      const body = await res.json();
+    const res = await callGet("t1");
+    const body = await res.json();
 
-      // Current implementation groups all "paid" entries ahead of all
-      // "late" entries before picking [0], so it returns the earlier
-      // on-time payment's date instead of the truly most recent payment.
-      expect(body.summary.lastPaymentDate).toBe("2026-06-20");
-    });
+    expect(body.summary.lastPaymentDate).toBe("2026-06-20");
   });
 });

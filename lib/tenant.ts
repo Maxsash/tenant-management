@@ -1,21 +1,5 @@
 import { Tenant } from "@/types/tenant";
 
-function isActiveTenant(active: Tenant["active"]): boolean {
-  if (typeof active === "boolean") {
-    return active;
-  }
-
-  if (typeof active === "number") {
-    return active === 1;
-  }
-
-  if (typeof active === "string") {
-    return ["true", "TRUE", "1", "yes", "YES", "y"].includes(active.trim());
-  }
-
-  return false;
-}
-
 export function getActiveTenants(
   tenants: Tenant[],
   month: string
@@ -29,7 +13,7 @@ export function getActiveTenants(
       }
     }
 
-    if (isActiveTenant(tenant.active)) {
+    if (tenant.active) {
       return true;
     }
 

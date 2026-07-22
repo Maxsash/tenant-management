@@ -13,15 +13,12 @@ describe("getRentMonth", () => {
     expect(getRentMonth("2026-01")).toBe("2025-12");
   });
 
-  it.each(["abc", "2026-13", "2026-00"])(
+  it.each(["abc", "2026-13", "2026-00", "", "2026"])(
     "passes malformed input %j through unchanged",
     (input) => {
       expect(getRentMonth(input)).toBe(input);
     }
   );
-  // Note: inputs with no "-" at all (e.g. "", "2026") are NOT handled
-  // consistently with the above — see lib/rent.test.ts's deferred-bug
-  // coverage (Phase 5) for the "NaN-NaN" garbage-output case.
 });
 
 describe("getPaymentMonth", () => {
@@ -33,7 +30,7 @@ describe("getPaymentMonth", () => {
     expect(getPaymentMonth("2026-12")).toBe("2027-01");
   });
 
-  it.each(["abc", "2026-13", "2026-00"])(
+  it.each(["abc", "2026-13", "2026-00", "", "2026"])(
     "passes malformed input %j through unchanged",
     (input) => {
       expect(getPaymentMonth(input)).toBe(input);
@@ -213,37 +210,17 @@ describe("getIncreaseDisplay", () => {
   });
 });
 
-describe("deferred bugs (failing — fix pending, see plan)", () => {
-  // getRentMonth/getPaymentMonth: every other malformed input passes through
-  // unchanged, but a string with no "-" at all slips past the NaN/range
-  // guard (month destructures to `undefined`, and `undefined < 1` /
-  // `undefined > 12` are both false) and produces garbage like "NaN-NaN".
-  it("[KNOWN BUG] getRentMonth passes an empty string through unchanged", () => {
-    expect(getRentMonth("")).toBe("");
-  });
-
-  it("[KNOWN BUG] getRentMonth passes a year-only string through unchanged", () => {
-    expect(getRentMonth("2026")).toBe("2026");
-  });
-
-  it("[KNOWN BUG] getPaymentMonth passes an empty string through unchanged", () => {
-    expect(getPaymentMonth("")).toBe("");
-  });
-
-  it("[KNOWN BUG] getPaymentMonth passes a year-only string through unchanged", () => {
-    expect(getPaymentMonth("2026")).toBe("2026");
-  });
-
-  // calculateRent: an unparseable base_rent_as_of or targetMonth produces an
-  // Invalid Date; every comparison against an Invalid Date is false, so the
-  // month-walking while-loop never terminates. This is a genuine synchronous
-  // infinite loop (confirmed by direct reproduction), not something Vitest's
-  // own per-test timeout can interrupt — that mechanism only fires once the
-  // event loop is free to run it, which never happens inside a blocking
-  // `while` loop. Each scenario is run in an isolated child process with a
-  // hard OS-level timeout instead; see test/hang-repro/.
+describe("calculateRent — invalid dates don't hang", () => {
+  // An unparseable base_rent_as_of or malformed targetMonth used to produce
+  // an Invalid Date; every comparison against an Invalid Date is false, so
+  // the month-walking while-loop never terminated. This is a genuine
+  // synchronous infinite loop (confirmed by direct reproduction), not
+  // something Vitest's own per-test timeout can interrupt — that mechanism
+  // only fires once the event loop is free to run it, which never happens
+  // inside a blocking `while` loop. Each scenario is run in an isolated
+  // child process with a hard OS-level timeout instead; see test/hang-repro/.
   it(
-    "[KNOWN BUG] does not hang when base_rent_as_of is unparseable",
+    "does not hang when base_rent_as_of is unparseable",
     () => {
       const { timedOut } = runHangRepro(
         "test/hang-repro/invalid-base-rent-as-of.spec.ts"
@@ -254,7 +231,7 @@ describe("deferred bugs (failing — fix pending, see plan)", () => {
   );
 
   it(
-    "[KNOWN BUG] does not hang when targetMonth is malformed",
+    "does not hang when targetMonth is malformed",
     () => {
       const { timedOut } = runHangRepro("test/hang-repro/invalid-target-month.spec.ts");
       expect(timedOut).toBe(false);

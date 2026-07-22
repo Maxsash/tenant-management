@@ -233,8 +233,14 @@ function calculateSummary(
         p.status === "late"
     );
 
-  const allSuccessfulPayments =
-    [...paidPayments, ...latePayments];
+  // `payments` (tenantPayments) is already sorted newest-first by the
+  // caller, so filtering (rather than concatenating paidPayments and
+  // latePayments, which would group all "paid" entries ahead of all "late"
+  // ones regardless of actual date) preserves that order — picking [0]
+  // below gives the truly most recent successful payment.
+  const allSuccessfulPayments = payments.filter(
+    (p) => p.status === "paid" || p.status === "late"
+  );
 
   const totalPaid =
     allSuccessfulPayments.reduce(
