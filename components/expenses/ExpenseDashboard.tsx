@@ -132,16 +132,14 @@ export default function ExpenseDashboard({
         </>
       )}
 
-      {adminEnabled && (
-        <Fab
-          color="success"
-          onClick={onAdd}
-          className={styles.fab}
-          aria-label="Add expense"
-        >
-          <AddIcon />
-        </Fab>
-      )}
+      <Fab
+        color="success"
+        onClick={onAdd}
+        className={styles.fab}
+        aria-label="Add expense"
+      >
+        <AddIcon />
+      </Fab>
     </Container>
   );
 }

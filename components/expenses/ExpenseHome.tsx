@@ -58,8 +58,6 @@ export default function ExpenseHome() {
   }, [formOpen]);
 
   useEffect(() => {
-    if (!ENABLE_ADMIN_ACTIONS) return;
-
     fetch("/api/expense-items")
       .then((r) => r.json())
       .then((d) => setItems(d.items ?? []))
@@ -88,17 +86,14 @@ export default function ExpenseHome() {
         onAdd={openAdd}
         onEditEntry={openEdit}
       />
-
-      {ENABLE_ADMIN_ACTIONS && (
-        <ExpenseFormDialog
-          open={formOpen}
-          onClose={() => setFormOpen(false)}
-          onSaved={fetchExpenses}
-          items={items}
-          categories={categories}
-          editingExpense={editingExpense}
-        />
-      )}
+      <ExpenseFormDialog
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSaved={fetchExpenses}
+        items={items}
+        categories={categories}
+        editingExpense={editingExpense}
+      />
     </main>
   );
 }
