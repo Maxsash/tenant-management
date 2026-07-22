@@ -13,7 +13,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { name, icon, sort_order } = await req.json();
 
-  if (!name) {
+  if (!name?.trim()) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 }

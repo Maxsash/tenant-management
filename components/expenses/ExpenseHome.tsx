@@ -10,13 +10,10 @@ import type {
   ExpenseItem,
   ExpenseMonthData,
 } from "@/types/expense";
+import { isAdminActionsEnabled } from "@/lib/config";
+import { currentMonth } from "@/lib/date";
 
-const ENABLE_ADMIN_ACTIONS =
-  process.env.NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS === "true";
-
-function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
+const ENABLE_ADMIN_ACTIONS = isAdminActionsEnabled();
 
 export default function ExpenseHome() {
   const [month, setMonth] = useState(currentMonth);

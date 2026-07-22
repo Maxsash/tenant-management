@@ -20,6 +20,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 
 import type { ExpenseCategory, ExpenseItem } from "@/types/expense";
+import { groupItemsByCategory } from "@/lib/expense-categories";
 
 import styles from "@/styles/manage-items.module.css";
 
@@ -140,13 +141,7 @@ export default function ManageItemsTab({ categories }: Props) {
     fetchItems();
   }
 
-  const grouped = categories
-    .map((cat) => ({
-      category: cat.name,
-      icon: cat.icon,
-      items: items.filter((i) => i.category === cat.name),
-    }))
-    .filter((g) => g.items.length > 0);
+  const grouped = groupItemsByCategory(categories, items);
 
   return (
     <Box>

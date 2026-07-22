@@ -12,6 +12,13 @@ export async function PATCH(
   const { id } = await params;
   const { name, category, default_unit, active } = await req.json();
 
+  if (name !== undefined && !name?.trim()) {
+    return NextResponse.json(
+      { error: "Name cannot be empty" },
+      { status: 400 }
+    );
+  }
+
   const updated = await updateExpenseItem(id, {
     ...(name !== undefined && { name }),
     ...(category !== undefined && { category }),

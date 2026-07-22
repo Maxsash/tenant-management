@@ -22,7 +22,8 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
-import { PAYMENT_METHODS } from "@/lib/expense-categories";
+import { PAYMENT_METHODS, groupItemsByCategory } from "@/lib/expense-categories";
+import { currentDate } from "@/lib/date";
 import type { Expense, ExpenseCategory, ExpenseItem } from "@/types/expense";
 
 import styles from "@/styles/expense-form.module.css";
@@ -38,10 +39,6 @@ type Props = {
   editingExpense?: Expense | null;
 };
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default function ExpenseFormDialog({
   open,
   onClose,
@@ -53,7 +50,7 @@ export default function ExpenseFormDialog({
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const [expenseDate, setExpenseDate] = useState(today());
+  const [expenseDate, setExpenseDate] = useState(currentDate());
   const [mode, setMode] = useState<Mode>("pick");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [customName, setCustomName] = useState("");
@@ -107,7 +104,7 @@ export default function ExpenseFormDialog({
       setPaymentMethod(editingExpense.payment_method);
       setNotes(editingExpense.notes ?? "");
     } else {
-      setExpenseDate(today());
+      setExpenseDate(currentDate());
       setMode("pick");
       setSelectedItemId(null);
       setCustomName("");
@@ -120,13 +117,7 @@ export default function ExpenseFormDialog({
     }
   }, [open, editingExpense, items, categories]);
 
-  const itemsByCategory = categories
-    .map((c) => ({
-      category: c.name,
-      icon: c.icon,
-      items: items.filter((i) => i.category === c.name),
-    }))
-    .filter((group) => group.items.length > 0);
+  const itemsByCategory = groupItemsByCategory(categories, items);
 
   function pickItem(item: ExpenseItem) {
     setMode("pick");
@@ -146,6 +137,9 @@ export default function ExpenseFormDialog({
   async function handleSave() {
     setError(null);
 
+    // Lightweight checks for instant UX feedback, avoiding an unnecessary
+    // round-trip. The backend re-validates and is the authoritative source
+    // of truth for how a selection turns into item_name/category/is_itemized.
     const numericAmount = Number(amount);
 
     if (!numericAmount || numericAmount <= 0) {
@@ -153,61 +147,32 @@ export default function ExpenseFormDialog({
       return;
     }
 
-    let item_id: string | null = null;
-    let item_name = "";
-    let category = "";
-    let is_itemized = true;
-    let finalQuantity = quantity ? Number(quantity) : null;
-    let finalUnit = unit || null;
+    if (mode === "pick" && !selectedItemId) {
+      setError("Pick an item, or switch to Other / Lump Sum");
+      return;
+    }
 
-    if (mode === "pick") {
-      const item = items.find((i) => i.id === selectedItemId);
+    if (mode === "custom" && !customName.trim()) {
+      setError("Enter an item name");
+      return;
+    }
 
-      if (!item) {
-        setError("Pick an item, or switch to Other / Lump Sum");
-        return;
-      }
-
-      item_id = item.id;
-      item_name = item.name;
-      category = item.category;
-    } else if (mode === "custom") {
-      if (!customName.trim()) {
-        setError("Enter an item name");
-        return;
-      }
-
-      if (!selectedCategory) {
-        setError("Pick a category");
-        return;
-      }
-
-      item_name = customName.trim();
-      category = selectedCategory;
-    } else {
-      if (!selectedCategory) {
-        setError("Pick a category");
-        return;
-      }
-
-      category = selectedCategory;
-      item_name = `${selectedCategory} (mixed)`;
-      is_itemized = false;
-      finalQuantity = null;
-      finalUnit = null;
+    if ((mode === "custom" || mode === "lump") && !selectedCategory) {
+      setError("Pick a category");
+      return;
     }
 
     const payload = {
       expense_date: expenseDate,
-      item_id,
-      item_name,
-      category,
-      quantity: finalQuantity,
-      unit: finalUnit,
+      mode,
+      item_id: mode === "pick" ? selectedItemId : null,
+      custom_name: mode === "custom" ? customName.trim() : null,
+      category: mode === "pick" ? null : selectedCategory,
+      quantity: quantity ? Number(quantity) : null,
+      unit: unit || null,
       amount: numericAmount,
       payment_method: paymentMethod,
       notes: notes || null,
-      is_itemized,
     };
 
     setSaving(true);
@@ -222,7 +187,10 @@ export default function ExpenseFormDialog({
         }
       );
 
-      if (!res.ok) throw new Error("Failed to save expense");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to save expense");
+      }
 
       onSaved();
       onClose();

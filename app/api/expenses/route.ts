@@ -1,6 +1,8 @@
-import { getExpenses, insertExpense } from "@/lib/db";
+import { getExpenseItems, getExpenses, insertExpense } from "@/lib/db";
 import { buildExpenseSummary } from "@/lib/expense-summary";
-import type { Expense } from "@/types/expense";
+import { deriveExpenseFields, type ExpenseMode } from "@/lib/expenses";
+import { currentMonth } from "@/lib/date";
+import type { Expense, ExpenseItem } from "@/types/expense";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -27,40 +29,55 @@ export async function POST(req: Request) {
 
   const {
     expense_date,
+    mode,
     item_id,
-    item_name,
+    custom_name,
     category,
     quantity,
     unit,
     amount,
     payment_method,
     notes,
-    is_itemized,
   } = body;
 
-  if (!expense_date || !item_name || !category || !amount || !payment_method) {
+  const numericAmount = Number(amount);
+
+  if (!expense_date || !payment_method || !(numericAmount > 0)) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 }
     );
   }
 
+  const items: ExpenseItem[] =
+    mode === "pick" ? await getExpenseItems<ExpenseItem>() : [];
+
+  const derived = deriveExpenseFields({
+    mode: mode as ExpenseMode,
+    item_id,
+    custom_name,
+    category,
+    quantity,
+    unit,
+    items,
+  });
+
+  if ("error" in derived) {
+    return NextResponse.json({ error: derived.error }, { status: 400 });
+  }
+
   const created = await insertExpense({
     expense_date,
-    item_id: item_id ?? null,
-    item_name,
-    category,
-    quantity: quantity ?? null,
-    unit: unit ?? null,
-    amount: Number(amount),
+    item_id: derived.item_id,
+    item_name: derived.item_name,
+    category: derived.category,
+    quantity: derived.quantity,
+    unit: derived.unit,
+    amount: numericAmount,
     payment_method,
     notes: notes ?? null,
-    is_itemized: is_itemized ?? true,
+    is_itemized: derived.is_itemized,
   });
 
   return NextResponse.json({ expense: created });
-}
-
-function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
 }

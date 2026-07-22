@@ -17,14 +17,7 @@ import SummaryCard from "@/components/tenants/SummaryCard";
 
 import { sendBroadcast } from "@/services/broadcast";
 import { sendMonthlyGreeting } from "@/services/monthly-greeting";
-
-type BroadcastResult = {
-  id?: string;
-  name?: string;
-  phone?: string;
-  status?: string;
-  error?: string;
-};
+import { isAdminActionsEnabled } from "@/lib/config";
 
 export default function Dashboard({
   data,
@@ -49,10 +42,7 @@ export default function Dashboard({
   const paidRef =
     React.useRef<HTMLDivElement>(null);
 
-  const ENABLE_ADMIN_ACTIONS =
-    process.env
-      .NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS ===
-    "true";
+  const ENABLE_ADMIN_ACTIONS = isAdminActionsEnabled();
 
   function scrollToSection(
     section: "paid" | "unpaid"
@@ -71,16 +61,9 @@ export default function Dashboard({
   async function handleBroadcast() {
     try {
       const result = await sendBroadcast(month);
-      
-      const total = (result.sent || 0) + (result.failed || 0);
-      
+
       if (result.failed > 0) {
-        const failedResults =
-          result.failedResults ??
-          result.results?.filter(
-            (item: BroadcastResult) => item.status === "failed"
-          ) ??
-          [];
+        const failedResults = result.failedResults ?? [];
         const firstFailure = failedResults[0];
         const failureSummary = firstFailure
           ? `\nFirst failure: ${firstFailure.name || firstFailure.id || firstFailure.phone}: ${firstFailure.error || "Unknown error"}`
@@ -92,7 +75,7 @@ export default function Dashboard({
         console.groupEnd();
 
         alert(
-          `Total tenants: ${total}\n` +
+          `Total tenants: ${result.totalRecipients}\n` +
           `✅ Successfully sent: ${result.sent}\n` +
           `❌ Failed: ${result.failed}` +
           failureSummary +
@@ -100,7 +83,7 @@ export default function Dashboard({
           `Check console for details.`
         );
       } else {
-        alert(`✅ Successfully sent reminder to ${total} tenant(s)!`);
+        alert(`✅ Successfully sent reminder to ${result.totalRecipients} tenant(s)!`);
       }
     } catch (err: any) {
       alert(`Error: ${err.message}`);

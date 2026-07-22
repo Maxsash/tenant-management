@@ -36,6 +36,7 @@ export interface Expense {
 export interface CategoryTotal {
   category: string;
   amount: number;
+  pct: number;
 }
 
 export interface ExpenseMonthData {

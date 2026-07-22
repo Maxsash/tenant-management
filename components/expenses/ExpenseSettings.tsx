@@ -10,9 +10,9 @@ import ManageItemsTab from "./ManageItemsTab";
 import ManageCategoriesTab from "./ManageCategoriesTab";
 
 import styles from "@/styles/manage-items.module.css";
+import { isAdminActionsEnabled } from "@/lib/config";
 
-const ENABLE_ADMIN_ACTIONS =
-  process.env.NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS === "true";
+const ENABLE_ADMIN_ACTIONS = isAdminActionsEnabled();
 
 export default function ExpenseSettings() {
   const [activeTab, setActiveTab] = useState(0);

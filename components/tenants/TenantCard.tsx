@@ -10,6 +10,7 @@ import {
 import styles from "@/styles/dashboard.module.css";
 
 import { formatShortDate } from "@/utils/date";
+import { isAdminActionsEnabled } from "@/lib/config";
 
 type Props = {
   tenant: any;
@@ -24,10 +25,7 @@ export default function TenantCard({
 }: Props) {
   const isPaid = tenant.paid;
 
-    const ENABLE_ADMIN_ACTIONS =
-    process.env
-        .NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS ===
-    "true";
+  const ENABLE_ADMIN_ACTIONS = isAdminActionsEnabled();
 
   return (
     <Card

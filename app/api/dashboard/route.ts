@@ -3,6 +3,7 @@ import { calculateRent } from "@/lib/rent";
 import { NextResponse } from "next/server";
 import { getActiveTenants } from "@/lib/tenant";
 import { evaluatePaymentStatus } from "@/lib/payment-status";
+import { currentMonth } from "@/lib/date";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
 
@@ -55,8 +56,4 @@ export async function GET(req: Request) {
     rent_month: rentMonth,
     tenants: result,
   });
-}
-
-function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
 }

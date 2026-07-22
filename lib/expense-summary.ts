@@ -26,7 +26,11 @@ export function buildExpenseSummary(expenses: Expense[]): ExpenseSummary {
   const categoryTotals: CategoryTotal[] = Array.from(
     totalsByCategory.entries()
   )
-    .map(([category, amount]) => ({ category, amount }))
+    .map(([category, amount]) => ({
+      category,
+      amount,
+      pct: total > 0 ? Math.round((amount / total) * 100) : 0,
+    }))
     .sort((a, b) => b.amount - a.amount);
 
   return { total, categoryTotals };

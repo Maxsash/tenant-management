@@ -82,28 +82,24 @@ export default function ExpenseDashboard({
         <>
           {categoryTotals.length > 0 && (
             <Box className={styles.breakdownCard}>
-              {categoryTotals.map((c) => {
-                const pct = total > 0 ? Math.round((c.amount / total) * 100) : 0;
-
-                return (
-                  <Box key={c.category} className={styles.breakdownRow}>
-                    <Box className={styles.breakdownTop}>
-                      <Typography className={styles.breakdownLabel}>
-                        {getCategoryIcon(categories, c.category)} {c.category}
-                      </Typography>
-                      <Typography className={styles.breakdownAmount}>
-                        {formatCurrency(c.amount)}
-                      </Typography>
-                    </Box>
-                    <Box className={styles.breakdownBarTrack}>
-                      <Box
-                        className={styles.breakdownBarFill}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </Box>
+              {categoryTotals.map((c) => (
+                <Box key={c.category} className={styles.breakdownRow}>
+                  <Box className={styles.breakdownTop}>
+                    <Typography className={styles.breakdownLabel}>
+                      {getCategoryIcon(categories, c.category)} {c.category}
+                    </Typography>
+                    <Typography className={styles.breakdownAmount}>
+                      {formatCurrency(c.amount)}
+                    </Typography>
                   </Box>
-                );
-              })}
+                  <Box className={styles.breakdownBarTrack}>
+                    <Box
+                      className={styles.breakdownBarFill}
+                      style={{ width: `${c.pct}%` }}
+                    />
+                  </Box>
+                </Box>
+              ))}
             </Box>
           )}
 

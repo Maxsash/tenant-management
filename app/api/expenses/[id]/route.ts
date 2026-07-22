@@ -1,4 +1,6 @@
-import { deleteExpense, updateExpense } from "@/lib/db";
+import { deleteExpense, getExpenseItems, updateExpense } from "@/lib/db";
+import { deriveExpenseFields, type ExpenseMode } from "@/lib/expenses";
+import type { ExpenseItem } from "@/types/expense";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
@@ -10,29 +12,58 @@ export async function PATCH(
 
   const {
     expense_date,
+    mode,
     item_id,
-    item_name,
+    custom_name,
     category,
     quantity,
     unit,
     amount,
     payment_method,
     notes,
-    is_itemized,
   } = body;
 
-  const updated = await updateExpense(id, {
+  const patch: Record<string, unknown> = {
     ...(expense_date !== undefined && { expense_date }),
-    ...(item_id !== undefined && { item_id }),
-    ...(item_name !== undefined && { item_name }),
-    ...(category !== undefined && { category }),
-    ...(quantity !== undefined && { quantity }),
-    ...(unit !== undefined && { unit }),
-    ...(amount !== undefined && { amount: Number(amount) }),
     ...(payment_method !== undefined && { payment_method }),
     ...(notes !== undefined && { notes }),
-    ...(is_itemized !== undefined && { is_itemized }),
-  });
+  };
+
+  if (amount !== undefined) {
+    const numericAmount = Number(amount);
+
+    if (!(numericAmount > 0)) {
+      return NextResponse.json(
+        { error: "Amount must be a positive number" },
+        { status: 400 }
+      );
+    }
+
+    patch.amount = numericAmount;
+  }
+
+  if (mode !== undefined) {
+    const items: ExpenseItem[] =
+      mode === "pick" ? await getExpenseItems<ExpenseItem>() : [];
+
+    const derived = deriveExpenseFields({
+      mode: mode as ExpenseMode,
+      item_id,
+      custom_name,
+      category,
+      quantity,
+      unit,
+      items,
+    });
+
+    if ("error" in derived) {
+      return NextResponse.json({ error: derived.error }, { status: 400 });
+    }
+
+    Object.assign(patch, derived);
+  }
+
+  const updated = await updateExpense(id, patch);
 
   return NextResponse.json({ expense: updated });
 }

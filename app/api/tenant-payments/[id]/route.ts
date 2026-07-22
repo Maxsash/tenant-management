@@ -279,6 +279,15 @@ function calculateSummary(
     totalExpected:
       expectedMonthsCount,
 
+    onTimePercentage:
+      expectedMonthsCount > 0
+        ? Math.round(
+            (paidPayments.length /
+              expectedMonthsCount) *
+              100
+          )
+        : 0,
+
     lastPaymentDate:
       allSuccessfulPayments[0]
         ?.paid_on,

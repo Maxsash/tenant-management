@@ -35,6 +35,8 @@ export interface PaymentSummary {
 
   totalExpected: number;
 
+  onTimePercentage: number;
+
   lastPaymentDate?: string;
 
   averagePaymentAmount: number;

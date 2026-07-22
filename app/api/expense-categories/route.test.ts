@@ -1,0 +1,71 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { makeExpenseCategory } from "@/test/fixtures/expenses";
+
+vi.mock("@/lib/db", () => ({
+  getExpenseCategories: vi.fn(),
+  insertExpenseCategory: vi.fn(),
+}));
+
+import { getExpenseCategories, insertExpenseCategory } from "@/lib/db";
+import { GET, POST } from "./route";
+
+function makeRequest(body: unknown) {
+  return new Request("http://localhost/api/expense-categories", {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+beforeEach(() => {
+  vi.mocked(getExpenseCategories).mockReset();
+  vi.mocked(insertExpenseCategory).mockReset();
+});
+
+describe("GET /api/expense-categories", () => {
+  it("passes includeInactive=true when all=true", async () => {
+    vi.mocked(getExpenseCategories).mockResolvedValue([]);
+    await GET(new Request("http://localhost/api/expense-categories?all=true"));
+    expect(getExpenseCategories).toHaveBeenCalledWith(true);
+  });
+
+  it("defaults to includeInactive=false", async () => {
+    vi.mocked(getExpenseCategories).mockResolvedValue([]);
+    await GET(new Request("http://localhost/api/expense-categories"));
+    expect(getExpenseCategories).toHaveBeenCalledWith(false);
+  });
+});
+
+describe("POST /api/expense-categories", () => {
+  it("defaults icon to the package emoji when omitted", async () => {
+    vi.mocked(insertExpenseCategory).mockResolvedValue(makeExpenseCategory());
+
+    await POST(makeRequest({ name: "Rent" }));
+
+    expect(insertExpenseCategory).toHaveBeenCalledWith({
+      name: "Rent",
+      icon: "📦",
+      sort_order: undefined,
+    });
+  });
+
+  it("forwards an explicit sort_order", async () => {
+    vi.mocked(insertExpenseCategory).mockResolvedValue(makeExpenseCategory());
+
+    await POST(makeRequest({ name: "Rent", sort_order: 3 }));
+
+    expect(insertExpenseCategory).toHaveBeenCalledWith(
+      expect.objectContaining({ sort_order: 3 })
+    );
+  });
+
+  it("rejects a missing name", async () => {
+    const res = await POST(makeRequest({}));
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a whitespace-only name", async () => {
+    const res = await POST(makeRequest({ name: "   " }));
+    expect(res.status).toBe(400);
+  });
+});

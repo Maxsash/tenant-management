@@ -126,14 +126,7 @@ export default function PaymentHistoryTab({
     ? monthlyBreakdown
     : monthlyBreakdown.slice(0, 6);
 
-  const onTimePercentage =
-    summary.totalExpected > 0
-      ? Math.round(
-          (summary.onTimeCount /
-            summary.totalExpected) *
-            100
-        )
-      : 0;
+  const { onTimePercentage } = summary;
 
   return (
     <Box className={styles.container}>

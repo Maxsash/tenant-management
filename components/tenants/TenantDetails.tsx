@@ -21,8 +21,8 @@ import {
 } from "@/utils/currency";
 
 import {
-  formatIncrease,
-} from "@/utils/tenant";
+  getIncreaseDisplay,
+} from "@/lib/rent";
 
 import styles from "@/styles/tenant-details.module.css";
 import PaymentHistoryTab from "./PaymentHistoryTab";
@@ -44,7 +44,7 @@ export default function TenantDetails({
   const securityDeposit = formatCurrency(tenant.security_deposit);
   const rentAmount = formatCurrency(tenant.amount);
 
-  const increaseValue = formatIncrease(
+  const increaseValue = getIncreaseDisplay(
     tenant.increase_type,
     tenant.increase_by
   );
