@@ -1,136 +1,92 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "motion/react";
 import {
-  Container,
-  Typography,
-  Box,
-  Paper,
-} from "@mui/material";
+  Building2,
+  FileText,
+  Home as HomeIcon,
+  Receipt,
+  Users,
+  Wallet,
+} from "lucide-react";
+import Card from "@/components/ui/Card";
+import PageContainer from "@/components/ui/PageContainer";
 
-import ApartmentIcon from "@mui/icons-material/Apartment";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
-import PeopleIcon from "@mui/icons-material/People";
-import HomeIcon from "@mui/icons-material/Home";
-import DescriptionIcon from "@mui/icons-material/Description";
-
-import styles from "@/styles/dashboard.module.css";
-
-const apps = [
-  {
-    title: "Tenants",
-    href: "/tenant",
-    icon: ApartmentIcon,
-    color: "#1976d2",
-  },
-  {
-    title: "Expenses",
-    href: "/expense",
-    icon: ReceiptLongIcon,
-    color: "#2e7d32",
-  },
-  {
-    title: "Accounts",
-    href: "/accounts",
-    icon: AccountBalanceWalletIcon,
-    color: "#ef6c00",
-  },
-  {
-    title: "Family",
-    href: "/family",
-    icon: PeopleIcon,
-    color: "#8e24aa",
-  },
-  {
-    title: "Properties",
-    href: "/property",
-    icon: HomeIcon,
-    color: "#00897b",
-  },
-  {
-    title: "Documents",
-    href: "/documents",
-    icon: DescriptionIcon,
-    color: "#5d4037",
-  },
+const liveApps = [
+  { title: "Tenants", description: "Rent & payments", href: "/tenant", icon: Building2 },
+  { title: "Expenses", description: "Household spending", href: "/expense", icon: Receipt },
 ];
+
+const comingSoon = [
+  { title: "Accounts", icon: Wallet },
+  { title: "Family", icon: Users },
+  { title: "Properties", icon: HomeIcon },
+  { title: "Documents", icon: FileText },
+];
+
+const container = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+};
 
 export default function Hub() {
   return (
-    <Container maxWidth="sm" className={styles.container}>
-      <Box sx={{ textAlign: "center", mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-          🏠 Shrivastava Hub
-        </Typography>
+    <PageContainer size="lg">
+      <div className="text-center md:text-left">
+        <p className="font-display text-[34px] italic leading-tight text-accent">
+          Shrivastava Hub
+        </p>
+        <p className="mt-1 text-[15px] text-muted">Everything, in one place.</p>
+      </div>
 
-        <Typography color="text.secondary">
-          Everything in one place
-        </Typography>
-      </Box>
-
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: 2,
-        }}
+      <motion.div
+        className="grid grid-cols-2 gap-4 sm:grid-cols-3"
+        initial="hidden"
+        animate="show"
+        variants={container}
       >
-        {apps.map((app) => {
+        {liveApps.map((app) => {
           const Icon = app.icon;
-
           return (
-            <Link
-              key={app.title}
-              href={app.href}
-              style={{
-                textDecoration: "none",
-              }}
-            >
-              <Paper
-                elevation={3}
-                sx={{
-                  height: 150,
-                  borderRadius: 4,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: ".2s",
-                  "&:hover": {
-                    transform: "translateY(-3px)",
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 3,
-                    background: app.color,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 2,
-                  }}
-                >
-                  <Icon
-                    sx={{
-                      color: "white",
-                      fontSize: 40,
-                    }}
-                  />
-                </Box>
-
-                <Typography
-                  sx={{ fontWeight: 600 }}
-                  align="center"
-                >
-                  {app.title}
-                </Typography>
-              </Paper>
-            </Link>
+            <motion.div key={app.title} variants={item}>
+              <Link href={app.href}>
+                <Card className="flex h-40 flex-col items-center justify-center gap-3 p-4 text-center transition-transform active:scale-[0.97]">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white">
+                    <Icon className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">{app.title}</p>
+                    <p className="text-xs text-muted">{app.description}</p>
+                  </div>
+                </Card>
+              </Link>
+            </motion.div>
           );
         })}
-      </Box>
-    </Container>
+
+        {comingSoon.map((app) => {
+          const Icon = app.icon;
+          return (
+            <motion.div key={app.title} variants={item}>
+              <Card className="flex h-40 flex-col items-center justify-center gap-3 border-dashed p-4 text-center opacity-60">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+                  <Icon className="h-7 w-7" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">{app.title}</p>
+                  <p className="text-xs text-muted">Coming soon</p>
+                </div>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+    </PageContainer>
   );
 }

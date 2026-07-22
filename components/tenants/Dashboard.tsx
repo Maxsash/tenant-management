@@ -1,23 +1,35 @@
-import React from "react";
+"use client";
 
-import {
-  Container,
-  Typography,
-  Grid,
-  CircularProgress,
-  TextField,
-  Box,
-  Button,
-} from "@mui/material";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
+import { Megaphone, PartyPopper } from "lucide-react";
 
-import styles from "@/styles/dashboard.module.css";
-
+import Button from "@/components/ui/Button";
+import MonthPicker from "@/components/ui/MonthPicker";
+import StatTile from "@/components/ui/StatTile";
+import Skeleton from "@/components/ui/Skeleton";
+import PageContainer from "@/components/ui/PageContainer";
 import TenantCard from "@/components/tenants/TenantCard";
-import SummaryCard from "@/components/tenants/SummaryCard";
 
 import { sendBroadcast } from "@/services/broadcast";
 import { sendMonthlyGreeting } from "@/services/monthly-greeting";
 import { isAdminActionsEnabled } from "@/lib/config";
+import { cn } from "@/utils/cn";
+import type { TenantDashboardItem } from "@/types/tenant";
+
+type DashboardData = {
+  rent_month: string;
+  tenants: TenantDashboardItem[];
+};
+
+type Props = {
+  data: DashboardData | null;
+  month: string;
+  onMonthChange: (month: string) => void;
+  loading: boolean;
+  onTenantClick: (tenant: TenantDashboardItem) => void;
+  onRefetch: () => void;
+};
 
 export default function Dashboard({
   data,
@@ -25,253 +37,183 @@ export default function Dashboard({
   onMonthChange,
   loading,
   onTenantClick,
-}: any) {
-  const paid =
-    data?.tenants.filter(
-      (t: any) => t.paid
-    ) ?? [];
+  onRefetch,
+}: Props) {
+  const paid = data?.tenants.filter((t) => t.paid) ?? [];
+  const unpaid = data?.tenants.filter((t) => !t.paid) ?? [];
 
-  const unpaid =
-    data?.tenants.filter(
-      (t: any) => !t.paid
-    ) ?? [];
+  const unpaidRef = useRef<HTMLDivElement>(null);
+  const paidRef = useRef<HTMLDivElement>(null);
 
-  const unpaidRef =
-    React.useRef<HTMLDivElement>(null);
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
+  const [sendingGreeting, setSendingGreeting] = useState(false);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
 
-  const paidRef =
-    React.useRef<HTMLDivElement>(null);
+  const adminEnabled = isAdminActionsEnabled();
 
-  const ENABLE_ADMIN_ACTIONS = isAdminActionsEnabled();
-
-  function scrollToSection(
-    section: "paid" | "unpaid"
-  ) {
-    if (section === "paid") {
-      paidRef.current?.scrollIntoView({
-        behavior: "smooth",
-      });
-    } else {
-      unpaidRef.current?.scrollIntoView({
-        behavior: "smooth",
-      });
-    }
+  function scrollToSection(section: "paid" | "unpaid") {
+    const ref = section === "paid" ? paidRef : unpaidRef;
+    ref.current?.scrollIntoView({ behavior: "smooth" });
   }
 
   async function handleBroadcast() {
+    setSendingBroadcast(true);
+
     try {
       const result = await sendBroadcast(month);
 
       if (result.failed > 0) {
         const failedResults = result.failedResults ?? [];
         const firstFailure = failedResults[0];
-        const failureSummary = firstFailure
-          ? `\nFirst failure: ${firstFailure.name || firstFailure.id || firstFailure.phone}: ${firstFailure.error || "Unknown error"}`
-          : "";
 
         console.group("Broadcast failures");
         console.error("Broadcast response", result);
         console.table(failedResults);
         console.groupEnd();
 
-        alert(
-          `Total tenants: ${result.totalRecipients}\n` +
-          `✅ Successfully sent: ${result.sent}\n` +
-          `❌ Failed: ${result.failed}` +
-          failureSummary +
-          `\n\n` +
-          `Check console for details.`
-        );
+        toast.warning(`Sent ${result.sent} of ${result.totalRecipients} reminders`, {
+          description: firstFailure
+            ? `First failure — ${firstFailure.name || firstFailure.id || firstFailure.phone}: ${firstFailure.error || "Unknown error"}`
+            : "See console for details.",
+        });
       } else {
-        alert(`✅ Successfully sent reminder to ${result.totalRecipients} tenant(s)!`);
+        toast.success(`Reminder sent to ${result.totalRecipients} tenant(s)`);
       }
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSendingBroadcast(false);
     }
   }
 
   async function handleMonthlyGreeting() {
-    try {
-      const result =
-        await sendMonthlyGreeting(month);
+    setSendingGreeting(true);
 
-      alert(
-        `Monthly greetings sent to ${result.totalRecipients} tenants`
-      );
-    } catch (err: any) {
-      alert(err.message);
+    try {
+      const result = await sendMonthlyGreeting(month);
+      toast.success(`Monthly greeting sent to ${result.totalRecipients} tenant(s)`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSendingGreeting(false);
     }
   }
 
-  async function handleMarkPaid(
-    tenant: any
-  ) {
-    const today = new Date()
-      .toISOString()
-      .slice(0, 10);
+  async function handleMarkPaid(tenant: TenantDashboardItem) {
+    setMarkingPaidId(tenant.id);
 
-    await fetch("/api/mark-paid", {
-      method: "POST",
-      body: JSON.stringify({
-        tenant_id: tenant.id,
-        month,
-        paid_on: today,
-      }),
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-    });
+    try {
+      const res = await fetch("/api/mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant_id: tenant.id, month }),
+      });
 
-    window.location.reload();
+      if (!res.ok) throw new Error("Failed to mark as paid");
+
+      toast.success(`Marked ${tenant.name}'s rent as paid`);
+      onRefetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setMarkingPaidId(null);
+    }
   }
 
   return (
-    <Container
-      maxWidth="sm"
-      className={styles.container}
-    >
-      <Box className={styles.header}>
-        <Typography
-          variant="h4"
-          className={styles.title}
-        >
-          🏠 Tenant Manager
-        </Typography>
+    <PageContainer size="lg">
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <h1 className="font-display text-3xl font-semibold text-foreground">Tenants</h1>
+          <MonthPicker value={month} onChange={onMonthChange} className="md:w-56" />
+        </div>
 
-        <TextField
-          type="month"
-          value={month}
-          onChange={(e) =>
-            onMonthChange(e.target.value)
-          }
-          fullWidth
-          className={styles.monthInput}
-        />
-
-        {ENABLE_ADMIN_ACTIONS && (
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 1.5,
-            }}
-          >
+        {adminEnabled && (
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Button
-              variant="contained"
-              color="primary"
+              variant="outline"
+              size="lg"
+              loading={sendingGreeting}
               onClick={handleMonthlyGreeting}
-              fullWidth
+              className="sm:flex-1"
             >
-              🌸 Send Monthly Greeting
+              <PartyPopper className="h-5 w-5" />
+              Send Monthly Greeting
             </Button>
 
             <Button
-              variant="contained"
-              color="warning"
+              size="lg"
+              variant={unpaid.length === 0 ? "outline" : "solid"}
+              className={cn("sm:flex-1", unpaid.length > 0 && "bg-warning hover:brightness-95")}
               disabled={unpaid.length === 0}
+              loading={sendingBroadcast}
               onClick={handleBroadcast}
-              fullWidth
-              className={styles.broadcastButton}
             >
-              📢 Send Reminders (
-              {unpaid.length})
+              <Megaphone className="h-5 w-5" />
+              Send Reminders ({unpaid.length})
             </Button>
-          </Box>
+          </div>
         )}
+      </div>
 
-      </Box>
-
-      <Box className={styles.summaryGrid}>
-        <SummaryCard
-          title="Paid"
-          count={paid.length}
-          type="paid"
-          onClick={() =>
-            scrollToSection("paid")
-          }
+      <div className="grid grid-cols-2 gap-4">
+        <StatTile
+          label="Paid"
+          value={paid.length}
+          tone="success"
+          onClick={() => scrollToSection("paid")}
         />
-
-        <SummaryCard
-          title="Unpaid"
-          count={unpaid.length}
-          type="unpaid"
-          onClick={() =>
-            scrollToSection("unpaid")
-          }
+        <StatTile
+          label="Unpaid"
+          value={unpaid.length}
+          tone="danger"
+          onClick={() => scrollToSection("unpaid")}
         />
-      </Box>
+      </div>
 
       {loading ? (
-        <Box className={styles.loader}>
-          <CircularProgress size={50} />
-        </Box>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full" />
+          ))}
+        </div>
       ) : (
         <>
-          <Box
-            ref={unpaidRef}
-            className={styles.section}
-          >
-            <Typography
-              className={`${styles.sectionTitle} ${styles.unpaidText}`}
-            >
-              ❌ Pending Rent
-            </Typography>
+          <div ref={unpaidRef} className="flex flex-col gap-4">
+            <h2 className="font-display text-xl font-semibold text-danger">Pending Rent</h2>
 
-            <Grid container spacing={2}>
-              {unpaid.map((tenant: any) => (
-                <Grid
-                  size={{ xs: 12 }}
-                  key={tenant.id}
-                >
+            {unpaid.length === 0 ? (
+              <p className="text-sm text-muted">Everyone&apos;s paid up for this month.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {unpaid.map((tenant) => (
                   <TenantCard
+                    key={tenant.id}
                     tenant={tenant}
-                    onClick={() =>
-                      onTenantClick(
-                        tenant
-                      )
-                    }
-                    onMarkPaid={() =>
-                      handleMarkPaid(
-                        tenant
-                      )
-                    }
+                    onClick={() => onTenantClick(tenant)}
+                    onMarkPaid={() => handleMarkPaid(tenant)}
+                    markingPaid={markingPaidId === tenant.id}
                   />
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
+                ))}
+              </div>
+            )}
+          </div>
 
-          <Box
-            ref={paidRef}
-            className={styles.section}
-          >
-            <Typography
-              className={`${styles.sectionTitle} ${styles.paidText}`}
-            >
-              ✅ Paid Rent
-            </Typography>
+          <div ref={paidRef} className="flex flex-col gap-4">
+            <h2 className="font-display text-xl font-semibold text-success">Paid Rent</h2>
 
-            <Grid container spacing={2}>
-              {paid.map((tenant: any) => (
-                <Grid
-                  size={{ xs: 12 }}
-                  key={tenant.id}
-                >
-                  <TenantCard
-                    tenant={tenant}
-                    onClick={() =>
-                      onTenantClick(
-                        tenant
-                      )
-                    }
-                  />
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
+            {paid.length === 0 ? (
+              <p className="text-sm text-muted">No payments recorded yet this month.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {paid.map((tenant) => (
+                  <TenantCard key={tenant.id} tenant={tenant} onClick={() => onTenantClick(tenant)} />
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
-    </Container>
+    </PageContainer>
   );
 }

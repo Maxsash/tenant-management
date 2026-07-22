@@ -2,20 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Box, Container, IconButton, Tab, Tabs, Typography } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { ArrowLeft } from "lucide-react";
 
-import type { ExpenseCategory } from "@/types/expense";
+import Tabs, { TabsContent } from "@/components/ui/Tabs";
+import PageContainer from "@/components/ui/PageContainer";
 import ManageItemsTab from "./ManageItemsTab";
 import ManageCategoriesTab from "./ManageCategoriesTab";
-
-import styles from "@/styles/manage-items.module.css";
+import type { ExpenseCategory } from "@/types/expense";
 import { isAdminActionsEnabled } from "@/lib/config";
 
 const ENABLE_ADMIN_ACTIONS = isAdminActionsEnabled();
 
 export default function ExpenseSettings() {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState("items");
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
 
   function fetchCategories() {
@@ -31,45 +30,39 @@ export default function ExpenseSettings() {
 
   if (!ENABLE_ADMIN_ACTIONS) {
     return (
-      <Container maxWidth="sm" className={styles.container}>
-        <Typography>This page is not available.</Typography>
-      </Container>
+      <PageContainer>
+        <p className="text-muted">This page is not available.</p>
+      </PageContainer>
     );
   }
 
   return (
-    <Container maxWidth="sm" className={styles.container}>
-      <Box className={styles.header}>
-        <Link href="/expense">
-          <IconButton>
-            <ArrowBackIcon />
-          </IconButton>
+    <PageContainer size="lg" className="gap-5">
+      <div className="flex items-center gap-2">
+        <Link
+          href="/expense"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-accent"
+        >
+          <ArrowLeft className="h-5 w-5" />
         </Link>
-
-        <Typography variant="h5" className={styles.title}>
-          Settings
-        </Typography>
-      </Box>
+        <h1 className="font-display text-2xl font-semibold text-foreground">Settings</h1>
+      </div>
 
       <Tabs
         value={activeTab}
-        onChange={(_, v) => setActiveTab(v)}
-        variant="fullWidth"
-        className={styles.tabs}
+        onValueChange={setActiveTab}
+        items={[
+          { value: "items", label: "Items" },
+          { value: "categories", label: "Categories" },
+        ]}
       >
-        <Tab label="Items" />
-        <Tab label="Categories" />
+        <TabsContent value="items" className="pt-4">
+          <ManageItemsTab categories={categories} />
+        </TabsContent>
+        <TabsContent value="categories" className="pt-4">
+          <ManageCategoriesTab categories={categories} onChanged={fetchCategories} />
+        </TabsContent>
       </Tabs>
-
-      <Box className={styles.tabPanel}>
-        {activeTab === 0 && <ManageItemsTab categories={categories} />}
-        {activeTab === 1 && (
-          <ManageCategoriesTab
-            categories={categories}
-            onChanged={fetchCategories}
-          />
-        )}
-      </Box>
-    </Container>
+    </PageContainer>
   );
 }

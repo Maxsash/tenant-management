@@ -1,41 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Fab,
-  IconButton,
-  TextField,
-  Typography,
-} from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import { toast } from "sonner";
+import { Plus, Trash2 } from "lucide-react";
 
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Dialog from "@/components/ui/Dialog";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
+import { cn } from "@/utils/cn";
 import type { ExpenseCategory } from "@/types/expense";
-
-import styles from "@/styles/manage-items.module.css";
 
 type Props = {
   categories: ExpenseCategory[];
   onChanged: () => void;
 };
 
+const inputClass =
+  "h-12 w-full rounded-xl border border-border bg-surface px-3.5 text-[15px] text-foreground outline-none focus:border-accent";
+const labelClass = "mb-1.5 block text-sm font-medium text-muted";
+
 export default function ManageCategoriesTab({ categories, onChanged }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(
-    null
-  );
+  const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(null);
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("📦");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState<ExpenseCategory | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   function openAdd() {
     setEditingCategory(null);
@@ -80,6 +74,7 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
       if (!res.ok) throw new Error("Failed to save category");
 
       setDialogOpen(false);
+      toast.success(editingCategory ? "Category updated" : "Category added");
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -98,121 +93,131 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
     onChanged();
   }
 
-  async function handleDeleteCategory(category: ExpenseCategory) {
-    if (!window.confirm(`Delete "${category.name}"? This can't be undone.`)) {
-      return;
+  async function handleDeleteCategory() {
+    if (!deletingCategory) return;
+
+    setDeleting(true);
+
+    try {
+      const res = await fetch(`/api/expense-categories/${deletingCategory.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          body.error ??
+            "Couldn't delete this category — it may already have items or expenses logged against it. Deactivate it instead."
+        );
+      }
+
+      toast.success("Category deleted");
+      setDeletingCategory(null);
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setDeleting(false);
     }
-
-    const res = await fetch(`/api/expense-categories/${category.id}`, {
-      method: "DELETE",
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      alert(
-        body.error ??
-          "Couldn't delete this category — it may already have items or expenses logged against it. Deactivate it instead."
-      );
-      return;
-    }
-
-    onChanged();
   }
 
   return (
-    <Box>
-      <Box className={styles.group}>
-        {categories.map((category) => (
-          <Box key={category.id} className={styles.itemRow}>
-            <Box
+    <div className="flex flex-col gap-2.5 pb-6">
+      {categories.length === 0 ? (
+        <EmptyState title="No categories yet" />
+      ) : (
+        categories.map((category) => (
+          <Card key={category.id} className="flex items-center justify-between gap-3 p-4">
+            <button
               onClick={() => openEdit(category)}
-              className={styles.itemInfo}
+              className={cn(
+                "flex-1 text-left font-medium text-foreground",
+                !category.active && "opacity-50"
+              )}
             >
-              <Typography
-                className={`${styles.itemName} ${!category.active ? styles.itemInactive : ""}`}
-              >
-                {category.icon} {category.name}
-              </Typography>
-            </Box>
+              {category.icon} {category.name}
+            </button>
 
-            <Box className={styles.itemActions}>
-              <Chip
-                label={category.active ? "Active" : "Inactive"}
-                size="small"
-                color={category.active ? "success" : "default"}
+            <div className="flex items-center gap-2">
+              <button
                 onClick={() => toggleActive(category)}
-                className={styles.statusChip}
-              />
-
-              <IconButton
-                size="small"
-                onClick={() => handleDeleteCategory(category)}
-                aria-label={`Delete ${category.name}`}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-semibold",
+                  category.active ? "bg-success-soft text-success" : "bg-border text-muted"
+                )}
               >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          </Box>
-        ))}
+                {category.active ? "Active" : "Inactive"}
+              </button>
 
-        {categories.length === 0 && (
-          <Typography className={styles.emptyText}>
-            No categories yet.
-          </Typography>
-        )}
-      </Box>
+              <button
+                onClick={() => setDeletingCategory(category)}
+                aria-label={`Delete ${category.name}`}
+                className="rounded-full p-2 text-muted transition-colors hover:bg-danger-soft hover:text-danger"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </Card>
+        ))
+      )}
 
-      <Fab
-        color="success"
+      <Button
         onClick={openAdd}
-        className={styles.fab}
         aria-label="Add category"
+        size="lg"
+        className="fixed right-5 bottom-28 z-30 w-14 !p-0 rounded-full shadow-float md:right-10 md:bottom-10"
       >
-        <AddIcon />
-      </Fab>
+        <Plus className="h-6 w-6" />
+      </Button>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{editingCategory ? "Edit Category" : "Add Category"}</DialogTitle>
-
-        <DialogContent>
-          <TextField
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            fullWidth
-            margin="normal"
-          />
-
-          <TextField
-            label="Icon (emoji)"
-            value={icon}
-            onChange={(e) => setIcon(e.target.value)}
-            fullWidth
-            margin="normal"
-          />
-
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={editingCategory ? "Edit Category" : "Add Category"}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} loading={saving}>
+              Save
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className={labelClass}>Name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Icon (emoji)</label>
+            <input
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              className={inputClass}
+            />
+          </div>
           {error && (
-            <Alert severity="error" className={styles.alert}>
-              {error}
-            </Alert>
+            <p className="rounded-lg bg-danger-soft px-3 py-2.5 text-sm text-danger">{error}</p>
           )}
-        </DialogContent>
-
-        <DialogActions className={styles.dialogActions}>
-          <Button onClick={() => setDialogOpen(false)} disabled={saving}>
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            color="success"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            Save
-          </Button>
-        </DialogActions>
+        </div>
       </Dialog>
-    </Box>
+
+      <ConfirmDialog
+        open={!!deletingCategory}
+        onOpenChange={(open) => !open && setDeletingCategory(null)}
+        title={`Delete "${deletingCategory?.name}"?`}
+        description="This can't be undone."
+        confirmLabel="Delete"
+        destructive
+        loading={deleting}
+        onConfirm={handleDeleteCategory}
+      />
+    </div>
   );
 }

@@ -1,158 +1,124 @@
-// components/TenantDetails.tsx
+"use client";
+
 import { useState } from "react";
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Divider,
-  Typography,
-  Tab,
-  Tabs,
-} from "@mui/material";
+import { ArrowLeft, CheckCircle2, Clock3 } from "lucide-react";
 
-import {
-  formatFullDate,
-} from "@/utils/date";
-
-import {
-  formatCurrency,
-} from "@/utils/currency";
-
-import {
-  getIncreaseDisplay,
-} from "@/lib/rent";
-
-import styles from "@/styles/tenant-details.module.css";
+import Card from "@/components/ui/Card";
+import PageContainer from "@/components/ui/PageContainer";
+import Tabs, { TabsContent } from "@/components/ui/Tabs";
+import { formatFullDate } from "@/utils/date";
+import { formatCurrency } from "@/utils/currency";
+import { getIncreaseDisplay } from "@/lib/rent";
+import { cn } from "@/utils/cn";
 import PaymentHistoryTab from "./PaymentHistoryTab";
+import type { TenantDashboardItem } from "@/types/tenant";
 
-export default function TenantDetails({
-  tenant,
-  onBack,
-}: any) {
-  const [activeTab, setActiveTab] = useState(0);
+type Props = {
+  tenant: TenantDashboardItem;
+  onBack: () => void;
+};
 
-  const paidDate = tenant.paid_on
-    ? formatFullDate(tenant.paid_on)
-    : null;
+export default function TenantDetails({ tenant, onBack }: Props) {
+  const [activeTab, setActiveTab] = useState("details");
 
-  const tenantSince = tenant.tenant_since
-    ? formatFullDate(tenant.tenant_since)
-    : "—";
-
-  const securityDeposit = formatCurrency(tenant.security_deposit);
+  const paidDate = tenant.paid_on ? formatFullDate(tenant.paid_on) : null;
+  const tenantSince = tenant.tenant_since ? formatFullDate(tenant.tenant_since) : "—";
+  const securityDeposit = formatCurrency(tenant.security_deposit ?? 0);
   const rentAmount = formatCurrency(tenant.amount);
-
   const increaseValue = getIncreaseDisplay(
-    tenant.increase_type,
-    tenant.increase_by
+    tenant.increase_type ?? "",
+    tenant.increase_by ?? ""
   );
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-  };
-
   return (
-    <Box className={styles.page}>
-      <Button
-        variant="text"
+    <PageContainer className="gap-4">
+      <button
         onClick={onBack}
-        className={styles.backButton}
+        className="flex w-fit items-center gap-1.5 text-sm font-semibold text-muted transition-colors hover:text-accent"
       >
-        ← Back
-      </Button>
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
 
-      <Card className={styles.card}>
-        {/* Hero Section - Always visible */}
-        <Box
-          className={`${styles.hero} ${
-            tenant.paid ? styles.heroPaid : styles.heroPending
-          }`}
+      <Card className="overflow-hidden">
+        <div
+          className={cn(
+            "p-6 text-center",
+            tenant.paid ? "bg-success-soft" : "bg-danger-soft"
+          )}
         >
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            {tenant.name}
-          </Typography>
-
-          <Typography color="text.secondary">{tenant.property_type}</Typography>
-
-          <Typography variant="h3" sx={{ mt: 2, fontWeight: 700 }}>
+          <p className="font-display text-2xl font-semibold text-foreground">{tenant.name}</p>
+          <p className="mt-0.5 text-sm text-muted">{tenant.property_type}</p>
+          <p className="mt-3 font-display text-4xl font-semibold text-foreground">
             {rentAmount}
-          </Typography>
+          </p>
 
-          <Box className={styles.statusBox}>
-            {tenant.paid ? (
-              <Chip
-                color="success"
-                label={`Paid on ${paidDate}`}
-                className={styles.statusChip}
-              />
-            ) : (
-              <Chip
-                color="warning"
-                label="Payment Pending"
-                className={styles.statusChip}
-              />
+          <span
+            className={cn(
+              "mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold",
+              tenant.paid ? "bg-success text-white" : "bg-danger text-white"
             )}
-          </Box>
-        </Box>
-
-        {/* Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: "divider", px: 2 }}>
-          <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
-            variant="fullWidth"
-            sx={{
-              "& .MuiTab-root": {
-                fontSize: "1rem",
-                py: 1.5,
-                minHeight: "48px",
-              },
-            }}
           >
-            <Tab label="Details" />
-            <Tab label="Payment History" />
-          </Tabs>
-        </Box>
+            {tenant.paid ? (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                Paid on {paidDate}
+              </>
+            ) : (
+              <>
+                <Clock3 className="h-4 w-4" />
+                Payment Pending
+              </>
+            )}
+          </span>
+        </div>
 
-        {/* Tab Panels */}
-        <Box sx={{ mt: 2 }}>
-          {/* Details Tab */}
-          {activeTab === 0 && (
-            <CardContent className={styles.content}>
-              <DetailRow label="Phone" value={tenant.phone} />
-              <DetailRow label="Tenant Since" value={tenantSince} />
-              <DetailRow label="Security Deposit" value={securityDeposit} />
-              <DetailRow label="Bank" value={tenant.bank} />
-              <DetailRow
-                label="Rent Increase Month"
-                value={tenant.increase_month || "—"}
-              />
-              <DetailRow label="Increase" value={increaseValue} />
-            </CardContent>
-          )}
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          items={[
+            { value: "details", label: "Details" },
+            { value: "history", label: "Payment History" },
+          ]}
+        >
+          <TabsContent value="details" className="flex flex-col px-5 py-2">
+            <DetailRow label="Phone" value={tenant.phone} />
+            <DetailRow label="Tenant Since" value={tenantSince} />
+            <DetailRow label="Security Deposit" value={securityDeposit} />
+            <DetailRow label="Bank" value={tenant.bank} />
+            <DetailRow label="Rent Increase Month" value={tenant.increase_month || "—"} />
+            <DetailRow label="Increase" value={increaseValue} last />
+          </TabsContent>
 
-          {/* Payment History Tab - Now receives tenantId instead of payments array */}
-          {activeTab === 1 && (
+          <TabsContent value="history">
             <PaymentHistoryTab tenantId={tenant.id} />
-          )}
-        </Box>
+          </TabsContent>
+        </Tabs>
       </Card>
-    </Box>
+    </PageContainer>
   );
 }
 
-function DetailRow({ label, value }: any) {
+function DetailRow({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value?: string | number | null;
+  last?: boolean;
+}) {
   return (
-    <>
-      <Box className={styles.detailRow}>
-        <Typography color="text.secondary" className={styles.detailLabel}>
-          {label}
-        </Typography>
-        <Typography className={styles.detailValue}>{value || "—"}</Typography>
-      </Box>
-      <Divider />
-    </>
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4 py-4",
+        !last && "border-b border-border"
+      )}
+    >
+      <span className="text-sm text-muted">{label}</span>
+      <span className="max-w-[55%] text-right font-medium text-foreground">
+        {value || "—"}
+      </span>
+    </div>
   );
 }

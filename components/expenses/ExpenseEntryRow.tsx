@@ -1,11 +1,9 @@
-import { Box, Card, CardContent, Chip, Typography } from "@mui/material";
-
+import Card from "@/components/ui/Card";
 import { formatShortDate } from "@/utils/date";
 import { formatCurrency } from "@/utils/currency";
 import { getCategoryIcon } from "@/lib/expense-categories";
+import { cn } from "@/utils/cn";
 import type { Expense, ExpenseCategory } from "@/types/expense";
-
-import styles from "@/styles/expense-dashboard.module.css";
 
 type Props = {
   expense: Expense;
@@ -22,47 +20,39 @@ export default function ExpenseEntryRow({ expense, categories, onClick }: Props)
   return (
     <Card
       onClick={onClick}
-      className={`${styles.entryCard} ${onClick ? styles.entryCardClickable : ""}`}
+      className={cn(
+        "flex items-center gap-3 p-4",
+        onClick && "cursor-pointer transition-transform active:scale-[0.99]"
+      )}
     >
-      <CardContent className={styles.entryContent}>
-        <Box className={styles.entryIcon}>
-          {getCategoryIcon(categories, expense.category)}
-        </Box>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xl">
+        {getCategoryIcon(categories, expense.category)}
+      </div>
 
-        <Box className={styles.entryMain}>
-          <Typography className={styles.entryName}>
-            {expense.is_itemized === false ? expense.category : expense.item_name}
-          </Typography>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-foreground">
+          {expense.is_itemized === false ? expense.category : expense.item_name}
+        </p>
+        <p className="truncate text-xs text-muted">
+          {formatShortDate(expense.expense_date)}
+          {quantityLabel ? ` · ${quantityLabel}` : ""}
+          {expense.notes ? ` · ${expense.notes}` : ""}
+        </p>
+      </div>
 
-          <Typography className={styles.entryMeta}>
-            {formatShortDate(expense.expense_date)}
-            {quantityLabel ? ` · ${quantityLabel}` : ""}
-            {expense.notes ? ` · ${expense.notes}` : ""}
-          </Typography>
-        </Box>
-
-        <Box className={styles.entryRight}>
-          <Typography className={styles.entryAmount}>
-            {formatCurrency(expense.amount)}
-          </Typography>
-
-          <Box className={styles.entryChips}>
-            {expense.is_itemized === false && (
-              <Chip
-                label="🧺 Mixed"
-                size="small"
-                className={styles.entryChip}
-              />
-            )}
-
-            <Chip
-              label={expense.payment_method}
-              size="small"
-              className={styles.entryChip}
-            />
-          </Box>
-        </Box>
-      </CardContent>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span className="font-semibold text-foreground">{formatCurrency(expense.amount)}</span>
+        <div className="flex gap-1">
+          {expense.is_itemized === false && (
+            <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">
+              Mixed
+            </span>
+          )}
+          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">
+            {expense.payment_method}
+          </span>
+        </div>
+      </div>
     </Card>
   );
 }

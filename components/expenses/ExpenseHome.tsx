@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import ExpenseDashboard from "./ExpenseDashboard";
 import ExpenseFormDialog from "./ExpenseFormDialog";
+import PageLoader from "@/components/ui/PageLoader";
 import type {
   Expense,
   ExpenseCategory,
@@ -71,8 +72,12 @@ export default function ExpenseHome() {
     setFormOpen(true);
   }
 
+  if (loading && !data) {
+    return <PageLoader />;
+  }
+
   return (
-    <main>
+    <>
       <ExpenseDashboard
         data={data}
         month={month}
@@ -91,6 +96,6 @@ export default function ExpenseHome() {
         categories={categories}
         editingExpense={editingExpense}
       />
-    </main>
+    </>
   );
 }

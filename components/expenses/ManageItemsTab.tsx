@@ -1,32 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Fab,
-  IconButton,
-  MenuItem,
-  TextField,
-  Typography,
-} from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import { toast } from "sonner";
+import { Plus, Trash2 } from "lucide-react";
 
-import type { ExpenseCategory, ExpenseItem } from "@/types/expense";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Dialog from "@/components/ui/Dialog";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Skeleton from "@/components/ui/Skeleton";
 import { groupItemsByCategory } from "@/lib/expense-categories";
-
-import styles from "@/styles/manage-items.module.css";
+import { cn } from "@/utils/cn";
+import type { ExpenseCategory, ExpenseItem } from "@/types/expense";
 
 type Props = {
   categories: ExpenseCategory[];
 };
+
+const inputClass =
+  "h-12 w-full rounded-xl border border-border bg-surface px-3.5 text-[15px] text-foreground outline-none focus:border-accent";
+const labelClass = "mb-1.5 block text-sm font-medium text-muted";
 
 export default function ManageItemsTab({ categories }: Props) {
   const [items, setItems] = useState<ExpenseItem[]>([]);
@@ -38,6 +31,8 @@ export default function ManageItemsTab({ categories }: Props) {
   const [defaultUnit, setDefaultUnit] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deletingItem, setDeletingItem] = useState<ExpenseItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   function fetchItems() {
     setLoading(true);
@@ -102,6 +97,7 @@ export default function ManageItemsTab({ categories }: Props) {
       if (!res.ok) throw new Error("Failed to save item");
 
       setDialogOpen(false);
+      toast.success(editingItem ? "Item updated" : "Item added");
       fetchItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -120,146 +116,166 @@ export default function ManageItemsTab({ categories }: Props) {
     fetchItems();
   }
 
-  async function handleDeleteItem(item: ExpenseItem) {
-    if (!window.confirm(`Delete "${item.name}"? This can't be undone.`)) {
-      return;
+  async function handleDeleteItem() {
+    if (!deletingItem) return;
+
+    setDeleting(true);
+
+    try {
+      const res = await fetch(`/api/expense-items/${deletingItem.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          body.error ??
+            "Couldn't delete this item — it may already have expenses logged against it. Deactivate it instead."
+        );
+      }
+
+      toast.success("Item deleted");
+      setDeletingItem(null);
+      fetchItems();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setDeleting(false);
     }
-
-    const res = await fetch(`/api/expense-items/${item.id}`, {
-      method: "DELETE",
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      alert(
-        body.error ??
-          "Couldn't delete this item — it may already have expenses logged against it. Deactivate it instead."
-      );
-      return;
-    }
-
-    fetchItems();
   }
 
   const grouped = groupItemsByCategory(categories, items);
 
   return (
-    <Box>
+    <div className="flex flex-col gap-5 pb-6">
       {loading ? (
-        <Typography className={styles.emptyText}>Loading…</Typography>
+        <div className="flex flex-col gap-2.5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
+        </div>
       ) : (
         grouped.map((group) => (
-          <Box key={group.category} className={styles.group}>
-            <Typography className={styles.groupTitle}>
+          <div key={group.category} className="flex flex-col gap-2.5">
+            <p className="text-sm font-semibold text-muted">
               {group.icon} {group.category}
-            </Typography>
+            </p>
 
             {group.items.map((item) => (
-              <Box key={item.id} className={styles.itemRow}>
-                <Box onClick={() => openEdit(item)} className={styles.itemInfo}>
-                  <Typography
-                    className={`${styles.itemName} ${!item.active ? styles.itemInactive : ""}`}
-                  >
-                    {item.name}
-                  </Typography>
-
-                  {item.default_unit && (
-                    <Typography className={styles.itemUnit}>
-                      per {item.default_unit}
-                    </Typography>
+              <Card key={item.id} className="flex items-center justify-between gap-3 p-4">
+                <button
+                  onClick={() => openEdit(item)}
+                  className={cn(
+                    "flex-1 text-left",
+                    !item.active && "opacity-50"
                   )}
-                </Box>
+                >
+                  <p className="font-medium text-foreground">{item.name}</p>
+                  {item.default_unit && (
+                    <p className="text-xs text-muted">per {item.default_unit}</p>
+                  )}
+                </button>
 
-                <Box className={styles.itemActions}>
-                  <Chip
-                    label={item.active ? "Active" : "Inactive"}
-                    size="small"
-                    color={item.active ? "success" : "default"}
+                <div className="flex items-center gap-2">
+                  <button
                     onClick={() => toggleActive(item)}
-                    className={styles.statusChip}
-                  />
-
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeleteItem(item)}
-                    aria-label={`Delete ${item.name}`}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-xs font-semibold",
+                      item.active ? "bg-success-soft text-success" : "bg-border text-muted"
+                    )}
                   >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </Box>
+                    {item.active ? "Active" : "Inactive"}
+                  </button>
+
+                  <button
+                    onClick={() => setDeletingItem(item)}
+                    aria-label={`Delete ${item.name}`}
+                    className="rounded-full p-2 text-muted transition-colors hover:bg-danger-soft hover:text-danger"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </Card>
             ))}
-          </Box>
+          </div>
         ))
       )}
 
-      <Fab
-        color="success"
+      <Button
         onClick={openAdd}
-        className={styles.fab}
         aria-label="Add item"
+        size="lg"
+        className="fixed right-5 bottom-28 z-30 w-14 !p-0 rounded-full shadow-float md:right-10 md:bottom-10"
       >
-        <AddIcon />
-      </Fab>
+        <Plus className="h-6 w-6" />
+      </Button>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{editingItem ? "Edit Item" : "Add Item"}</DialogTitle>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={editingItem ? "Edit Item" : "Add Item"}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} loading={saving}>
+              Save
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className={labelClass}>Name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputClass}
+            />
+          </div>
 
-        <DialogContent>
-          <TextField
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            fullWidth
-            margin="normal"
-          />
+          <div>
+            <label className={labelClass}>Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className={inputClass}
+            >
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.icon} {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <TextField
-            select
-            label="Category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            fullWidth
-            margin="normal"
-          >
-            {categories.map((c) => (
-              <MenuItem key={c.id} value={c.name}>
-                {c.icon} {c.name}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Default unit (optional)"
-            placeholder="L, kg, pcs..."
-            value={defaultUnit}
-            onChange={(e) => setDefaultUnit(e.target.value)}
-            fullWidth
-            margin="normal"
-          />
+          <div>
+            <label className={labelClass}>Default unit (optional)</label>
+            <input
+              value={defaultUnit}
+              onChange={(e) => setDefaultUnit(e.target.value)}
+              placeholder="L, kg, pcs..."
+              className={inputClass}
+            />
+          </div>
 
           {error && (
-            <Alert severity="error" className={styles.alert}>
-              {error}
-            </Alert>
+            <p className="rounded-lg bg-danger-soft px-3 py-2.5 text-sm text-danger">{error}</p>
           )}
-        </DialogContent>
-
-        <DialogActions className={styles.dialogActions}>
-          <Button onClick={() => setDialogOpen(false)} disabled={saving}>
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            color="success"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            Save
-          </Button>
-        </DialogActions>
+        </div>
       </Dialog>
-    </Box>
+
+      <ConfirmDialog
+        open={!!deletingItem}
+        onOpenChange={(open) => !open && setDeletingItem(null)}
+        title={`Delete "${deletingItem?.name}"?`}
+        description="This can't be undone."
+        confirmLabel="Delete"
+        destructive
+        loading={deleting}
+        onConfirm={handleDeleteItem}
+      />
+    </div>
   );
 }

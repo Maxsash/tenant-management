@@ -1,32 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
-  MenuItem,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import { AnimatePresence, motion } from "motion/react";
+import { toast } from "sonner";
+import { Pencil, X } from "lucide-react";
 
-import { PAYMENT_METHODS, groupItemsByCategory } from "@/lib/expense-categories";
+import Button from "@/components/ui/Button";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import SegmentedControl from "@/components/ui/SegmentedControl";
+import ItemPicker from "./ItemPicker";
+import { PAYMENT_METHODS } from "@/lib/expense-categories";
 import { currentDate } from "@/lib/date";
+import { cn } from "@/utils/cn";
 import type { Expense, ExpenseCategory, ExpenseItem } from "@/types/expense";
-
-import styles from "@/styles/expense-form.module.css";
 
 type Mode = "pick" | "custom" | "lump";
 
@@ -39,6 +25,11 @@ type Props = {
   editingExpense?: Expense | null;
 };
 
+const inputClass =
+  "h-12 w-full rounded-xl border border-border bg-surface px-3.5 text-[15px] text-foreground outline-none focus:border-accent";
+
+const labelClass = "mb-1.5 block text-sm font-medium text-muted";
+
 export default function ExpenseFormDialog({
   open,
   onClose,
@@ -47,9 +38,6 @@ export default function ExpenseFormDialog({
   categories,
   editingExpense,
 }: Props) {
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
-
   const [expenseDate, setExpenseDate] = useState(currentDate());
   const [mode, setMode] = useState<Mode>("pick");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -63,6 +51,7 @@ export default function ExpenseFormDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -117,7 +106,7 @@ export default function ExpenseFormDialog({
     }
   }, [open, editingExpense, items, categories]);
 
-  const itemsByCategory = groupItemsByCategory(categories, items);
+  const selectedItem = selectedItemId ? items.find((i) => i.id === selectedItemId) : null;
 
   function pickItem(item: ExpenseItem) {
     setMode("pick");
@@ -125,8 +114,9 @@ export default function ExpenseFormDialog({
     setUnit(item.default_unit ?? "");
   }
 
-  function handleModeChange(next: Mode) {
-    setMode(next);
+  function handleModeChange(next: string) {
+    const nextMode = next as Mode;
+    setMode(nextMode);
     setSelectedItemId(null);
 
     if (!selectedCategory) {
@@ -192,6 +182,7 @@ export default function ExpenseFormDialog({
         throw new Error(body.error ?? "Failed to save expense");
       }
 
+      toast.success(editingExpense ? "Expense updated" : "Expense added");
       onSaved();
       onClose();
     } catch (err) {
@@ -204,12 +195,7 @@ export default function ExpenseFormDialog({
   async function handleDelete() {
     if (!editingExpense) return;
 
-    if (!confirmingDelete) {
-      setConfirmingDelete(true);
-      return;
-    }
-
-    setSaving(true);
+    setDeleting(true);
 
     try {
       const res = await fetch(`/api/expenses/${editingExpense.id}`, {
@@ -218,235 +204,251 @@ export default function ExpenseFormDialog({
 
       if (!res.ok) throw new Error("Failed to delete expense");
 
+      toast.success("Expense deleted");
+      setConfirmingDelete(false);
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
-      setSaving(false);
+      setDeleting(false);
     }
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      fullScreen={fullScreen}
-      fullWidth
-      maxWidth="sm"
-    >
-      <DialogTitle className={styles.title}>
-        {editingExpense ? "Edit Expense" : "Add Expense"}
-        <IconButton onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent className={styles.content}>
-        <TextField
-          type="date"
-          label="Date"
-          value={expenseDate}
-          onChange={(e) => setExpenseDate(e.target.value)}
-          fullWidth
-          margin="normal"
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-
-        <ToggleButtonGroup
-          value={mode}
-          exclusive
-          onChange={(_, v) => v && handleModeChange(v)}
-          fullWidth
-          className={styles.modeToggle}
-        >
-          <ToggleButton value="pick">🏷️ Item</ToggleButton>
-          <ToggleButton value="custom">📦 Other</ToggleButton>
-          <ToggleButton value="lump">🧺 Lump Sum</ToggleButton>
-        </ToggleButtonGroup>
-
-        {mode === "pick" && (
-          <>
-            <Typography className={styles.sectionLabel}>Item</Typography>
-
-            {itemsByCategory.map((group) => (
-              <Box key={group.category} className={styles.chipGroup}>
-                <Typography className={styles.chipGroupLabel}>
-                  {group.icon} {group.category}
-                </Typography>
-
-                <Box className={styles.chipRow}>
-                  {group.items.map((item) => (
-                    <Chip
-                      key={item.id}
-                      label={item.name}
-                      onClick={() => pickItem(item)}
-                      color={
-                        selectedItemId === item.id ? "success" : "default"
-                      }
-                      variant={
-                        selectedItemId === item.id ? "filled" : "outlined"
-                      }
-                    />
-                  ))}
-                </Box>
-              </Box>
-            ))}
-
-            {itemsByCategory.length === 0 && (
-              <Typography className={styles.emptyText}>
-                No catalog items yet — add some from Settings, or use Other /
-                Lump Sum below.
-              </Typography>
-            )}
-          </>
-        )}
-
-        {mode === "custom" && (
-          <Box className={styles.customFields}>
-            <TextField
-              label="Item name"
-              value={customName}
-              onChange={(e) => setCustomName(e.target.value)}
-              fullWidth
-              margin="normal"
-            />
-
-            <TextField
-              select
-              label="Category"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              fullWidth
-              margin="normal"
+    <>
+      <AnimatePresence>
+        {open && (
+          <div className="fixed inset-0 z-50 md:flex md:items-center md:justify-center md:bg-black/40 md:p-6">
+            <motion.div
+              initial={{ opacity: 0, y: 28 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 28 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="flex h-full w-full flex-col bg-surface md:h-[88vh] md:max-w-2xl md:rounded-2xl md:border md:border-border md:shadow-float"
             >
-              {categories.map((c) => (
-                <MenuItem key={c.id} value={c.name}>
-                  {c.icon} {c.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
+              <header
+                className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6"
+                style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
+              >
+                <h2 className="font-display text-xl font-semibold text-foreground">
+                  {editingExpense ? "Edit Expense" : "Add Expense"}
+                </h2>
+                <button
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="rounded-full p-2 text-muted transition-colors hover:bg-accent-soft hover:text-accent"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </header>
+
+              <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-6">
+                <div className="mx-auto flex max-w-xl flex-col gap-8">
+                  <section className="flex flex-col gap-3">
+                    <SegmentedControl
+                      value={mode}
+                      onChange={handleModeChange}
+                      options={[
+                        { value: "pick", label: "🏷️ Item" },
+                        { value: "custom", label: "📦 Other" },
+                        { value: "lump", label: "🧺 Lump" },
+                      ]}
+                    />
+
+                    {mode === "pick" &&
+                      (selectedItem ? (
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-accent bg-accent-soft px-4 py-3.5">
+                          <div>
+                            <p className="font-semibold text-foreground">{selectedItem.name}</p>
+                            <p className="text-xs text-muted">{selectedItem.category}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedItemId(null)}
+                            className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-sm font-medium text-accent"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Change
+                          </button>
+                        </div>
+                      ) : (
+                        <ItemPicker categories={categories} items={items} onPick={pickItem} />
+                      ))}
+
+                    {mode === "custom" && (
+                      <div className="flex flex-col gap-4">
+                        <div>
+                          <label className={labelClass}>Item name</label>
+                          <input
+                            value={customName}
+                            onChange={(e) => setCustomName(e.target.value)}
+                            className={inputClass}
+                          />
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Category</label>
+                          <select
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            className={inputClass}
+                          >
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.name}>
+                                {c.icon} {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {mode === "lump" && (
+                      <div>
+                        <p className={labelClass}>Category (not itemized — just log the total)</p>
+                        <div className="flex flex-wrap gap-2">
+                          {categories.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setSelectedCategory(c.name)}
+                              className={cn(
+                                "rounded-full border px-3.5 py-2 text-sm font-medium transition-colors",
+                                selectedCategory === c.name
+                                  ? "border-accent bg-accent text-white"
+                                  : "border-border bg-surface text-foreground"
+                              )}
+                            >
+                              {c.icon} {c.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="flex flex-col gap-4 border-t border-border pt-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClass}>Amount (₹)</label>
+                        <input
+                          type="number"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          className={inputClass}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Date</label>
+                        <input
+                          type="date"
+                          value={expenseDate}
+                          onChange={(e) => setExpenseDate(e.target.value)}
+                          className={cn(inputClass, "[color-scheme:light]")}
+                        />
+                      </div>
+                    </div>
+
+                    {mode !== "lump" && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className={labelClass}>Quantity (optional)</label>
+                          <input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => setQuantity(e.target.value)}
+                            className={inputClass}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Unit</label>
+                          <input
+                            value={unit}
+                            onChange={(e) => setUnit(e.target.value)}
+                            placeholder="L, kg, pcs..."
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className={labelClass}>Paid via</p>
+                      <SegmentedControl
+                        value={paymentMethod}
+                        onChange={setPaymentMethod}
+                        options={PAYMENT_METHODS.map((m) => ({
+                          value: m,
+                          label: m === "Bank Transfer" ? "Bank" : m,
+                        }))}
+                      />
+                    </div>
+                  </section>
+
+                  <section className="border-t border-border pt-6">
+                    <label className={labelClass}>
+                      {mode === "lump" ? "Notes (what was in the basket?)" : "Notes (optional)"}
+                    </label>
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={3}
+                      className={cn(inputClass, "h-auto py-2.5")}
+                    />
+                  </section>
+
+                  {error && (
+                    <p className="rounded-lg bg-danger-soft px-3 py-2.5 text-sm text-danger">
+                      {error}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <footer
+                className="border-t border-border px-5 py-4 sm:px-6"
+                style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+              >
+                <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
+                  {editingExpense ? (
+                    <Button
+                      variant="danger"
+                      onClick={() => setConfirmingDelete(true)}
+                      disabled={saving}
+                    >
+                      Delete
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={onClose} disabled={saving}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSave} loading={saving}>
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              </footer>
+            </motion.div>
+          </div>
         )}
+      </AnimatePresence>
 
-        {mode === "lump" && (
-          <Box className={styles.customFields}>
-            <Typography className={styles.sectionLabel}>
-              Category (not itemized — just log the total)
-            </Typography>
-
-            <Box className={styles.chipRow}>
-              {categories.map((c) => (
-                <Chip
-                  key={c.id}
-                  label={`${c.icon} ${c.name}`}
-                  onClick={() => setSelectedCategory(c.name)}
-                  color={selectedCategory === c.name ? "success" : "default"}
-                  variant={selectedCategory === c.name ? "filled" : "outlined"}
-                />
-              ))}
-            </Box>
-          </Box>
-        )}
-
-        {mode !== "lump" && (
-          <>
-            <Divider className={styles.divider} />
-
-            <Box className={styles.row}>
-              <TextField
-                type="number"
-                label="Quantity (optional)"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                margin="normal"
-                fullWidth
-              />
-
-              <TextField
-                label="Unit"
-                placeholder="L, kg, pcs..."
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                margin="normal"
-                fullWidth
-              />
-            </Box>
-          </>
-        )}
-
-        <TextField
-          type="number"
-          label="Amount (₹)"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          fullWidth
-          margin="normal"
-          required
-        />
-
-        <Typography className={styles.sectionLabel}>Paid via</Typography>
-
-        <ToggleButtonGroup
-          value={paymentMethod}
-          exclusive
-          onChange={(_, v) => v && setPaymentMethod(v)}
-          fullWidth
-          className={styles.paymentToggle}
-        >
-          {PAYMENT_METHODS.map((m) => (
-            <ToggleButton key={m} value={m}>
-              {m}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-
-        <TextField
-          label={
-            mode === "lump" ? "Notes (what was in the basket?)" : "Notes (optional)"
-          }
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          fullWidth
-          margin="normal"
-          multiline
-          rows={2}
-        />
-
-        {error && (
-          <Alert severity="error" className={styles.alert}>
-            {error}
-          </Alert>
-        )}
-      </DialogContent>
-
-      <DialogActions className={styles.actions}>
-        {editingExpense && (
-          <Button
-            color="error"
-            onClick={handleDelete}
-            disabled={saving}
-            className={styles.deleteButton}
-          >
-            {confirmingDelete ? "Confirm Delete" : "Delete"}
-          </Button>
-        )}
-
-        <Box className={styles.actionsRight}>
-          <Button onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            color="success"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            Save
-          </Button>
-        </Box>
-      </DialogActions>
-    </Dialog>
+      <ConfirmDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        title="Delete this expense?"
+        description="This can't be undone."
+        confirmLabel="Delete"
+        destructive
+        loading={deleting}
+        onConfirm={handleDelete}
+      />
+    </>
   );
 }

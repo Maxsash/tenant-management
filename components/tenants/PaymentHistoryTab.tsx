@@ -1,378 +1,179 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Info } from "lucide-react";
 
-import {
-  Box,
-  Typography,
-  Divider,
-  Chip,
-  CircularProgress,
-  Button,
-  Alert,
-} from "@mui/material";
-
+import Button from "@/components/ui/Button";
+import StatTile from "@/components/ui/StatTile";
+import Skeleton from "@/components/ui/Skeleton";
+import EmptyState from "@/components/ui/EmptyState";
 import { formatFullDate } from "@/utils/date";
 import { formatCurrency } from "@/utils/currency";
-import { paymentHistory } from "@/services/paymentHistory";
-import styles from "@/styles/payment-history.module.css";
+import { paymentHistory, type PaymentHistoryData } from "@/services/paymentHistory";
+import { cn } from "@/utils/cn";
 
-interface PaymentHistoryTabProps {
+type Props = {
   tenantId: string;
-}
+};
 
-export default function PaymentHistoryTab({
-  tenantId,
-}: PaymentHistoryTabProps) {
-  const [loading, setLoading] =
-    useState(true);
+const statusLabel: Record<string, string> = {
+  paid: "Paid",
+  late: "Late",
+  pending: "Pending",
+};
 
-  const [paymentData, setPaymentData] =
-    useState<any>(null);
+const statusClasses: Record<string, string> = {
+  paid: "bg-success-soft text-success",
+  late: "bg-warning-soft text-warning",
+  pending: "bg-danger-soft text-danger",
+};
 
-  const [error, setError] = useState<
-    string | null
-  >(null);
-
-  const [showAllMonths, setShowAllMonths] =
-    useState(false);
+export default function PaymentHistoryTab({ tenantId }: Props) {
+  const [loading, setLoading] = useState(true);
+  const [paymentData, setPaymentData] = useState<PaymentHistoryData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showAllMonths, setShowAllMonths] = useState(false);
 
   useEffect(() => {
-    if (tenantId) {
-      loadPaymentHistory();
-    }
+    if (tenantId) loadPaymentHistory();
   }, [tenantId]);
 
-  const loadPaymentHistory = async () => {
+  async function loadPaymentHistory() {
     try {
       setLoading(true);
-
       setError(null);
 
-      const data =
-        await paymentHistory.getTenantPaymentHistory(
-          tenantId
-        );
-
+      const data = await paymentHistory.getTenantPaymentHistory(tenantId);
       setPaymentData(data);
     } catch (err) {
-      console.error(
-        "Error loading payment history:",
-        err
-      );
-
-      setError(
-        "Unable to load payment history. Please try again."
-      );
+      console.error("Error loading payment history:", err);
+      setError("Unable to load payment history. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   if (loading) {
     return (
-      <Box className={styles.loadingContainer}>
-        <CircularProgress size={40} />
-
-        <Typography className={styles.loadingText}>
-          Loading payment history...
-        </Typography>
-      </Box>
+      <div className="flex flex-col gap-4 px-5 py-4">
+        <div className="grid grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-16" />
+        ))}
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Box className={styles.errorContainer}>
-        <Typography
-          color="error"
-          className={styles.errorText}
-        >
-          {error}
-        </Typography>
-
-        <Button
-          onClick={loadPaymentHistory}
-          variant="outlined"
-          size="small"
-        >
-          Retry
-        </Button>
-      </Box>
+      <div className="px-5 py-4">
+        <EmptyState
+          title="Couldn't load payment history"
+          description={error}
+          action={
+            <Button variant="outline" onClick={loadPaymentHistory} className="mt-2">
+              Retry
+            </Button>
+          }
+        />
+      </div>
     );
   }
 
-  if (
-    !paymentData ||
-    paymentData.monthlyBreakdown.length === 0
-  ) {
+  if (!paymentData || paymentData.monthlyBreakdown.length === 0) {
     return (
-      <Box className={styles.emptyState}>
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          align="center"
-        >
-          No payment history available
-        </Typography>
-      </Box>
+      <div className="px-5 py-4">
+        <EmptyState title="No payment history available" />
+      </div>
     );
   }
 
-  const { summary, monthlyBreakdown } =
-    paymentData;
-
-  const visibleMonths = showAllMonths
-    ? monthlyBreakdown
-    : monthlyBreakdown.slice(0, 6);
-
-  const { onTimePercentage } = summary;
+  const { summary, monthlyBreakdown } = paymentData;
+  const visibleMonths = showAllMonths ? monthlyBreakdown : monthlyBreakdown.slice(0, 6);
 
   return (
-    <Box className={styles.container}>
-      <Alert
-        severity="info"
-        className={styles.infoBanner}
-      >
-        <Typography variant="body2">
-          📊 Showing payment records from
-          December 2023 onwards
-        </Typography>
-      </Alert>
+    <div className="flex flex-col gap-5 px-5 py-4">
+      <div className="flex items-start gap-2 rounded-lg bg-accent-soft px-3 py-2.5 text-sm text-accent">
+        <Info className="h-4 w-4 shrink-0 translate-y-0.5" />
+        <span>Showing payment records from December 2023 onwards</span>
+      </div>
 
-      {/* SUMMARY */}
-      <Box className={styles.summaryGrid}>
-        <Box className={styles.summaryCard}>
-          <Typography
-            className={styles.summaryTitle}
-          >
-            Total Paid
-          </Typography>
+      <div className="grid grid-cols-3 gap-3">
+        <StatTile
+          label="Total Paid"
+          value={formatCurrency(summary.totalPaid)}
+          tone="success"
+        />
+        <StatTile
+          label="Pending"
+          value={formatCurrency(summary.totalPending)}
+          tone="danger"
+        />
+        <StatTile
+          label="On-Time"
+          value={`${summary.onTimePercentage}%`}
+          helper={`${summary.onTimeCount} on-time · ${summary.latePaymentCount} late`}
+        />
+      </div>
 
-          <Typography
-            className={`${styles.summaryValue} ${styles.summarySuccess}`}
-          >
-            {formatCurrency(summary.totalPaid)}
-          </Typography>
+      <div>
+        <h3 className="mb-3 font-display text-lg font-semibold text-foreground">
+          Monthly Payment History
+        </h3>
 
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            All successful payments
-          </Typography>
-        </Box>
+        <div className="flex flex-col gap-2">
+          {visibleMonths.map((month) => (
+            <div
+              key={month.month}
+              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3"
+            >
+              <div>
+                <p className="font-medium text-foreground">{formatMonthYear(month.month)}</p>
+                {month.paid_on && (month.status === "paid" || month.status === "late") ? (
+                  <p className="text-xs text-muted">
+                    Paid on {formatFullDate(month.paid_on)}
+                    {month.status === "late" && " (late)"}
+                  </p>
+                ) : month.status === "pending" ? (
+                  <p className="text-xs text-danger">Payment pending</p>
+                ) : null}
+              </div>
 
-        <Box className={styles.summaryCard}>
-          <Typography
-            className={styles.summaryTitle}
-          >
-            Pending Amount
-          </Typography>
-
-          <Typography
-            className={`${styles.summaryValue} ${styles.summaryWarning}`}
-          >
-            {formatCurrency(summary.totalPending)}
-          </Typography>
-
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Outstanding balance
-          </Typography>
-        </Box>
-
-        <Box className={styles.summaryCard}>
-          <Typography
-            className={styles.summaryTitle}
-          >
-            On-Time Rate
-          </Typography>
-
-          <Typography
-            className={`${styles.summaryValue} ${styles.summaryPrimary}`}
-          >
-            {onTimePercentage}%
-          </Typography>
-
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            {
-              summary.onTimeCount
-            } on-time •{" "}
-            {
-              summary.latePaymentCount
-            } late
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* MONTHLY HISTORY */}
-      <Typography
-        variant="h6"
-        className={styles.sectionTitle}
-      >
-        Monthly Payment History
-      </Typography>
-
-      <Divider className={styles.divider} />
-
-      <Box className={styles.monthlyList}>
-        {visibleMonths.map(
-          (month: any) => {
-            const isPaid =
-              month.status === "paid";
-
-            const isLate =
-              month.status === "late";
-
-            const isPending =
-              month.status ===
-              "pending";
-
-            return (
-              <Box
-                key={month.month}
-                className={
-                  styles.monthlyItem
-                }
-              >
-                <Box
-                  className={
-                    styles.monthlyHeader
-                  }
-                >
-                  <Typography
-                    className={
-                      styles.monthName
-                    }
-                  >
-                    {formatMonthYear(
-                      month.month
-                    )}
-                  </Typography>
-
-                  <Chip
-                    label={
-                      isPaid
-                        ? "Paid"
-                        : isLate
-                        ? "Late"
-                        : "Pending"
-                    }
-                    color={
-                      isPaid
-                        ? "success"
-                        : isLate
-                        ? "warning"
-                        : "error"
-                    }
-                    size="small"
-                    className={
-                      styles.monthlyStatus
-                    }
-                  />
-                </Box>
-
-                <Typography
-                  className={
-                    styles.monthlyAmount
-                  }
-                >
-                  {formatCurrency(
-                    month.amount
+              <div className="flex flex-col items-end gap-1">
+                <span className="font-semibold text-foreground">
+                  {formatCurrency(month.amount)}
+                </span>
+                <span
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    statusClasses[month.status]
                   )}
-                </Typography>
-
-                {(isPaid ||
-                  isLate) &&
-                  month.paid_on && (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      className={
-                        styles.paidDate
-                      }
-                    >
-                      Paid on:{" "}
-                      {formatFullDate(
-                        month.paid_on
-                      )}
-
-                      {isLate &&
-                        " (Late payment)"}
-                    </Typography>
-                  )}
-
-                {isPending && (
-                  <Typography
-                    variant="caption"
-                    color="warning.main"
-                    className={
-                      styles.paidDate
-                    }
-                  >
-                    Payment pending
-                  </Typography>
-                )}
-              </Box>
-            );
-          }
-        )}
-      </Box>
+                >
+                  {statusLabel[month.status]}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {monthlyBreakdown.length > 6 && (
-        <Box
-          className={
-            styles.showMoreContainer
-          }
-        >
-          <Button
-            onClick={() =>
-              setShowAllMonths(
-                !showAllMonths
-              )
-            }
-            variant="text"
-            size="small"
-            className={
-              styles.showMoreButton
-            }
-          >
-            {showAllMonths
-              ? "Show Less ↑"
-              : `Show More (${
-                  monthlyBreakdown.length -
-                  6
-                } more months) ↓`}
-          </Button>
-        </Box>
+        <Button variant="ghost" onClick={() => setShowAllMonths(!showAllMonths)}>
+          {showAllMonths
+            ? "Show Less ↑"
+            : `Show More (${monthlyBreakdown.length - 6} more months) ↓`}
+        </Button>
       )}
-    </Box>
+    </div>
   );
 }
 
-function formatMonthYear(
-  monthStr: string
-): string {
-  const [year, month] =
-    monthStr.split("-");
-
-  const date = new Date(
-    Number(year),
-    Number(month) - 1,
-    1
-  );
-
-  return date.toLocaleDateString(
-    "en-US",
-    {
-      month: "long",
-      year: "numeric",
-    }
-  );
+function formatMonthYear(monthStr: string): string {
+  const [year, month] = monthStr.split("-");
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
