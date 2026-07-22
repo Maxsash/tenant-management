@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Shrivastava Hub — Tenant Manager
 
-## Getting Started
+Private family app for rent/tenant tracking and household expense tracking.
+No auth — access control is "don't expose this publicly."
 
-First, run the development server:
+For architecture, domain concepts, and coding conventions (the stuff an
+agent — or future you — needs before changing code), see [AGENTS.md](./AGENTS.md).
+This README is the human quick-reference: how to actually get it running.
+
+## Prerequisites
+
+- Node.js
+- **pnpm** — the only package manager used here. `package-lock.json` at the
+  root is a stale leftover from `create-next-app`; ignore it.
+
+## Running the app
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Running the WhatsApp worker
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Rent-reminder broadcasts and monthly greetings go out through a **separate**
+service that isn't started by `pnpm dev` — you have to run it yourself:
 
-## Learn More
+```bash
+cd whatsapp-worker
+node index.js
+```
 
-To learn more about Next.js, take a look at the following resources:
+It listens on `http://localhost:4005`. First time you start it (or after
+clearing `whatsapp-worker/.wwebjs_auth`), it prints a **QR code to the
+terminal** — scan it from WhatsApp on your phone (Linked Devices) to
+authenticate. After that the session persists across restarts.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+If you don't run this, the "Broadcast" and "Monthly greeting" buttons in the
+tenant dashboard will fail with a 500 (the Next.js API can't reach
+`localhost:4005`) — that's expected, not a bug.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The Chrome executable path is hardcoded in `whatsapp-worker/index.js`
+(`CHROME_PATH`, currently pointing at a specific `puppeteer`-managed Chrome
+for Testing build). If Puppeteer's cached Chrome build changes version, update
+that path.
 
-## Deploy on Vercel
+## Environment variables
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Copy/create `.env.local` at the repo root. Keys currently in use:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Variable | Purpose |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase client (`lib/supabase.ts`). Required for every DB call — the app throws at startup without these. |
+| `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/publishable keys (not currently used server-side, kept for reference/future use). |
+| `NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS` | Set to `"true"` to show write-action buttons (mark rent paid, add/edit/delete expense, broadcast). Client-side gate only — see AGENTS.md. |
+| `WHATSAPP_WORKER_URL` | Overrides the default `http://localhost:4005` for the WhatsApp worker. Only needed if the worker runs elsewhere. |
+| `WA_TOKEN`, `NEXT_PUBLIC_API_SECRET`, `API_SECRET` | Present in `.env.local` but not currently wired into any route — legacy/reserved. |
+| `GOOGLE_SHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` | Leftover from the pre-Supabase Google Sheets era. No longer read by the app. |
+| `POSTGRES_*` | Auto-populated by the Supabase/Vercel integration; not read directly (the app talks to Supabase via its JS client, not raw Postgres). |
+
+## Database setup
+
+Tenant/payment tables were migrated from Google Sheets and already exist in
+Supabase. The expense-tracking tables are separate and need a one-time setup:
+
+```bash
+# Run scripts/expense-schema.sql once in the Supabase SQL editor
+```
+
+This creates `expense_categories`, `expense_items`, `expenses`, and seeds a
+starter set of categories/items. Safe to re-run (uses `if not exists` /
+`on conflict do nothing`).
+
+## Testing
+
+Backend-only test suite (Vitest) — see AGENTS.md for why there are no
+frontend tests and what the ~15 intentionally-failing `[KNOWN BUG]` tests are.
+
+```bash
+pnpm test            # run once
+pnpm test:watch       # watch mode
+pnpm test:coverage    # with coverage report
+```
+
+## Other scripts
+
+```bash
+pnpm build    # production build
+pnpm start    # run a production build
+pnpm lint     # eslint
+```
