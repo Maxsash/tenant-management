@@ -2,20 +2,26 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 import Tabs, { TabsContent } from "@/components/ui/Tabs";
 import PageContainer from "@/components/ui/PageContainer";
+import PageLoader from "@/components/ui/PageLoader";
+import PinPromptDialog from "@/components/ui/PinPromptDialog";
 import ManageItemsTab from "./ManageItemsTab";
 import ManageCategoriesTab from "./ManageCategoriesTab";
+import { useAdminUnlock } from "@/hooks/useAdminUnlock";
+import { getAdminSessionStatus } from "@/services/adminSession";
 import type { ExpenseCategory } from "@/types/expense";
-import { isAdminActionsEnabled } from "@/lib/config";
-
-const ENABLE_ADMIN_ACTIONS = isAdminActionsEnabled();
 
 export default function ExpenseSettings() {
   const [activeTab, setActiveTab] = useState("items");
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [unlocked, setUnlocked] = useState<boolean | null>(null);
+
+  const { promptForUnlock, pinDialogProps } = useAdminUnlock();
 
   function fetchCategories() {
     fetch("/api/expense-categories?all=true")
@@ -28,10 +34,29 @@ export default function ExpenseSettings() {
     fetchCategories();
   }, []);
 
-  if (!ENABLE_ADMIN_ACTIONS) {
+  useEffect(() => {
+    getAdminSessionStatus().then(setUnlocked);
+  }, []);
+
+  async function handleUnlock() {
+    if (await promptForUnlock()) setUnlocked(true);
+  }
+
+  if (unlocked === null) {
+    return <PageLoader />;
+  }
+
+  if (!unlocked) {
     return (
-      <PageContainer>
-        <p className="text-muted">This page is not available.</p>
+      <PageContainer className="min-h-[70vh] items-center justify-center gap-4 text-center">
+        <Card className="flex flex-col items-center gap-3 p-6">
+          <Lock className="h-5 w-5 text-muted" />
+          <p className="text-sm text-muted">Enter the PIN to manage items &amp; categories.</p>
+          <Button variant="outline" onClick={handleUnlock}>
+            Unlock
+          </Button>
+        </Card>
+        <PinPromptDialog {...pinDialogProps} />
       </PageContainer>
     );
   }

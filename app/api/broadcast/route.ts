@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { calculateRent } from "@/lib/rent";
 import { getActiveTenants } from "@/lib/tenant";
 import { evaluatePaymentStatus } from "@/lib/payment-status";
+import { hasAdminSession } from "@/lib/admin-auth";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
 
@@ -15,6 +16,10 @@ type BroadcastResult = {
 };
 
 export async function POST(req: Request) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   try {
     // `month` from the client is the rent month being checked (matches
     // the dashboard's month selector), not the payment month.

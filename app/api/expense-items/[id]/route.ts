@@ -3,12 +3,17 @@ import {
   isExpenseItemInUse,
   updateExpenseItem,
 } from "@/lib/db";
+import { hasAdminSession } from "@/lib/admin-auth";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   const { id } = await params;
   const { name, category, default_unit, active } = await req.json();
 
@@ -33,6 +38,10 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   const { id } = await params;
 
   const inUse = await isExpenseItemInUse(id);

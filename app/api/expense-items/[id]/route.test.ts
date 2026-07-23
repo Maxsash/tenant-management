@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeExpenseItem } from "@/test/fixtures/expenses";
+import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-auth";
 
 vi.mock("@/lib/db", () => ({
   deleteExpenseItem: vi.fn(),
@@ -10,27 +11,56 @@ vi.mock("@/lib/db", () => ({
 import { deleteExpenseItem, isExpenseItemInUse, updateExpenseItem } from "@/lib/db";
 import { DELETE, PATCH } from "./route";
 
-function callPatch(body: unknown) {
+const ORIGINAL_PIN = process.env.ADMIN_PIN;
+
+function authedHeaders() {
+  return { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` };
+}
+
+function callPatch(body: unknown, { authed = true }: { authed?: boolean } = {}) {
   return PATCH(
     new Request("http://localhost/api/expense-items/i1", {
       method: "PATCH",
       body: JSON.stringify(body),
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(authed ? authedHeaders() : {}) },
     }),
     { params: Promise.resolve({ id: "i1" }) }
   );
 }
 
-function callDelete() {
-  return DELETE(new Request("http://localhost/api/expense-items/i1", { method: "DELETE" }), {
-    params: Promise.resolve({ id: "i1" }),
-  });
+function callDelete({ authed = true }: { authed?: boolean } = {}) {
+  return DELETE(
+    new Request("http://localhost/api/expense-items/i1", {
+      method: "DELETE",
+      headers: authed ? authedHeaders() : undefined,
+    }),
+    { params: Promise.resolve({ id: "i1" }) }
+  );
 }
 
 beforeEach(() => {
+  process.env.ADMIN_PIN = "1234";
   vi.mocked(updateExpenseItem).mockReset();
   vi.mocked(isExpenseItemInUse).mockReset();
   vi.mocked(deleteExpenseItem).mockReset();
+});
+
+afterEach(() => {
+  process.env.ADMIN_PIN = ORIGINAL_PIN;
+});
+
+describe("admin session guard", () => {
+  it("returns 401 for PATCH without a valid session", async () => {
+    const res = await callPatch({ active: false }, { authed: false });
+    expect(res.status).toBe(401);
+    expect(updateExpenseItem).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 for DELETE without a valid session", async () => {
+    const res = await callDelete({ authed: false });
+    expect(res.status).toBe(401);
+    expect(deleteExpenseItem).not.toHaveBeenCalled();
+  });
 });
 
 describe("PATCH /api/expense-items/[id]", () => {

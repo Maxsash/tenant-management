@@ -20,6 +20,7 @@ import type { TenantDashboardItem } from "@/types/tenant";
 type DashboardData = {
   rent_month: string;
   tenants: TenantDashboardItem[];
+  adminUnlocked: boolean;
 };
 
 type Props = {
@@ -29,6 +30,7 @@ type Props = {
   loading: boolean;
   onTenantClick: (tenant: TenantDashboardItem) => void;
   onRefetch: () => void;
+  promptForUnlock: () => Promise<boolean>;
 };
 
 export default function Dashboard({
@@ -38,6 +40,7 @@ export default function Dashboard({
   loading,
   onTenantClick,
   onRefetch,
+  promptForUnlock,
 }: Props) {
   const paid = data?.tenants.filter((t) => t.paid) ?? [];
   const unpaid = data?.tenants.filter((t) => !t.paid) ?? [];
@@ -56,7 +59,13 @@ export default function Dashboard({
     ref.current?.scrollIntoView({ behavior: "smooth" });
   }
 
+  async function ensureUnlocked() {
+    return data?.adminUnlocked || (await promptForUnlock());
+  }
+
   async function handleBroadcast() {
+    if (!(await ensureUnlocked())) return;
+
     setSendingBroadcast(true);
 
     try {
@@ -87,6 +96,8 @@ export default function Dashboard({
   }
 
   async function handleMonthlyGreeting() {
+    if (!(await ensureUnlocked())) return;
+
     setSendingGreeting(true);
 
     try {
@@ -100,6 +111,8 @@ export default function Dashboard({
   }
 
   async function handleMarkPaid(tenant: TenantDashboardItem) {
+    if (!(await ensureUnlocked())) return;
+
     setMarkingPaidId(tenant.id);
 
     try {

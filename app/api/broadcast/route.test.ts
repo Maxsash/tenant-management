@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTenant } from "@/test/fixtures/tenants";
 import { makePayment } from "@/test/fixtures/payments";
+import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-auth";
 
 vi.mock("@/lib/db", () => ({
   getTenants: vi.fn(),
@@ -10,11 +11,16 @@ vi.mock("@/lib/db", () => ({
 import { getPayments, getTenants } from "@/lib/db";
 import { POST } from "./route";
 
-function makeRequest(body: unknown) {
+const ORIGINAL_PIN = process.env.ADMIN_PIN;
+
+function makeRequest(body: unknown, { authed = true }: { authed?: boolean } = {}) {
   return new Request("http://localhost/api/broadcast", {
     method: "POST",
     body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` } : {}),
+    },
   });
 }
 
@@ -23,6 +29,7 @@ function jsonResponse(body: unknown, init?: ResponseInit) {
 }
 
 beforeEach(() => {
+  process.env.ADMIN_PIN = "1234";
   vi.mocked(getTenants).mockReset();
   vi.mocked(getPayments).mockReset();
   vi.stubGlobal("fetch", vi.fn());
@@ -30,6 +37,17 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  process.env.ADMIN_PIN = ORIGINAL_PIN;
+});
+
+describe("admin session guard", () => {
+  it("returns 401 and never reaches the WhatsApp worker without a valid session", async () => {
+    const res = await POST(makeRequest({ month: "2026-06" }, { authed: false }));
+
+    expect(res.status).toBe(401);
+    expect(getTenants).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/broadcast", () => {

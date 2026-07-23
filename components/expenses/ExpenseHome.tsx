@@ -5,16 +5,15 @@ import { useCallback, useEffect, useState } from "react";
 import ExpenseDashboard from "./ExpenseDashboard";
 import ExpenseFormDialog from "./ExpenseFormDialog";
 import PageLoader from "@/components/ui/PageLoader";
+import PinPromptDialog from "@/components/ui/PinPromptDialog";
+import { useAdminUnlock } from "@/hooks/useAdminUnlock";
 import type {
   Expense,
   ExpenseCategory,
   ExpenseItem,
   ExpenseMonthData,
 } from "@/types/expense";
-import { isAdminActionsEnabled } from "@/lib/config";
 import { currentMonth } from "@/lib/date";
-
-const ENABLE_ADMIN_ACTIONS = isAdminActionsEnabled();
 
 export default function ExpenseHome() {
   const [month, setMonth] = useState(currentMonth);
@@ -24,6 +23,8 @@ export default function ExpenseHome() {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+  const { promptForUnlock, pinDialogProps } = useAdminUnlock();
 
   const fetchExpenses = useCallback(() => {
     // Deferred to a microtask so calling this from the mount/dependency
@@ -75,6 +76,10 @@ export default function ExpenseHome() {
     setFormOpen(true);
   }
 
+  async function handleRequestUnlock() {
+    if (await promptForUnlock()) fetchExpenses();
+  }
+
   if (loading && !data) {
     return <PageLoader />;
   }
@@ -86,10 +91,10 @@ export default function ExpenseHome() {
         month={month}
         onMonthChange={setMonth}
         loading={loading}
-        adminEnabled={ENABLE_ADMIN_ACTIONS}
         categories={categories}
         onAdd={openAdd}
         onEditEntry={openEdit}
+        onRequestUnlock={handleRequestUnlock}
       />
       <ExpenseFormDialog
         open={formOpen}
@@ -99,6 +104,7 @@ export default function ExpenseHome() {
         categories={categories}
         editingExpense={editingExpense}
       />
+      <PinPromptDialog {...pinDialogProps} />
     </>
   );
 }

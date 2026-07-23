@@ -4,7 +4,6 @@ import { CheckCircle2, Clock3 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { formatShortDate } from "@/utils/date";
-import { isAdminActionsEnabled } from "@/lib/config";
 import { cn } from "@/utils/cn";
 import type { TenantDashboardItem } from "@/types/tenant";
 
@@ -17,7 +16,6 @@ type Props = {
 
 export default function TenantCard({ tenant, onClick, onMarkPaid, markingPaid }: Props) {
   const isPaid = tenant.paid;
-  const adminEnabled = isAdminActionsEnabled();
 
   return (
     <Card
@@ -53,12 +51,12 @@ export default function TenantCard({ tenant, onClick, onMarkPaid, markingPaid }:
                   Rent pending
                 </span>
 
-                {adminEnabled && (
+                {onMarkPaid && (
                   <Button
                     loading={markingPaid}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onMarkPaid?.();
+                      onMarkPaid();
                     }}
                   >
                     Mark as Paid

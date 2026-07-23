@@ -1,7 +1,9 @@
 export interface Tenant {
   id: string;
   name: string;
-  phone: string;
+  // Omitted from /api/dashboard responses unless the caller has a valid
+  // admin session — see app/api/dashboard/route.ts.
+  phone?: string;
   property_type: string;
   tenant_since?: string;
   vacated_on?: string;

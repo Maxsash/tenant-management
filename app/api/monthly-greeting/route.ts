@@ -2,12 +2,17 @@ import { getTenants } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { calculateRent } from "@/lib/rent";
 import { getActiveTenants } from "@/lib/tenant";
+import { hasAdminSession } from "@/lib/admin-auth";
 import { Tenant } from "@/types/tenant";
 
 const WHATSAPP_WORKER_URL =
   process.env.WHATSAPP_WORKER_URL || "http://localhost:4005";
 
 export async function POST(req: Request) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   try {
     // `month` from the client is the rent month being checked (matches
     // the dashboard's month selector), not the payment month.

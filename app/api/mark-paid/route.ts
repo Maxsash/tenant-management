@@ -1,10 +1,15 @@
 import { getPayments, insertPayment } from "@/lib/db";
 import { getPaymentMonth } from "@/lib/rent";
 import { currentDate } from "@/lib/date";
+import { hasAdminSession } from "@/lib/admin-auth";
 import type { Payment } from "@/types/payment";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   try {
     // `month` from the client is the rent month being marked paid (matches
     // the dashboard's month selector). The payments table stores the

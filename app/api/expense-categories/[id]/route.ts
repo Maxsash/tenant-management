@@ -4,6 +4,7 @@ import {
   isExpenseCategoryInUse,
   updateExpenseCategory,
 } from "@/lib/db";
+import { hasAdminSession } from "@/lib/admin-auth";
 import type { ExpenseCategory } from "@/types/expense";
 import { NextResponse } from "next/server";
 
@@ -11,6 +12,10 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   const { id } = await params;
   const { name, icon, sort_order, active } = await req.json();
 
@@ -35,6 +40,10 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   const { id } = await params;
 
   const category = await getExpenseCategoryById<ExpenseCategory>(id);

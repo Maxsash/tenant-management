@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeExpense, makeExpenseItem } from "@/test/fixtures/expenses";
+import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-auth";
 
 vi.mock("@/lib/db", () => ({
   deleteExpense: vi.fn(),
@@ -10,26 +11,56 @@ vi.mock("@/lib/db", () => ({
 import { deleteExpense, getExpenseItems, updateExpense } from "@/lib/db";
 import { DELETE, PATCH } from "./route";
 
-function makeRequest(method: string, body?: unknown) {
+const ORIGINAL_PIN = process.env.ADMIN_PIN;
+
+function makeRequest(
+  method: string,
+  body?: unknown,
+  { authed = true }: { authed?: boolean } = {}
+) {
   return new Request("http://localhost/api/expenses/e1", {
     method,
     body: body !== undefined ? JSON.stringify(body) : undefined,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` } : {}),
+    },
   });
 }
 
-function callPatch(body: unknown) {
-  return PATCH(makeRequest("PATCH", body), { params: Promise.resolve({ id: "e1" }) });
+function callPatch(body: unknown, opts?: { authed?: boolean }) {
+  return PATCH(makeRequest("PATCH", body, opts), { params: Promise.resolve({ id: "e1" }) });
 }
 
-function callDelete() {
-  return DELETE(makeRequest("DELETE"), { params: Promise.resolve({ id: "e1" }) });
+function callDelete(opts?: { authed?: boolean }) {
+  return DELETE(makeRequest("DELETE", undefined, opts), {
+    params: Promise.resolve({ id: "e1" }),
+  });
 }
 
 beforeEach(() => {
+  process.env.ADMIN_PIN = "1234";
   vi.mocked(updateExpense).mockReset();
   vi.mocked(getExpenseItems).mockReset();
   vi.mocked(deleteExpense).mockReset();
+});
+
+afterEach(() => {
+  process.env.ADMIN_PIN = ORIGINAL_PIN;
+});
+
+describe("admin session guard", () => {
+  it("returns 401 for PATCH without a valid session", async () => {
+    const res = await callPatch({ notes: "x" }, { authed: false });
+    expect(res.status).toBe(401);
+    expect(updateExpense).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 for DELETE without a valid session", async () => {
+    const res = await callDelete({ authed: false });
+    expect(res.status).toBe(401);
+    expect(deleteExpense).not.toHaveBeenCalled();
+  });
 });
 
 describe("PATCH /api/expenses/[id]", () => {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeExpense, makeExpenseItem } from "@/test/fixtures/expenses";
+import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-auth";
 
 vi.mock("@/lib/db", () => ({
   getExpenses: vi.fn(),
@@ -10,6 +11,19 @@ vi.mock("@/lib/db", () => ({
 import { getExpenseItems, getExpenses, insertExpense } from "@/lib/db";
 import { GET, POST } from "./route";
 
+const ORIGINAL_PIN = process.env.ADMIN_PIN;
+
+function authedHeaders() {
+  return { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` };
+}
+
+function makeGetRequest(query = "", { authed = false }: { authed?: boolean } = {}) {
+  return new Request(`http://localhost/api/expenses${query}`, {
+    headers: authed ? authedHeaders() : undefined,
+  });
+}
+
+// POST (create) is intentionally open — no session cookie needed.
 function makeRequest(body: unknown) {
   return new Request("http://localhost/api/expenses", {
     method: "POST",
@@ -19,6 +33,7 @@ function makeRequest(body: unknown) {
 }
 
 beforeEach(() => {
+  process.env.ADMIN_PIN = "1234";
   vi.mocked(getExpenses).mockReset();
   vi.mocked(getExpenseItems).mockReset();
   vi.mocked(insertExpense).mockReset();
@@ -26,20 +41,22 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  process.env.ADMIN_PIN = ORIGINAL_PIN;
 });
 
 describe("GET /api/expenses", () => {
-  it("filters expenses by the month prefix of expense_date", async () => {
+  it("filters expenses by the month prefix of expense_date for an unlocked caller", async () => {
     vi.mocked(getExpenses).mockResolvedValue([
       makeExpense({ expense_date: "2026-07-01", amount: 100 }),
       makeExpense({ expense_date: "2026-06-15", amount: 999 }),
     ]);
 
-    const res = await GET(new Request("http://localhost/api/expenses?month=2026-07"));
+    const res = await GET(makeGetRequest("?month=2026-07", { authed: true }));
     const body = await res.json();
 
     expect(body.expenses).toHaveLength(1);
     expect(body.total).toBe(100);
+    expect(body.adminUnlocked).toBe(true);
   });
 
   it("defaults to the current month when no query param is given", async () => {
@@ -47,10 +64,24 @@ describe("GET /api/expenses", () => {
     vi.setSystemTime(new Date("2026-07-15T12:00:00Z"));
     vi.mocked(getExpenses).mockResolvedValue([]);
 
-    const res = await GET(new Request("http://localhost/api/expenses"));
+    const res = await GET(makeGetRequest("", { authed: true }));
     const body = await res.json();
 
     expect(body.month).toBe("2026-07");
+  });
+
+  it("omits linewise entries but keeps totals for a locked caller", async () => {
+    vi.mocked(getExpenses).mockResolvedValue([
+      makeExpense({ expense_date: "2026-07-01", amount: 100 }),
+      makeExpense({ expense_date: "2026-07-02", amount: 50 }),
+    ]);
+
+    const res = await GET(makeGetRequest("?month=2026-07"));
+    const body = await res.json();
+
+    expect(body.expenses).toEqual([]);
+    expect(body.adminUnlocked).toBe(false);
+    expect(body.total).toBe(150);
   });
 });
 

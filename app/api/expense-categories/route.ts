@@ -1,4 +1,5 @@
 import { getExpenseCategories, insertExpenseCategory } from "@/lib/db";
+import { hasAdminSession } from "@/lib/admin-auth";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -11,6 +12,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   const { name, icon, sort_order } = await req.json();
 
   if (!name?.trim()) {

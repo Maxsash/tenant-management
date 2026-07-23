@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTenant } from "@/test/fixtures/tenants";
+import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-auth";
 
 vi.mock("@/lib/db", () => ({
   getPayments: vi.fn(),
@@ -9,13 +10,19 @@ vi.mock("@/lib/db", () => ({
 import { getPayments, getTenants } from "@/lib/db";
 import { GET } from "./route";
 
-function callGet(id: string) {
-  return GET(new Request(`http://localhost/api/tenant-payments/${id}`), {
-    params: Promise.resolve({ id }),
-  });
+const ORIGINAL_PIN = process.env.ADMIN_PIN;
+
+function callGet(id: string, { authed = true }: { authed?: boolean } = {}) {
+  return GET(
+    new Request(`http://localhost/api/tenant-payments/${id}`, {
+      headers: authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` } : undefined,
+    }),
+    { params: Promise.resolve({ id }) }
+  );
 }
 
 beforeEach(() => {
+  process.env.ADMIN_PIN = "1234";
   vi.mocked(getPayments).mockReset();
   vi.mocked(getTenants).mockReset();
   vi.useFakeTimers();
@@ -24,6 +31,16 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  process.env.ADMIN_PIN = ORIGINAL_PIN;
+});
+
+describe("admin session guard", () => {
+  it("returns 401 without a valid session, without touching the DB", async () => {
+    const res = await callGet("t1", { authed: false });
+
+    expect(res.status).toBe(401);
+    expect(getTenants).not.toHaveBeenCalled();
+  });
 });
 
 describe("GET /api/tenant-payments/[id]", () => {

@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makePayment } from "@/test/fixtures/payments";
+import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-auth";
 
 vi.mock("@/lib/db", () => ({
   getPayments: vi.fn(),
@@ -9,17 +10,38 @@ vi.mock("@/lib/db", () => ({
 import { getPayments, insertPayment } from "@/lib/db";
 import { POST } from "./route";
 
-function makeRequest(body: unknown) {
+const ORIGINAL_PIN = process.env.ADMIN_PIN;
+
+function makeRequest(body: unknown, { authed = true }: { authed?: boolean } = {}) {
   return new Request("http://localhost/api/mark-paid", {
     method: "POST",
     body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` } : {}),
+    },
   });
 }
 
 beforeEach(() => {
+  process.env.ADMIN_PIN = "1234";
   vi.mocked(getPayments).mockReset();
   vi.mocked(insertPayment).mockReset();
+});
+
+afterEach(() => {
+  process.env.ADMIN_PIN = ORIGINAL_PIN;
+});
+
+describe("admin session guard", () => {
+  it("returns 401 and doesn't touch the DB when there's no valid session", async () => {
+    const res = await POST(
+      makeRequest({ tenant_id: "t1", month: "2026-06" }, { authed: false })
+    );
+
+    expect(res.status).toBe(401);
+    expect(insertPayment).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/mark-paid", () => {
@@ -75,7 +97,10 @@ describe("POST /api/mark-paid", () => {
       const badRequest = new Request("http://localhost/api/mark-paid", {
         method: "POST",
         body: "not valid json{{{",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}`,
+        },
       });
 
       const res = await POST(badRequest);

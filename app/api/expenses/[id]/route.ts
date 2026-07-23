@@ -1,5 +1,6 @@
 import { deleteExpense, getExpenseItems, updateExpense } from "@/lib/db";
 import { deriveExpenseFields, type ExpenseMode } from "@/lib/expenses";
+import { hasAdminSession } from "@/lib/admin-auth";
 import type { ExpenseItem } from "@/types/expense";
 import { NextResponse } from "next/server";
 
@@ -7,6 +8,10 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   const { id } = await params;
   const body = await req.json();
 
@@ -72,6 +77,10 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   const { id } = await params;
 
   await deleteExpense(id);

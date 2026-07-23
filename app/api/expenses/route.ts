@@ -2,25 +2,30 @@ import { getExpenseItems, getExpenses, insertExpense } from "@/lib/db";
 import { buildExpenseSummary } from "@/lib/expense-summary";
 import { deriveExpenseFields, type ExpenseMode } from "@/lib/expenses";
 import { currentMonth } from "@/lib/date";
+import { hasAdminSession } from "@/lib/admin-auth";
 import type { Expense, ExpenseItem } from "@/types/expense";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const month = searchParams.get("month") ?? currentMonth();
+  const adminUnlocked = hasAdminSession(req);
 
   const allExpenses = await getExpenses<Expense>();
   const expenses = allExpenses.filter((e) =>
     e.expense_date.startsWith(month)
   );
 
+  // Totals are aggregated over every expense regardless of lock state —
+  // only the linewise entries themselves are sensitive/gated.
   const { total, categoryTotals } = buildExpenseSummary(expenses);
 
   return NextResponse.json({
     month,
     total,
     categoryTotals,
-    expenses,
+    expenses: adminUnlocked ? expenses : [],
+    adminUnlocked,
   });
 }
 

@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeExpenseCategory } from "@/test/fixtures/expenses";
+import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-auth";
 
 vi.mock("@/lib/db", () => ({
   getExpenseCategories: vi.fn(),
@@ -9,17 +10,35 @@ vi.mock("@/lib/db", () => ({
 import { getExpenseCategories, insertExpenseCategory } from "@/lib/db";
 import { GET, POST } from "./route";
 
-function makeRequest(body: unknown) {
+const ORIGINAL_PIN = process.env.ADMIN_PIN;
+
+function makeRequest(body: unknown, { authed = true }: { authed?: boolean } = {}) {
   return new Request("http://localhost/api/expense-categories", {
     method: "POST",
     body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` } : {}),
+    },
   });
 }
 
 beforeEach(() => {
+  process.env.ADMIN_PIN = "1234";
   vi.mocked(getExpenseCategories).mockReset();
   vi.mocked(insertExpenseCategory).mockReset();
+});
+
+afterEach(() => {
+  process.env.ADMIN_PIN = ORIGINAL_PIN;
+});
+
+describe("admin session guard", () => {
+  it("returns 401 for POST without a valid session", async () => {
+    const res = await POST(makeRequest({ name: "Rent" }, { authed: false }));
+    expect(res.status).toBe(401);
+    expect(insertExpenseCategory).not.toHaveBeenCalled();
+  });
 });
 
 describe("GET /api/expense-categories", () => {

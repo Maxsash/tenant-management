@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, Settings } from "lucide-react";
+import { Lock, Plus, Settings } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -19,10 +19,10 @@ type Props = {
   month: string;
   onMonthChange: (month: string) => void;
   loading: boolean;
-  adminEnabled: boolean;
   categories: ExpenseCategory[];
   onAdd: () => void;
   onEditEntry: (expense: Expense) => void;
+  onRequestUnlock: () => void;
 };
 
 export default function ExpenseDashboard({
@@ -30,10 +30,10 @@ export default function ExpenseDashboard({
   month,
   onMonthChange,
   loading,
-  adminEnabled,
   categories,
   onAdd,
   onEditEntry,
+  onRequestUnlock,
 }: Props) {
   const total = data?.total ?? 0;
   const categoryTotals = data?.categoryTotals ?? [];
@@ -47,14 +47,12 @@ export default function ExpenseDashboard({
         <div className="flex items-center gap-3">
           <MonthPicker value={month} onChange={onMonthChange} className="flex-1 md:w-56" />
 
-          {adminEnabled && (
-            <Link
-              href="/expense/settings"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-accent"
-            >
-              <Settings className="h-5 w-5" />
-            </Link>
-          )}
+          <Link
+            href="/expense/settings"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-accent"
+          >
+            <Settings className="h-5 w-5" />
+          </Link>
         </div>
       </div>
 
@@ -99,7 +97,15 @@ export default function ExpenseDashboard({
           <div className="flex flex-col gap-3">
             <h2 className="font-display text-xl font-semibold text-foreground">Entries</h2>
 
-            {expenses.length === 0 ? (
+            {!data?.adminUnlocked ? (
+              <Card className="flex flex-col items-center gap-3 p-6 text-center">
+                <Lock className="h-5 w-5 text-muted" />
+                <p className="text-sm text-muted">Enter the PIN to view expense entries.</p>
+                <Button variant="outline" onClick={onRequestUnlock}>
+                  Unlock
+                </Button>
+              </Card>
+            ) : expenses.length === 0 ? (
               <EmptyState
                 title="No expenses yet"
                 description="Nothing logged for this month yet."
@@ -111,7 +117,7 @@ export default function ExpenseDashboard({
                     key={expense.id}
                     expense={expense}
                     categories={categories}
-                    onClick={adminEnabled ? () => onEditEntry(expense) : undefined}
+                    onClick={() => onEditEntry(expense)}
                   />
                 ))}
               </div>
@@ -120,16 +126,14 @@ export default function ExpenseDashboard({
         </>
       )}
 
-      {adminEnabled && (
-        <Button
-          size="lg"
-          onClick={onAdd}
-          aria-label="Add expense"
-          className="fixed right-5 bottom-28 z-30 w-14 !p-0 rounded-full shadow-float md:right-10 md:bottom-10"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
-      )}
+      <Button
+        size="lg"
+        onClick={onAdd}
+        aria-label="Add expense"
+        className="fixed right-5 bottom-28 z-30 w-14 !p-0 rounded-full shadow-float md:right-10 md:bottom-10"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </PageContainer>
   );
 }

@@ -4,11 +4,13 @@ import { NextResponse } from "next/server";
 import { getActiveTenants } from "@/lib/tenant";
 import { evaluatePaymentStatus } from "@/lib/payment-status";
 import { currentMonth } from "@/lib/date";
+import { hasAdminSession } from "@/lib/admin-auth";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
+  const adminUnlocked = hasAdminSession(req);
 
   // The month selector on the dashboard represents the rent month
   // being checked (e.g. "2026-07" = rent for July), not the month the
@@ -35,25 +37,35 @@ export async function GET(req: Request) {
 
     const amount = calculateRent(t, rentMonth);
 
+    // Personal info (phone, financial/lease details) is only included once
+    // the caller has a valid admin session — a stranger hitting this route
+    // directly should only ever see name/amount/paid-status.
+    const personalInfo = adminUnlocked
+      ? {
+          phone: t.phone,
+          tenant_since: t.tenant_since,
+          security_deposit: t.security_deposit,
+          bank: t.bank,
+          increase_month: t.increase_month,
+          increase_type: t.increase_type,
+          increase_by: t.increase_by,
+        }
+      : {};
+
     return {
       id: t.id,
       name: t.name,
-      phone: t.phone,
       property_type: t.property_type,
-      tenant_since: t.tenant_since,
-      security_deposit: t.security_deposit,
-      bank: t.bank,
-      increase_month: t.increase_month,
-      increase_type: t.increase_type,
-      increase_by: t.increase_by,
       amount,
       paid: paymentStatus.status !== "pending",
       paid_on: paymentStatus.paid_on,
+      ...personalInfo,
     };
   });
 
   return NextResponse.json({
     rent_month: rentMonth,
     tenants: result,
+    adminUnlocked,
   });
 }

@@ -3,6 +3,7 @@
 import { getPayments, getTenants } from "@/lib/db";
 import { calculateRent, getRentMonth } from "@/lib/rent";
 import { evaluatePaymentStatus, PaymentStatus } from "@/lib/payment-status";
+import { hasAdminSession } from "@/lib/admin-auth";
 import { NextResponse } from "next/server";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
@@ -37,6 +38,10 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!hasAdminSession(req)) {
+    return NextResponse.json({ error: "Locked" }, { status: 401 });
+  }
+
   try {
     const { id: tenantId } = await params;
 

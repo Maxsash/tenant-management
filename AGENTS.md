@@ -7,10 +7,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # Repo context for coding agents
 
 This is a **private single-family app** ("Shrivastava Hub") — no public users,
-no login/auth system anywhere. The people using it are the repo owner and a
-few relatives, including a non-technical grandmother. Keep that in mind before
-suggesting auth, rate-limiting, multi-tenancy, or other SaaS-shaped concerns —
-they're usually not warranted here unless explicitly requested.
+no accounts/login system anywhere. The people using it are the repo owner and
+a few relatives, including a non-technical grandmother. Keep that in mind
+before suggesting real auth, rate-limiting, multi-tenancy, or other
+SaaS-shaped concerns — they're usually not warranted here unless explicitly
+requested. There *is* one lightweight exception — a shared numeric PIN
+gating sensitive/write actions, enforced server-side — see "PIN-gated admin
+actions" below; it's intentionally not a real auth system (one shared
+secret, no accounts, no rate-limiting/lockout).
 
 ## What this app does
 
@@ -51,17 +55,51 @@ new field, or a conditional that decides *what counts as* something (active,
 paid, in-stock, etc.) inside a `components/**` file, that logic almost
 certainly belongs server-side instead.
 
-### No server-side authorization (intentional)
+### PIN-gated admin actions
 
-Write actions (mark rent paid, add/edit/delete expense, broadcast) are gated
-**only** by a client-side env flag, `NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS ===
-"true"`, checked via `lib/config.ts#isAdminActionsEnabled()`. This just
-hides/shows buttons in the UI. The API routes themselves
-(`app/api/mark-paid`, `app/api/expenses/*`, `app/api/expense-items/*`,
-`app/api/expense-categories/*`) have **no server-side auth check** — this is
-a known, accepted gap for a private family app, not an oversight. Mirror this
-pattern for new write-capable modules rather than introducing real auth
-unless asked.
+Two independent, unrelated gates exist — don't conflate them:
+
+- **`NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS === "true"`**
+  (`lib/config.ts#isAdminActionsEnabled()`) — a client-only env flag, scoped
+  **only** to the WhatsApp buttons (Send Monthly Greeting / Send Reminders in
+  `components/tenants/Dashboard.tsx`). Purely hides/shows those two buttons;
+  not used anywhere else. This is the only remaining "no server-side check,
+  UI-visibility-only" gate in the app, and it's intentional — the actual
+  security boundary for those two actions is the PIN below.
+- **`ADMIN_PIN`** (server-only env var, e.g. `1234`) — a shared numeric PIN
+  gating most other write/sensitive actions, enforced **server-side**, not
+  just in the UI. `lib/admin-auth.ts` has the primitives: `verifyPin`,
+  `createSessionToken`/`isValidSessionToken` (a signed, 30-day, HMAC token —
+  no new dependency, uses `node:crypto`), and `hasAdminSession(req)` (parses
+  the raw `Cookie` header — deliberately *not* `next/headers`'s `cookies()`,
+  since route tests call handlers directly with plain `new Request(...)`
+  outside any Next.js request context). `POST /api/admin-session` verifies
+  the PIN and sets an `HttpOnly` cookie; `GET /api/admin-session` reports
+  unlock status for pages with no other data fetch to piggyback on (see
+  `ExpenseSettings`). On the client, `hooks/useAdminUnlock.ts` +
+  `components/ui/PinPromptDialog.tsx` are the reusable prompt-and-unlock
+  flow — one `useAdminUnlock()` instance per top-level page.
+
+  Routes that hard-`401` via `hasAdminSession(req)` when locked: `POST
+  /api/mark-paid`, `PATCH`/`DELETE` on `/api/expenses/[id]` (not `POST` —
+  creating an expense stays open), `POST` on `/api/expense-items` and
+  `/api/expense-categories` (not their `GET`s — reading the catalog stays
+  open), `PATCH`/`DELETE` on their `/[id]` routes, `GET
+  /api/tenant-payments/[id]`, and `POST /api/broadcast` /
+  `POST /api/monthly-greeting` (yes, on top of the env flag above — closes
+  the "no server check" gap for WhatsApp sends too).
+
+  Routes that **data-shape** instead of hard-blocking (so a stranger hitting
+  them directly gets a degraded response, not necessarily an error): `GET
+  /api/dashboard` omits `phone`/`tenant_since`/`security_deposit`/`bank`/
+  `increase_*` unless unlocked, and `GET /api/expenses` returns `expenses:
+  []` (but real `total`/`categoryTotals`, aggregated over the full month
+  regardless of lock state) unless unlocked. Both include a top-level
+  `adminUnlocked: boolean` so the client knows which it got.
+
+  Mirror this pattern (check `hasAdminSession` in the route handler, or
+  shape the response like `dashboard`/`expenses` do) for new write-capable or
+  sensitive-read modules, rather than introducing real auth, unless asked.
 
 ## Directory map
 
@@ -102,7 +140,10 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   classification logic).
 - `lib/expense-summary.ts`, `lib/expense-categories.ts` — expense aggregation
   and category/item grouping helpers.
-- `lib/config.ts` — `isAdminActionsEnabled()`.
+- `lib/config.ts` — `isAdminActionsEnabled()`, scoped only to the WhatsApp
+  buttons (see "PIN-gated admin actions" below).
+- `lib/admin-auth.ts` — PIN/session primitives for the real server-side
+  admin gate (see "PIN-gated admin actions" below).
 - `lib/date.ts` — `currentMonth()`/`currentDate()`, single-sourced so routes
   and components agree on "today."
 
