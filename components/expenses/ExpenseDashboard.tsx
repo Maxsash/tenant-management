@@ -98,7 +98,7 @@ export default function ExpenseDashboard({
           <div className="flex flex-col gap-3">
             <h2 className="font-display text-xl font-semibold text-foreground">Entries</h2>
 
-            {!data?.adminUnlocked ? (
+            {!data?.unlocked ? (
               <Card className="flex flex-col items-center gap-3 p-6 text-center">
                 <Lock className="h-5 w-5 text-muted" />
                 <p className="text-sm text-muted">Enter the PIN to view expense entries.</p>

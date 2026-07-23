@@ -14,6 +14,7 @@ import { PAYMENT_METHODS } from "@/lib/expense-categories";
 import { currentDate } from "@/lib/date";
 import { cn } from "@/utils/cn";
 import type { Expense, ExpenseCategory, ExpenseItem } from "@/types/expense";
+import type { AdminLevel } from "@/types/admin";
 
 type Mode = "pick" | "custom" | "lump";
 
@@ -24,6 +25,7 @@ type Props = {
   items: ExpenseItem[];
   categories: ExpenseCategory[];
   editingExpense?: Expense | null;
+  promptForUnlock: (level: AdminLevel) => Promise<boolean>;
 };
 
 const inputClass =
@@ -38,6 +40,7 @@ export default function ExpenseFormDialog({
   items,
   categories,
   editingExpense,
+  promptForUnlock,
 }: Props) {
   const [expenseDate, setExpenseDate] = useState(currentDate());
   const [mode, setMode] = useState<Mode>("pick");
@@ -169,6 +172,11 @@ export default function ExpenseFormDialog({
       return;
     }
 
+    // Creating a new expense stays open to everyone; correcting an
+    // existing one needs the admin PIN (the route itself also enforces
+    // this — this just avoids a doomed round-trip and a confusing 401).
+    if (editingExpense && !(await promptForUnlock("admin"))) return;
+
     const payload = {
       expense_date: expenseDate,
       mode,
@@ -211,6 +219,7 @@ export default function ExpenseFormDialog({
 
   async function handleDelete() {
     if (!editingExpense) return;
+    if (!(await promptForUnlock("admin"))) return;
 
     setDeleting(true);
 

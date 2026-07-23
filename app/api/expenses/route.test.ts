@@ -13,13 +13,16 @@ import { GET, POST } from "./route";
 
 const ORIGINAL_PIN = process.env.ADMIN_PIN;
 
-function authedHeaders() {
-  return { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` };
+function authedHeaders(level: "user" | "admin" = "user") {
+  return { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken(level)}` };
 }
 
-function makeGetRequest(query = "", { authed = false }: { authed?: boolean } = {}) {
+function makeGetRequest(
+  query = "",
+  { authed = false, level = "user" as "user" | "admin" }: { authed?: boolean; level?: "user" | "admin" } = {}
+) {
   return new Request(`http://localhost/api/expenses${query}`, {
-    headers: authed ? authedHeaders() : undefined,
+    headers: authed ? authedHeaders(level) : undefined,
   });
 }
 
@@ -56,7 +59,7 @@ describe("GET /api/expenses", () => {
 
     expect(body.expenses).toHaveLength(1);
     expect(body.total).toBe(100);
-    expect(body.adminUnlocked).toBe(true);
+    expect(body.unlocked).toBe(true);
   });
 
   it("defaults to the current month when no query param is given", async () => {
@@ -80,8 +83,20 @@ describe("GET /api/expenses", () => {
     const body = await res.json();
 
     expect(body.expenses).toEqual([]);
-    expect(body.adminUnlocked).toBe(false);
+    expect(body.unlocked).toBe(false);
     expect(body.total).toBe(150);
+  });
+
+  it("an admin-level session also unlocks linewise entries (hierarchical)", async () => {
+    vi.mocked(getExpenses).mockResolvedValue([
+      makeExpense({ expense_date: "2026-07-01", amount: 100 }),
+    ]);
+
+    const res = await GET(makeGetRequest("?month=2026-07", { authed: true, level: "admin" }));
+    const body = await res.json();
+
+    expect(body.unlocked).toBe(true);
+    expect(body.expenses).toHaveLength(1);
   });
 });
 

@@ -35,11 +35,11 @@ export default function ExpenseSettings() {
   }, []);
 
   useEffect(() => {
-    getAdminSessionStatus().then(setUnlocked);
+    getAdminSessionStatus().then((level) => setUnlocked(level === "admin"));
   }, []);
 
   async function handleUnlock() {
-    if (await promptForUnlock()) setUnlocked(true);
+    if (await promptForUnlock("admin")) setUnlocked(true);
   }
 
   if (unlocked === null) {

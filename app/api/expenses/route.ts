@@ -2,14 +2,14 @@ import { getExpenseItems, getExpenses, insertExpense } from "@/lib/db";
 import { buildExpenseSummary } from "@/lib/expense-summary";
 import { deriveExpenseFields, type ExpenseMode } from "@/lib/expenses";
 import { currentMonth } from "@/lib/date";
-import { hasAdminSession } from "@/lib/admin-auth";
+import { hasUserSession } from "@/lib/admin-auth";
 import type { Expense, ExpenseItem } from "@/types/expense";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const month = searchParams.get("month") ?? currentMonth();
-  const adminUnlocked = hasAdminSession(req);
+  const unlocked = hasUserSession(req);
 
   const allExpenses = await getExpenses<Expense>();
   const expenses = allExpenses.filter((e) =>
@@ -24,8 +24,8 @@ export async function GET(req: Request) {
     month,
     total,
     categoryTotals,
-    expenses: adminUnlocked ? expenses : [],
-    adminUnlocked,
+    expenses: unlocked ? expenses : [],
+    unlocked,
   });
 }
 

@@ -1,16 +1,27 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { unlockAdminSession } from "@/services/adminSession";
+import { getAdminSessionStatus, unlockAdminSession } from "@/services/adminSession";
+import type { AdminLevel } from "@/types/admin";
+
+// Hierarchical: an admin-level session satisfies a user-level requirement too.
+function meetsLevel(have: AdminLevel | null, need: AdminLevel): boolean {
+  return have === "admin" || have === need;
+}
 
 export function useAdminUnlock() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [requiredLevel, setRequiredLevel] = useState<AdminLevel>("admin");
   const resolverRef = useRef<((ok: boolean) => void) | null>(null);
 
-  const promptForUnlock = useCallback((): Promise<boolean> => {
+  const promptForUnlock = useCallback(async (level: AdminLevel): Promise<boolean> => {
+    const current = await getAdminSessionStatus();
+    if (meetsLevel(current, level)) return true;
+
     setError(null);
+    setRequiredLevel(level);
     setOpen(true);
 
     return new Promise((resolve) => {
@@ -18,22 +29,32 @@ export function useAdminUnlock() {
     });
   }, []);
 
-  const handleSubmit = useCallback(async (pin: string) => {
-    setSubmitting(true);
-    setError(null);
+  const handleSubmit = useCallback(
+    async (pin: string) => {
+      setSubmitting(true);
+      setError(null);
 
-    const ok = await unlockAdminSession(pin);
+      const level = await unlockAdminSession(pin);
 
-    setSubmitting(false);
+      setSubmitting(false);
 
-    if (ok) {
-      setOpen(false);
-      resolverRef.current?.(true);
-      resolverRef.current = null;
-    } else {
-      setError("Incorrect PIN");
-    }
-  }, []);
+      if (meetsLevel(level, requiredLevel)) {
+        setOpen(false);
+        resolverRef.current?.(true);
+        resolverRef.current = null;
+      } else if (level) {
+        // A real PIN, just not the right tier for this action.
+        setError(
+          requiredLevel === "admin"
+            ? "That's the family PIN — this needs the admin PIN"
+            : "Incorrect PIN"
+        );
+      } else {
+        setError("Incorrect PIN");
+      }
+    },
+    [requiredLevel]
+  );
 
   const handleCancel = useCallback(() => {
     setOpen(false);
@@ -47,6 +68,7 @@ export function useAdminUnlock() {
       open,
       error,
       submitting,
+      requiredLevel,
       onSubmit: handleSubmit,
       onCancel: handleCancel,
     },

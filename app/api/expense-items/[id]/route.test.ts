@@ -14,7 +14,7 @@ import { DELETE, PATCH } from "./route";
 const ORIGINAL_PIN = process.env.ADMIN_PIN;
 
 function authedHeaders() {
-  return { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` };
+  return { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken("admin")}` };
 }
 
 function callPatch(body: unknown, { authed = true }: { authed?: boolean } = {}) {

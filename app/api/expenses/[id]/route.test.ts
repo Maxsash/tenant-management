@@ -23,7 +23,7 @@ function makeRequest(
     body: body !== undefined ? JSON.stringify(body) : undefined,
     headers: {
       "Content-Type": "application/json",
-      ...(authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` } : {}),
+      ...(authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken("admin")}` } : {}),
     },
   });
 }

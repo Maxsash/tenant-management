@@ -13,9 +13,12 @@ import { GET } from "./route";
 
 const ORIGINAL_PIN = process.env.ADMIN_PIN;
 
-function makeGetRequest(query = "", { authed = false }: { authed?: boolean } = {}) {
+function makeGetRequest(
+  query = "",
+  { authed = false, level = "user" as "user" | "admin" }: { authed?: boolean; level?: "user" | "admin" } = {}
+) {
   return new Request(`http://localhost/api/dashboard${query}`, {
-    headers: authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` } : undefined,
+    headers: authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken(level)}` } : undefined,
   });
 }
 
@@ -78,7 +81,7 @@ describe("GET /api/dashboard", () => {
     expect(body.tenants[0].paid_on).toBeNull();
   });
 
-  it("returns the full expected field shape, including PII, for an unlocked caller", async () => {
+  it("returns the full expected field shape, including PII, for a user-level unlocked caller", async () => {
     const tenant = makeTenant({
       id: "t1",
       name: "Asha",
@@ -96,10 +99,10 @@ describe("GET /api/dashboard", () => {
     vi.mocked(getTenants).mockResolvedValue([tenant]);
     vi.mocked(getPayments).mockResolvedValue([]);
 
-    const res = await GET(makeGetRequest("?month=2026-06", { authed: true }));
+    const res = await GET(makeGetRequest("?month=2026-06", { authed: true, level: "user" }));
     const body = await res.json();
 
-    expect(body.adminUnlocked).toBe(true);
+    expect(body.unlocked).toBe(true);
     expect(body.tenants[0]).toEqual({
       id: "t1",
       name: "Asha",
@@ -117,7 +120,19 @@ describe("GET /api/dashboard", () => {
     });
   });
 
-  it("omits PII fields and reports adminUnlocked: false for a locked caller", async () => {
+  it("an admin-level session also unlocks PII (hierarchical)", async () => {
+    const tenant = makeTenant({ id: "t1" });
+    vi.mocked(getTenants).mockResolvedValue([tenant]);
+    vi.mocked(getPayments).mockResolvedValue([]);
+
+    const res = await GET(makeGetRequest("?month=2026-06", { authed: true, level: "admin" }));
+    const body = await res.json();
+
+    expect(body.unlocked).toBe(true);
+    expect(body.tenants[0].phone).toBeDefined();
+  });
+
+  it("omits PII fields and reports unlocked: false for a locked caller", async () => {
     const tenant = makeTenant({
       id: "t1",
       name: "Asha",
@@ -135,7 +150,7 @@ describe("GET /api/dashboard", () => {
     const res = await GET(makeGetRequest("?month=2026-06"));
     const body = await res.json();
 
-    expect(body.adminUnlocked).toBe(false);
+    expect(body.unlocked).toBe(false);
     expect(body.tenants[0]).toEqual({
       id: "t1",
       name: "Asha",

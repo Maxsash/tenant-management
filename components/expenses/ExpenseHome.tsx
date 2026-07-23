@@ -77,7 +77,7 @@ export default function ExpenseHome() {
   }
 
   async function handleRequestUnlock() {
-    if (await promptForUnlock()) fetchExpenses();
+    if (await promptForUnlock("user")) fetchExpenses();
   }
 
   if (loading && !data) {
@@ -103,6 +103,7 @@ export default function ExpenseHome() {
         items={items}
         categories={categories}
         editingExpense={editingExpense}
+        promptForUnlock={promptForUnlock}
       />
       <PinPromptDialog {...pinDialogProps} />
     </>

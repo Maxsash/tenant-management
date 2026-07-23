@@ -13,7 +13,7 @@ import type { TenantDashboardItem } from "@/types/tenant";
 type DashboardData = {
   rent_month: string;
   tenants: TenantDashboardItem[];
-  adminUnlocked: boolean;
+  unlocked: boolean;
 };
 
 export default function TenantHome() {
@@ -56,16 +56,19 @@ export default function TenantHome() {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  // Tenant PII is only present in `data` once the caller is unlocked, so a
-  // click on a still-locked dashboard prompts for the PIN and refetches
-  // before opening the details view, rather than showing a page with gaps.
+  // Tenant PII is only present in `data` once the caller has at least a
+  // user-level session — promptForUnlock() no-ops (no dialog) if the
+  // browser already carries a sufficient session. Tenant PII is only
+  // present in `data` once unlocked, so a fresh unlock still needs a
+  // refetch before opening the details view, rather than showing a page
+  // with gaps.
   async function handleTenantSelect(tenant: TenantDashboardItem) {
-    if (data?.adminUnlocked) {
+    if (!(await promptForUnlock("user"))) return;
+
+    if (data?.unlocked) {
       setSelectedTenant(tenant);
       return;
     }
-
-    if (!(await promptForUnlock())) return;
 
     try {
       const fresh = await loadDashboard(month);

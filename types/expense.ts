@@ -43,8 +43,8 @@ export interface ExpenseMonthData {
   month: string;
   total: number;
   categoryTotals: CategoryTotal[];
-  // Empty (with adminUnlocked: false) unless the caller has a valid admin
-  // session — see app/api/expenses/route.ts.
+  // Empty (with unlocked: false) unless the caller has at least a
+  // user-level session — see app/api/expenses/route.ts.
   expenses: Expense[];
-  adminUnlocked: boolean;
+  unlocked: boolean;
 }

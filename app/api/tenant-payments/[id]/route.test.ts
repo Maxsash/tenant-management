@@ -12,10 +12,13 @@ import { GET } from "./route";
 
 const ORIGINAL_PIN = process.env.ADMIN_PIN;
 
-function callGet(id: string, { authed = true }: { authed?: boolean } = {}) {
+function callGet(
+  id: string,
+  { authed = true, level = "user" as "user" | "admin" }: { authed?: boolean; level?: "user" | "admin" } = {}
+) {
   return GET(
     new Request(`http://localhost/api/tenant-payments/${id}`, {
-      headers: authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` } : undefined,
+      headers: authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken(level)}` } : undefined,
     }),
     { params: Promise.resolve({ id }) }
   );
@@ -34,12 +37,30 @@ afterEach(() => {
   process.env.ADMIN_PIN = ORIGINAL_PIN;
 });
 
-describe("admin session guard", () => {
+describe("session guard", () => {
   it("returns 401 without a valid session, without touching the DB", async () => {
     const res = await callGet("t1", { authed: false });
 
     expect(res.status).toBe(401);
     expect(getTenants).not.toHaveBeenCalled();
+  });
+
+  it("a user-level session is sufficient (viewing payment history doesn't need admin)", async () => {
+    vi.mocked(getTenants).mockResolvedValue([]);
+    vi.mocked(getPayments).mockResolvedValue([]);
+
+    const res = await callGet("missing", { level: "user" });
+
+    expect(res.status).not.toBe(401);
+  });
+
+  it("an admin-level session also works (hierarchical)", async () => {
+    vi.mocked(getTenants).mockResolvedValue([]);
+    vi.mocked(getPayments).mockResolvedValue([]);
+
+    const res = await callGet("missing", { level: "admin" });
+
+    expect(res.status).not.toBe(401);
   });
 });
 

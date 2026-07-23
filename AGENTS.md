@@ -11,10 +11,11 @@ no accounts/login system anywhere. The people using it are the repo owner and
 a few relatives, including a non-technical grandmother. Keep that in mind
 before suggesting real auth, rate-limiting, multi-tenancy, or other
 SaaS-shaped concerns — they're usually not warranted here unless explicitly
-requested. There *is* one lightweight exception — a shared numeric PIN
-gating sensitive/write actions, enforced server-side — see "PIN-gated admin
-actions" below; it's intentionally not a real auth system (one shared
-secret, no accounts, no rate-limiting/lockout).
+requested. There *is* one lightweight exception — two shared numeric PINs
+(USER and ADMIN) gating sensitive/write actions, enforced server-side — see
+"PIN-gated admin actions" below; it's intentionally not a real auth system
+(two shared secrets, no accounts, no per-person identity, no
+rate-limiting/lockout).
 
 ## What this app does
 
@@ -55,7 +56,7 @@ new field, or a conditional that decides *what counts as* something (active,
 paid, in-stock, etc.) inside a `components/**` file, that logic almost
 certainly belongs server-side instead.
 
-### PIN-gated admin actions
+### PIN-gated admin actions (two tiers: USER and ADMIN)
 
 Two independent, unrelated gates exist — don't conflate them:
 
@@ -65,41 +66,64 @@ Two independent, unrelated gates exist — don't conflate them:
   `components/tenants/Dashboard.tsx`). Purely hides/shows those two buttons;
   not used anywhere else. This is the only remaining "no server-side check,
   UI-visibility-only" gate in the app, and it's intentional — the actual
-  security boundary for those two actions is the PIN below.
-- **`ADMIN_PIN`** (server-only env var, e.g. `1234`) — a shared numeric PIN
-  gating most other write/sensitive actions, enforced **server-side**, not
-  just in the UI. `lib/admin-auth.ts` has the primitives: `verifyPin`,
-  `createSessionToken`/`isValidSessionToken` (a signed, 30-day, HMAC token —
-  no new dependency, uses `node:crypto`), and `hasAdminSession(req)` (parses
-  the raw `Cookie` header — deliberately *not* `next/headers`'s `cookies()`,
-  since route tests call handlers directly with plain `new Request(...)`
-  outside any Next.js request context). `POST /api/admin-session` verifies
-  the PIN and sets an `HttpOnly` cookie; `GET /api/admin-session` reports
-  unlock status for pages with no other data fetch to piggyback on (see
-  `ExpenseSettings`). On the client, `hooks/useAdminUnlock.ts` +
-  `components/ui/PinPromptDialog.tsx` are the reusable prompt-and-unlock
-  flow — one `useAdminUnlock()` instance per top-level page.
+  security boundary for those two actions is the PIN tier below.
+- **`USER_PIN` / `ADMIN_PIN`** (server-only env vars) — two shared numeric
+  PINs, enforced **server-side**, gating everything else. **Hierarchical**:
+  an admin-level session satisfies anything a user-level session does, plus
+  admin-only actions — there's no "USER can't also do X that ADMIN can't"
+  scenario, only "does this need at least USER, or at least ADMIN."
 
-  Routes that hard-`401` via `hasAdminSession(req)` when locked: `POST
-  /api/mark-paid`, `PATCH`/`DELETE` on `/api/expenses/[id]` (not `POST` —
-  creating an expense stays open), `POST` on `/api/expense-items` and
-  `/api/expense-categories` (not their `GET`s — reading the catalog stays
-  open), `PATCH`/`DELETE` on their `/[id]` routes, `GET
-  /api/tenant-payments/[id]`, and `POST /api/broadcast` /
-  `POST /api/monthly-greeting` (yes, on top of the env flag above — closes
-  the "no server check" gap for WhatsApp sends too).
+  `types/admin.ts` has the shared `AdminLevel = "user" | "admin"` type.
+  `lib/admin-auth.ts` has the primitives: `verifyPin(pin): AdminLevel | null`
+  (checks ADMIN_PIN before USER_PIN, so a misconfigured overlap still grants
+  the higher tier), `createSessionToken(level)` /
+  `getSessionLevel(token): AdminLevel | null` (a signed, 30-day HMAC token
+  embedding the tier — no new dependency, uses `node:crypto`; always signed
+  with `ADMIN_PIN` regardless of which tier's PIN unlocked the session, so
+  rotating `ADMIN_PIN` invalidates every outstanding session at once), and
+  `hasUserSession(req)` / `hasAdminSession(req)` (parse the raw `Cookie`
+  header — deliberately *not* `next/headers`'s `cookies()`, since route
+  tests call handlers directly with plain `new Request(...)` outside any
+  Next.js request context; `hasUserSession` is true for either tier,
+  `hasAdminSession` only for admin — that's where the hierarchy is actually
+  expressed). `POST /api/admin-session` verifies a submitted PIN, resolves
+  its tier, and sets an `HttpOnly` cookie; `GET /api/admin-session` reports
+  `{ level: AdminLevel | null }` for pages with no other data fetch to
+  piggyback on (see `ExpenseSettings`). On the client,
+  `hooks/useAdminUnlock.ts` + `components/ui/PinPromptDialog.tsx` are the
+  reusable prompt-and-unlock flow — one `useAdminUnlock()` instance per
+  top-level page, and every call site passes the `AdminLevel` *that specific
+  action* needs: `promptForUnlock("user")` or `promptForUnlock("admin")`.
+  `promptForUnlock` checks the live session via `GET /api/admin-session`
+  first and only opens the dialog if the current session doesn't already
+  meet the bar — so a page with several admin-gated buttons only prompts
+  once per session, not per click. If someone submits a PIN that's valid
+  but the wrong tier for what triggered the prompt (e.g. the family PIN on
+  an admin-only action), the dialog stays open with an explicit "needs the
+  admin PIN" error rather than silently failing later.
 
-  Routes that **data-shape** instead of hard-blocking (so a stranger hitting
-  them directly gets a degraded response, not necessarily an error): `GET
-  /api/dashboard` omits `phone`/`tenant_since`/`security_deposit`/`bank`/
-  `increase_*` unless unlocked, and `GET /api/expenses` returns `expenses:
-  []` (but real `total`/`categoryTotals`, aggregated over the full month
-  regardless of lock state) unless unlocked. Both include a top-level
-  `adminUnlocked: boolean` so the client knows which it got.
+  **USER-level** gates (viewing sensitive info; a stranger without any PIN
+  gets a degraded response, not necessarily an error): `GET /api/dashboard`
+  omits `phone`/`tenant_since`/`security_deposit`/`bank`/`increase_*` unless
+  at least user-level, `GET /api/expenses` returns `expenses: []` (but real
+  `total`/`categoryTotals`, aggregated over the full month regardless of
+  lock state) unless at least user-level, and `GET /api/tenant-payments/[id]`
+  hard-`401`s below user-level. `dashboard`/`expenses` both include a
+  top-level `unlocked: boolean` so the client knows which it got.
 
-  Mirror this pattern (check `hasAdminSession` in the route handler, or
-  shape the response like `dashboard`/`expenses` do) for new write-capable or
-  sensitive-read modules, rather than introducing real auth, unless asked.
+  **ADMIN-level** gates (hard `401` via `hasAdminSession(req)` below admin
+  tier): `POST /api/mark-paid`, `PATCH`/`DELETE` on `/api/expenses/[id]`
+  (not `POST` — creating an expense stays open to everyone), `POST` on
+  `/api/expense-items` and `/api/expense-categories` (not their `GET`s —
+  reading the catalog stays open), `PATCH`/`DELETE` on their `/[id]` routes,
+  and `POST /api/broadcast` / `POST /api/monthly-greeting` (yes, on top of
+  the env flag above — closes the "no server check" gap for WhatsApp sends
+  too).
+
+  Mirror this pattern (pick the right tier, check `hasUserSession` or
+  `hasAdminSession` in the route handler, or shape the response like
+  `dashboard`/`expenses` do) for new write-capable or sensitive-read
+  modules, rather than introducing real auth, unless asked.
 
 ## Directory map
 

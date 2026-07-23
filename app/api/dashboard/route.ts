@@ -4,13 +4,13 @@ import { NextResponse } from "next/server";
 import { getActiveTenants } from "@/lib/tenant";
 import { evaluatePaymentStatus } from "@/lib/payment-status";
 import { currentMonth } from "@/lib/date";
-import { hasAdminSession } from "@/lib/admin-auth";
+import { hasUserSession } from "@/lib/admin-auth";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const adminUnlocked = hasAdminSession(req);
+  const unlocked = hasUserSession(req);
 
   // The month selector on the dashboard represents the rent month
   // being checked (e.g. "2026-07" = rent for July), not the month the
@@ -38,9 +38,9 @@ export async function GET(req: Request) {
     const amount = calculateRent(t, rentMonth);
 
     // Personal info (phone, financial/lease details) is only included once
-    // the caller has a valid admin session — a stranger hitting this route
-    // directly should only ever see name/amount/paid-status.
-    const personalInfo = adminUnlocked
+    // the caller has at least a user-level session — a stranger hitting
+    // this route directly should only ever see name/amount/paid-status.
+    const personalInfo = unlocked
       ? {
           phone: t.phone,
           tenant_since: t.tenant_since,
@@ -66,6 +66,6 @@ export async function GET(req: Request) {
   return NextResponse.json({
     rent_month: rentMonth,
     tenants: result,
-    adminUnlocked,
+    unlocked,
   });
 }

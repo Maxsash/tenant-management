@@ -5,16 +5,25 @@ import { Lock } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
+import type { AdminLevel } from "@/types/admin";
 
 type Props = {
   open: boolean;
   error: string | null;
   submitting: boolean;
+  requiredLevel: AdminLevel;
   onSubmit: (pin: string) => void;
   onCancel: () => void;
 };
 
-export default function PinPromptDialog({ open, error, submitting, onSubmit, onCancel }: Props) {
+export default function PinPromptDialog({
+  open,
+  error,
+  submitting,
+  requiredLevel,
+  onSubmit,
+  onCancel,
+}: Props) {
   const [pin, setPin] = useState("");
   const inputId = useId();
   const descriptionId = useId();
@@ -57,7 +66,7 @@ export default function PinPromptDialog({ open, error, submitting, onSubmit, onC
       >
         <div id={descriptionId} className="flex items-center gap-2 text-sm text-muted">
           <Lock className="h-4 w-4" aria-hidden="true" />
-          This needs the family PIN.
+          {requiredLevel === "admin" ? "This needs the admin PIN." : "This needs the family PIN."}
         </div>
 
         <div>

@@ -16,11 +16,12 @@ import { sendMonthlyGreeting } from "@/services/monthly-greeting";
 import { isAdminActionsEnabled } from "@/lib/config";
 import { cn } from "@/utils/cn";
 import type { TenantDashboardItem } from "@/types/tenant";
+import type { AdminLevel } from "@/types/admin";
 
 type DashboardData = {
   rent_month: string;
   tenants: TenantDashboardItem[];
-  adminUnlocked: boolean;
+  unlocked: boolean;
 };
 
 type Props = {
@@ -30,7 +31,7 @@ type Props = {
   loading: boolean;
   onTenantClick: (tenant: TenantDashboardItem) => void;
   onRefetch: () => void;
-  promptForUnlock: () => Promise<boolean>;
+  promptForUnlock: (level: AdminLevel) => Promise<boolean>;
 };
 
 export default function Dashboard({
@@ -59,8 +60,11 @@ export default function Dashboard({
     ref.current?.scrollIntoView({ behavior: "smooth" });
   }
 
+  // Marking rent paid and sending WhatsApp messages need the admin PIN
+  // specifically — promptForUnlock() checks the live session itself, so
+  // this only shows a dialog when actually needed.
   async function ensureUnlocked() {
-    return data?.adminUnlocked || (await promptForUnlock());
+    return promptForUnlock("admin");
   }
 
   async function handleBroadcast() {

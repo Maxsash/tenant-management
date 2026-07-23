@@ -17,7 +17,7 @@ function makeRequest(body: unknown, { authed = true }: { authed?: boolean } = {}
     body: JSON.stringify(body),
     headers: {
       "Content-Type": "application/json",
-      ...(authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken()}` } : {}),
+      ...(authed ? { cookie: `${ADMIN_SESSION_COOKIE}=${createSessionToken("admin")}` } : {}),
     },
   });
 }
