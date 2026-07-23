@@ -1,5 +1,3 @@
-// app/api/whatsapp/monthly-greeting/route.ts
-
 import { getTenants } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { calculateRent } from "@/lib/rent";

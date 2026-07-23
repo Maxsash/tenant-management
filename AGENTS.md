@@ -28,8 +28,9 @@ The other Hub tiles (Accounts, Family, Properties, Documents) are placeholders
 
 Data used to live in Google Sheets (see `maxsash-tenant-management-*.json`,
 a service-account credential file, now vestigial) and was migrated to
-**Supabase** (see commit `b649b0b`). Some domain logic still carries
-migration-era assumptions — see "Known deferred bugs" below.
+**Supabase** (see commit `b649b0b`). The migration-era compatibility shims
+(free-text `active` coercion, etc.) have since been removed — see "Bugs
+found and fixed during the test-suite build" below for what changed and why.
 
 ## Architecture: backend-only business logic
 
@@ -71,6 +72,10 @@ app/{tenant,expense}/       Page shells, just render the top-level component.
 components/tenants/**       Rent/tenant UI (fetch-and-render only).
 components/expenses/**      Expense UI (fetch-and-render only).
 lib/                        All business logic. See below.
+utils/                      Presentation-only formatting helpers (currency,
+                            date display, `cn` classname merge) — no domain
+                            logic, no fetching. Everything else that touches
+                            the shape or meaning of data belongs in lib/.
 services/                   Client-side data-fetching helpers used by
                             components (thin wrappers around fetch("/api/...")).
 types/                      Shared TS types for Tenant/Payment/Expense/etc.
