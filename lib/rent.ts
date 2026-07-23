@@ -1,3 +1,5 @@
+import { Tenant } from "@/types/tenant";
+
 const MONTHS = [
   "January",
   "February",
@@ -61,8 +63,13 @@ export function getPaymentMonth(
   ).padStart(2, "0")}`;
 }
 
+type RentTenant = Pick<
+  Tenant,
+  "base_rent" | "base_rent_as_of" | "increase_month" | "increase_by" | "increase_type"
+>;
+
 export function calculateRent(
-  tenant: any,
+  tenant: RentTenant,
   targetMonth: string
 ) {
   let rent = Number(tenant.base_rent);
@@ -104,7 +111,7 @@ export function calculateRent(
   }
 
   const referenceDate = new Date(
-    tenant.base_rent_as_of
+    tenant.base_rent_as_of ?? ""
   );
 
   const [targetYear, targetMonthNum] =
@@ -126,7 +133,7 @@ export function calculateRent(
     return Math.round(rent);
   }
 
-  let cursor = new Date(referenceDate);
+  const cursor = new Date(referenceDate);
 
   while (
     cursor.getFullYear() !==

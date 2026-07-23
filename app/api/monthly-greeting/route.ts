@@ -21,8 +21,8 @@ export async function POST(req: Request) {
     const activeTenants = getActiveTenants(tenants, rentMonth);
 
     const recipients = activeTenants
-      .filter((t: any) => t.phone)
-      .map((t: any) => ({
+      .filter((t) => t.phone)
+      .map((t) => ({
         id: t.id,
         name: t.name,
         phone: t.phone,

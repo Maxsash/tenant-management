@@ -25,7 +25,10 @@ export default function TenantHome() {
   const [selectedTenant, setSelectedTenant] = useState<TenantDashboardItem | null>(null);
 
   const fetchDashboard = useCallback(() => {
-    setLoading(true);
+    // Deferred to a microtask so calling this from the mount/dependency
+    // effect below doesn't set state synchronously within the effect body
+    // (react-hooks/set-state-in-effect).
+    queueMicrotask(() => setLoading(true));
 
     fetch(`/api/dashboard?month=${month}`)
       .then((r) => {

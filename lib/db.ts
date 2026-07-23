@@ -20,7 +20,7 @@ export async function getPayments<T>(): Promise<T[]> {
 
   // Provide explicit `payment_month` and computed `rent_month` fields
   // alongside the raw `month` column.
-  return (data ?? []).map((r: any) => {
+  return (data ?? []).map((r: { month?: string; [key: string]: unknown }) => {
     const payment_month = String(r.month ?? "").slice(0, 7);
     const rent_month = payment_month ? getRentMonth(payment_month) : "";
 

@@ -56,54 +56,59 @@ export default function ExpenseFormDialog({
   useEffect(() => {
     if (!open) return;
 
-    setError(null);
-    setConfirmingDelete(false);
+    // Deferred to a microtask: this resets ~15 fields in one shot when the
+    // dialog opens, so batching them synchronously in the effect body would
+    // trigger cascading renders (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      setError(null);
+      setConfirmingDelete(false);
 
-    const fallbackCategory = categories[0]?.name ?? "";
+      const fallbackCategory = categories[0]?.name ?? "";
 
-    if (editingExpense) {
-      setExpenseDate(editingExpense.expense_date.slice(0, 10));
+      if (editingExpense) {
+        setExpenseDate(editingExpense.expense_date.slice(0, 10));
 
-      const matchedItem = editingExpense.item_id
-        ? items.find((i) => i.id === editingExpense.item_id)
-        : undefined;
+        const matchedItem = editingExpense.item_id
+          ? items.find((i) => i.id === editingExpense.item_id)
+          : undefined;
 
-      if (editingExpense.is_itemized === false) {
-        setMode("lump");
-        setSelectedItemId(null);
-        setSelectedCategory(editingExpense.category);
-      } else if (matchedItem) {
-        setMode("pick");
-        setSelectedItemId(matchedItem.id);
-        setSelectedCategory(matchedItem.category);
+        if (editingExpense.is_itemized === false) {
+          setMode("lump");
+          setSelectedItemId(null);
+          setSelectedCategory(editingExpense.category);
+        } else if (matchedItem) {
+          setMode("pick");
+          setSelectedItemId(matchedItem.id);
+          setSelectedCategory(matchedItem.category);
+        } else {
+          setMode("custom");
+          setSelectedItemId(null);
+          setCustomName(editingExpense.item_name);
+          setSelectedCategory(editingExpense.category);
+        }
+
+        setQuantity(
+          editingExpense.quantity !== null && editingExpense.quantity !== undefined
+            ? String(editingExpense.quantity)
+            : ""
+        );
+        setUnit(editingExpense.unit ?? "");
+        setAmount(String(editingExpense.amount));
+        setPaymentMethod(editingExpense.payment_method);
+        setNotes(editingExpense.notes ?? "");
       } else {
-        setMode("custom");
+        setExpenseDate(currentDate());
+        setMode("pick");
         setSelectedItemId(null);
-        setCustomName(editingExpense.item_name);
-        setSelectedCategory(editingExpense.category);
+        setCustomName("");
+        setSelectedCategory(fallbackCategory);
+        setQuantity("");
+        setUnit("");
+        setAmount("");
+        setPaymentMethod("Cash");
+        setNotes("");
       }
-
-      setQuantity(
-        editingExpense.quantity !== null && editingExpense.quantity !== undefined
-          ? String(editingExpense.quantity)
-          : ""
-      );
-      setUnit(editingExpense.unit ?? "");
-      setAmount(String(editingExpense.amount));
-      setPaymentMethod(editingExpense.payment_method);
-      setNotes(editingExpense.notes ?? "");
-    } else {
-      setExpenseDate(currentDate());
-      setMode("pick");
-      setSelectedItemId(null);
-      setCustomName("");
-      setSelectedCategory(fallbackCategory);
-      setQuantity("");
-      setUnit("");
-      setAmount("");
-      setPaymentMethod("Cash");
-      setNotes("");
-    }
+    });
   }, [open, editingExpense, items, categories]);
 
   const selectedItem = selectedItemId ? items.find((i) => i.id === selectedItemId) : null;

@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
   // `getPayments` provides `payment_month` and `rent_month` fields
   // derived from the DB's `month` column. Filter by `rent_month`.
-  const paymentsForRent = payments.filter((p) => (p as any).rent_month === rentMonth);
+  const paymentsForRent = payments.filter((p) => p.rent_month === rentMonth);
 
   const activeTenants = getActiveTenants(tenants, rentMonth);
 

@@ -2,7 +2,7 @@
 
 import { getPayments, getTenants } from "@/lib/db";
 import { calculateRent, getRentMonth } from "@/lib/rent";
-import { evaluatePaymentStatus } from "@/lib/payment-status";
+import { evaluatePaymentStatus, PaymentStatus } from "@/lib/payment-status";
 import { NextResponse } from "next/server";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
@@ -11,6 +11,27 @@ const GLOBAL_CUTOFF = "2023-12";
 
 // Payment before 8th = on time
 const ON_TIME_DAY_LIMIT = 7;
+
+interface TenantPaymentEntry {
+  id: string | number;
+  tenant_id: string;
+  amount: number;
+  paid_on: string | null;
+  payment_month: string;
+  rent_month: string;
+  status: PaymentStatus;
+  isLate: boolean;
+  method: string;
+  receipt_url: string | undefined;
+}
+
+interface MonthlyBreakdownEntry {
+  month: string;
+  amount: number;
+  status: PaymentStatus;
+  paid_on: string | null;
+  isLate: boolean;
+}
 
 export async function GET(
   req: Request,
@@ -99,9 +120,9 @@ export async function GET(
 
     // SORT NEWEST FIRST
     tenantPayments.sort((a, b) => {
-      const aDate = new Date(a.paid_on || `${a.payment_month || (a as any).month || ""}-01`).getTime();
+      const aDate = new Date(a.paid_on || `${a.payment_month}-01`).getTime();
 
-      const bDate = new Date(b.paid_on || `${b.payment_month || (b as any).month || ""}-01`).getTime();
+      const bDate = new Date(b.paid_on || `${b.payment_month}-01`).getTime();
 
       return bDate - aDate;
     });
@@ -143,13 +164,13 @@ export async function GET(
 
 async function generateMonthlyBreakdown(
   tenant: Tenant,
-  payments: any[]
+  payments: TenantPaymentEntry[]
 ) {
   if (!tenant) {
     return [];
   }
 
-  const breakdown: any[] = [];
+  const breakdown: MonthlyBreakdownEntry[] = [];
 
   // tenant_since expected YYYY-MM
   const tenantSince = tenant
@@ -218,18 +239,18 @@ async function generateMonthlyBreakdown(
 }
 
 function calculateSummary(
-  payments: any[],
-  monthlyBreakdown: any[]
+  payments: TenantPaymentEntry[],
+  monthlyBreakdown: MonthlyBreakdownEntry[]
 ) {
   const paidPayments =
     payments.filter(
-      (p: any) =>
+      (p) =>
         p.status === "paid"
     );
 
   const latePayments =
     payments.filter(
-      (p: any) =>
+      (p) =>
         p.status === "late"
     );
 
@@ -245,23 +266,23 @@ function calculateSummary(
   const totalPaid =
     allSuccessfulPayments.reduce(
       (
-        sum: number,
-        p: any
+        sum,
+        p
       ) => sum + p.amount,
       0
     );
 
   const pendingMonths =
     monthlyBreakdown.filter(
-      (m: any) =>
+      (m) =>
         m.status === "pending"
     );
 
   const totalPending =
     pendingMonths.reduce(
       (
-        sum: number,
-        m: any
+        sum,
+        m
       ) => sum + m.amount,
       0
     );

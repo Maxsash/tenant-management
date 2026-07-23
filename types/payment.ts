@@ -7,8 +7,10 @@ export interface Payment {
   // from the `payments.month` DB column. Prefer `payment_month` in
   // application code; `month` is kept as the raw DB field.
   payment_month?: string;
+  // Derived by `getPayments` (lib/db.ts) via `getRentMonth(payment_month)`.
+  rent_month?: string;
   month?: string;
-  paid_on?: string;
+  paid_on?: string | null;
   notes?: string;
   method?: string;
   receipt_url?: string;

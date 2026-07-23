@@ -26,7 +26,10 @@ export default function ExpenseHome() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   const fetchExpenses = useCallback(() => {
-    setLoading(true);
+    // Deferred to a microtask so calling this from the mount/dependency
+    // effect below doesn't set state synchronously within the effect body
+    // (react-hooks/set-state-in-effect).
+    queueMicrotask(() => setLoading(true));
 
     fetch(`/api/expenses?month=${month}`)
       .then((r) => {

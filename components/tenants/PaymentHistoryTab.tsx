@@ -33,24 +33,31 @@ export default function PaymentHistoryTab({ tenantId }: Props) {
   const [paymentData, setPaymentData] = useState<PaymentHistoryData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAllMonths, setShowAllMonths] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
-    if (tenantId) loadPaymentHistory();
-  }, [tenantId]);
+    if (!tenantId) return;
 
-  async function loadPaymentHistory() {
-    try {
-      setLoading(true);
-      setError(null);
+    async function loadPaymentHistory() {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const data = await paymentHistory.getTenantPaymentHistory(tenantId);
-      setPaymentData(data);
-    } catch (err) {
-      console.error("Error loading payment history:", err);
-      setError("Unable to load payment history. Please try again.");
-    } finally {
-      setLoading(false);
+        const data = await paymentHistory.getTenantPaymentHistory(tenantId);
+        setPaymentData(data);
+      } catch (err) {
+        console.error("Error loading payment history:", err);
+        setError("Unable to load payment history. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     }
+
+    loadPaymentHistory();
+  }, [tenantId, retryToken]);
+
+  function retry() {
+    setRetryToken((t) => t + 1);
   }
 
   if (loading) {
@@ -75,7 +82,7 @@ export default function PaymentHistoryTab({ tenantId }: Props) {
           title="Couldn't load payment history"
           description={error}
           action={
-            <Button variant="outline" onClick={loadPaymentHistory} className="mt-2">
+            <Button variant="outline" onClick={retry} className="mt-2">
               Retry
             </Button>
           }

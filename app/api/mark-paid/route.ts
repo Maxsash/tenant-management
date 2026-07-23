@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     // Check if row already exists
     const payments = await getPayments<Payment>();
     const exists = payments.find(
-      (p) => p.tenant_id === tenant_id && (p as any).rent_month === rentMonth
+      (p) => p.tenant_id === tenant_id && p.rent_month === rentMonth
     );
 
     if (exists) {

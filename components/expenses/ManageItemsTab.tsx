@@ -35,7 +35,10 @@ export default function ManageItemsTab({ categories }: Props) {
   const [deleting, setDeleting] = useState(false);
 
   function fetchItems() {
-    setLoading(true);
+    // Deferred to a microtask so calling this from the mount effect below
+    // doesn't set state synchronously within the effect body
+    // (react-hooks/set-state-in-effect).
+    queueMicrotask(() => setLoading(true));
 
     fetch("/api/expense-items?all=true")
       .then((r) => r.json())

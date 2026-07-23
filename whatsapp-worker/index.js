@@ -1,7 +1,9 @@
-const express = require("express");
-const cors = require("cors");
-const { Client, LocalAuth } = require("whatsapp-web.js");
-const qrcode = require("qrcode-terminal");
+import express from "express";
+import cors from "cors";
+import waweb from "whatsapp-web.js";
+import qrcode from "qrcode-terminal";
+
+const { Client, LocalAuth } = waweb;
 
 const app = express();
 
@@ -128,14 +130,6 @@ function getMonthName(month) {
   });
 }
 
-function serializeError(error) {
-  return {
-    name: error?.name || "Error",
-    message: error?.message || String(error),
-    stack: error?.stack,
-  };
-}
-
 async function ensureWhatsAppConnected() {
   try {
     const state = await client.getState();
@@ -189,7 +183,7 @@ async function sendMessages(recipients, messageBuilder) {
         chatId,
       });
 
-      const result = await client.sendMessage(
+      await client.sendMessage(
         chatId,
         message
       );
