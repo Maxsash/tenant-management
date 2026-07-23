@@ -1,0 +1,13 @@
+{
+  "name": "Tenants — Shrivastava Hub",
+  "short_name": "Tenants",
+  "description": "Rent tracking, payment status, and WhatsApp reminders",
+  "start_url": "/tenant",
+  "scope": "/tenant",
+  "display": "standalone",
+  "background_color": "#f7f3e8",
+  "theme_color": "#f7f3e8",
+  "icons": [
+    { "src": "/manifest-icon/tenant", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

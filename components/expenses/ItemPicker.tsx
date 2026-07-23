@@ -31,8 +31,9 @@ export default function ItemPicker({ categories, items, onPick }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex h-12 items-center gap-2.5 rounded-xl border border-border bg-surface px-3.5">
-        <Search className="h-4 w-4 shrink-0 text-muted" />
+        <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
         <input
+          aria-label="Search items"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search items…"

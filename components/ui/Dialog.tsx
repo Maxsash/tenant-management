@@ -46,7 +46,10 @@ export default function Dialog({ open, onOpenChange, title, children, footer }: 
                     <RadixDialog.Title className="font-display text-lg font-semibold text-foreground">
                       {title}
                     </RadixDialog.Title>
-                    <RadixDialog.Close className="rounded-full p-1.5 text-muted transition-colors hover:bg-accent-soft hover:text-accent">
+                    <RadixDialog.Close
+                      aria-label="Close"
+                      className="rounded-full p-1.5 text-muted transition-colors hover:bg-accent-soft hover:text-accent"
+                    >
                       <X className="h-5 w-5" />
                     </RadixDialog.Close>
                   </div>

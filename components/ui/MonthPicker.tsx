@@ -17,7 +17,8 @@ export default function MonthPicker({ value, onChange, className }: Props) {
         className
       )}
     >
-      <Calendar className="h-5 w-5 shrink-0 text-accent" />
+      <Calendar className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
+      <span className="sr-only">Select month</span>
       <input
         type="month"
         value={value}

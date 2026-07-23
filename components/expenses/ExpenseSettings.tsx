@@ -66,6 +66,7 @@ export default function ExpenseSettings() {
       <div className="flex items-center gap-2">
         <Link
           href="/expense"
+          aria-label="Back to Expenses"
           className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-accent"
         >
           <ArrowLeft className="h-5 w-5" />

@@ -20,7 +20,10 @@
   --color-success-soft: #e6efe8;
   --color-success-border: #a9c9b4;
 
-  --color-warning: #a3660f;
+  /* #a3660f measured 4.17:1 on --color-warning-soft — fails WCAG AA (4.5:1)
+     at the small sizes it's used at (ExpenseEntryRow's "Mixed" badge,
+     PaymentHistoryTab's "Late" pill). Darkened to 4.70:1, same hue. */
+  --color-warning: #95600e;
   --color-warning-soft: #fbf0dc;
   --color-warning-border: #e2bf87;
 
@@ -113,6 +116,23 @@
   a {
     color: inherit;
     text-decoration: none;
+  }
+
+  /* Neutralizes plain CSS transitions/animations (Tailwind's
+     transition-colors, transition-transform, the .skeleton shimmer below,
+     etc.) for users who've asked for reduced motion. Doesn't reach the
+     JS-driven motion/react spring animations (page transitions, nav/tab
+     indicators) — those would need touching individually; not attempted
+     here. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 

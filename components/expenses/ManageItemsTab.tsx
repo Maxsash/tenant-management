@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 
@@ -33,6 +33,13 @@ export default function ManageItemsTab({ categories }: Props) {
   const [saving, setSaving] = useState(false);
   const [deletingItem, setDeletingItem] = useState<ExpenseItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const formId = useId();
+  const ids = {
+    name: `${formId}-name`,
+    category: `${formId}-category`,
+    defaultUnit: `${formId}-default-unit`,
+  };
 
   function fetchItems() {
     // Deferred to a microtask so calling this from the mount effect below
@@ -230,8 +237,11 @@ export default function ManageItemsTab({ categories }: Props) {
       >
         <div className="flex flex-col gap-4">
           <div>
-            <label className={labelClass}>Name</label>
+            <label htmlFor={ids.name} className={labelClass}>
+              Name
+            </label>
             <input
+              id={ids.name}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className={inputClass}
@@ -239,8 +249,11 @@ export default function ManageItemsTab({ categories }: Props) {
           </div>
 
           <div>
-            <label className={labelClass}>Category</label>
+            <label htmlFor={ids.category} className={labelClass}>
+              Category
+            </label>
             <select
+              id={ids.category}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className={inputClass}
@@ -254,8 +267,11 @@ export default function ManageItemsTab({ categories }: Props) {
           </div>
 
           <div>
-            <label className={labelClass}>Default unit (optional)</label>
+            <label htmlFor={ids.defaultUnit} className={labelClass}>
+              Default unit (optional)
+            </label>
             <input
+              id={ids.defaultUnit}
               value={defaultUnit}
               onChange={(e) => setDefaultUnit(e.target.value)}
               placeholder="L, kg, pcs..."

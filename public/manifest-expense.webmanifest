@@ -1,0 +1,13 @@
+{
+  "name": "Expenses — Shrivastava Hub",
+  "short_name": "Expenses",
+  "description": "Household expense logging and monthly summaries",
+  "start_url": "/expense",
+  "scope": "/expense",
+  "display": "standalone",
+  "background_color": "#f7f3e8",
+  "theme_color": "#f7f3e8",
+  "icons": [
+    { "src": "/manifest-icon/expense", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Shrivastava Hub",
+  "short_name": "Hub",
+  "description": "Family rent and household expense tracking",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f3e8",
+  "theme_color": "#f7f3e8",
+  "icons": [
+    { "src": "/manifest-icon/hub", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

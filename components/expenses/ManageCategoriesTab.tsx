@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 
@@ -30,6 +30,9 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
   const [saving, setSaving] = useState(false);
   const [deletingCategory, setDeletingCategory] = useState<ExpenseCategory | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const formId = useId();
+  const ids = { name: `${formId}-name`, icon: `${formId}-icon` };
 
   function openAdd() {
     setEditingCategory(null);
@@ -187,16 +190,22 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
       >
         <div className="flex flex-col gap-4">
           <div>
-            <label className={labelClass}>Name</label>
+            <label htmlFor={ids.name} className={labelClass}>
+              Name
+            </label>
             <input
+              id={ids.name}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className={inputClass}
             />
           </div>
           <div>
-            <label className={labelClass}>Icon (emoji)</label>
+            <label htmlFor={ids.icon} className={labelClass}>
+              Icon (emoji)
+            </label>
             <input
+              id={ids.icon}
               value={icon}
               onChange={(e) => setIcon(e.target.value)}
               className={inputClass}

@@ -49,6 +49,7 @@ export default function ExpenseDashboard({
 
           <Link
             href="/expense/settings"
+            aria-label="Expense settings"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-accent"
           >
             <Settings className="h-5 w-5" />

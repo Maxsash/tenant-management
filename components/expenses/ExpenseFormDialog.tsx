@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import * as RadixDialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import { Pencil, X } from "lucide-react";
@@ -52,6 +53,17 @@ export default function ExpenseFormDialog({
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const formId = useId();
+  const ids = {
+    itemName: `${formId}-item-name`,
+    category: `${formId}-category`,
+    amount: `${formId}-amount`,
+    date: `${formId}-date`,
+    quantity: `${formId}-quantity`,
+    unit: `${formId}-unit`,
+    notes: `${formId}-notes`,
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -222,36 +234,40 @@ export default function ExpenseFormDialog({
 
   return (
     <>
-      <AnimatePresence>
-        {open && (
-          <div className="fixed inset-0 z-50 md:flex md:items-center md:justify-center md:bg-black/40 md:p-6">
-            <motion.div
-              initial={{ opacity: 0, y: 28 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 28 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-              className="flex h-full w-full flex-col bg-surface md:h-[88vh] md:max-w-2xl md:rounded-2xl md:border md:border-border md:shadow-float"
-            >
-              <header
-                className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6"
-                style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
-              >
-                <h2 className="font-display text-xl font-semibold text-foreground">
-                  {editingExpense ? "Edit Expense" : "Add Expense"}
-                </h2>
-                <button
-                  onClick={onClose}
-                  aria-label="Close"
-                  className="rounded-full p-2 text-muted transition-colors hover:bg-accent-soft hover:text-accent"
+      <RadixDialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+        <AnimatePresence>
+          {open && (
+            <RadixDialog.Portal forceMount>
+              <RadixDialog.Overlay asChild forceMount>
+                <motion.div
+                  initial={{ opacity: 0, y: 28 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 28 }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                  className="fixed inset-0 z-50 md:flex md:items-center md:justify-center md:bg-black/40 md:p-6"
                 >
-                  <X className="h-5 w-5" />
-                </button>
-              </header>
+                  <RadixDialog.Content asChild forceMount>
+                    <div className="flex h-full w-full flex-col bg-surface md:h-[88vh] md:max-w-2xl md:rounded-2xl md:border md:border-border md:shadow-float">
+                      <header
+                        className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6"
+                        style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
+                      >
+                        <RadixDialog.Title className="font-display text-xl font-semibold text-foreground">
+                          {editingExpense ? "Edit Expense" : "Add Expense"}
+                        </RadixDialog.Title>
+                        <RadixDialog.Close
+                          aria-label="Close"
+                          className="rounded-full p-2 text-muted transition-colors hover:bg-accent-soft hover:text-accent"
+                        >
+                          <X className="h-5 w-5" />
+                        </RadixDialog.Close>
+                      </header>
 
               <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-6">
                 <div className="mx-auto flex max-w-xl flex-col gap-8">
                   <section className="flex flex-col gap-3">
                     <SegmentedControl
+                      ariaLabel="Entry mode"
                       value={mode}
                       onChange={handleModeChange}
                       options={[
@@ -284,8 +300,11 @@ export default function ExpenseFormDialog({
                     {mode === "custom" && (
                       <div className="flex flex-col gap-4">
                         <div>
-                          <label className={labelClass}>Item name</label>
+                          <label htmlFor={ids.itemName} className={labelClass}>
+                            Item name
+                          </label>
                           <input
+                            id={ids.itemName}
                             value={customName}
                             onChange={(e) => setCustomName(e.target.value)}
                             className={inputClass}
@@ -293,8 +312,11 @@ export default function ExpenseFormDialog({
                         </div>
 
                         <div>
-                          <label className={labelClass}>Category</label>
+                          <label htmlFor={ids.category} className={labelClass}>
+                            Category
+                          </label>
                           <select
+                            id={ids.category}
                             value={selectedCategory}
                             onChange={(e) => setSelectedCategory(e.target.value)}
                             className={inputClass}
@@ -336,8 +358,11 @@ export default function ExpenseFormDialog({
                   <section className="flex flex-col gap-4 border-t border-border pt-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className={labelClass}>Amount (₹)</label>
+                        <label htmlFor={ids.amount} className={labelClass}>
+                          Amount (₹)
+                        </label>
                         <input
+                          id={ids.amount}
                           type="number"
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
@@ -346,8 +371,11 @@ export default function ExpenseFormDialog({
                         />
                       </div>
                       <div>
-                        <label className={labelClass}>Date</label>
+                        <label htmlFor={ids.date} className={labelClass}>
+                          Date
+                        </label>
                         <input
+                          id={ids.date}
                           type="date"
                           value={expenseDate}
                           onChange={(e) => setExpenseDate(e.target.value)}
@@ -359,8 +387,11 @@ export default function ExpenseFormDialog({
                     {mode !== "lump" && (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className={labelClass}>Quantity (optional)</label>
+                          <label htmlFor={ids.quantity} className={labelClass}>
+                            Quantity (optional)
+                          </label>
                           <input
+                            id={ids.quantity}
                             type="number"
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
@@ -368,8 +399,11 @@ export default function ExpenseFormDialog({
                           />
                         </div>
                         <div>
-                          <label className={labelClass}>Unit</label>
+                          <label htmlFor={ids.unit} className={labelClass}>
+                            Unit
+                          </label>
                           <input
+                            id={ids.unit}
                             value={unit}
                             onChange={(e) => setUnit(e.target.value)}
                             placeholder="L, kg, pcs..."
@@ -382,6 +416,7 @@ export default function ExpenseFormDialog({
                     <div>
                       <p className={labelClass}>Paid via</p>
                       <SegmentedControl
+                        ariaLabel="Paid via"
                         value={paymentMethod}
                         onChange={setPaymentMethod}
                         options={PAYMENT_METHODS.map((m) => ({
@@ -393,10 +428,11 @@ export default function ExpenseFormDialog({
                   </section>
 
                   <section className="border-t border-border pt-6">
-                    <label className={labelClass}>
+                    <label htmlFor={ids.notes} className={labelClass}>
                       {mode === "lump" ? "Notes (what was in the basket?)" : "Notes (optional)"}
                     </label>
                     <textarea
+                      id={ids.notes}
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       rows={3}
@@ -439,10 +475,14 @@ export default function ExpenseFormDialog({
                   </div>
                 </div>
               </footer>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                    </div>
+                  </RadixDialog.Content>
+                </motion.div>
+              </RadixDialog.Overlay>
+            </RadixDialog.Portal>
+          )}
+        </AnimatePresence>
+      </RadixDialog.Root>
 
       <ConfirmDialog
         open={confirmingDelete}
