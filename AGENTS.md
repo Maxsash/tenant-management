@@ -191,6 +191,16 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   fallback was deliberately removed — this app targets the current Supabase
   schema only, not historical data shapes. `getActiveTenants` now reads
   `tenant.active` directly as a boolean, no coercion.
+- **`increase_effective_from`** (optional, on `Tenant`) — delays when the
+  `increase_month`/`increase_by` schedule first applies. The base
+  `increase_month`/`increase_by`/`base_rent_as_of` model assumes the
+  increase recurs every single year it's crossed, with no way to skip one
+  occurrence (e.g. a lease with a flat first year before increases start).
+  When set, `calculateRent` returns flat `base_rent` for any target month
+  before it, and uses it (instead of `base_rent_as_of`) as the walk origin
+  from that month onward — valid because `base_rent` hasn't changed between
+  the two by construction. Omit it and behavior is identical to before this
+  field existed; every pre-existing tenant row omits it.
 
 ## whatsapp-worker (separate service)
 

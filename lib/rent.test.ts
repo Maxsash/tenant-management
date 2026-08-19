@@ -186,6 +186,68 @@ describe("calculateRent", () => {
     });
     expect(calculateRent(tenant, "2025-03")).toBe(10000);
   });
+
+  describe("increase_effective_from (delayed first increment)", () => {
+    // Mirrors a real agreement: base rent 10000 from 2026-08-01, 5%
+    // multiplier every August, but the first increment is skipped — it
+    // doesn't take effect until 2027-08 (so 2027-08 is still flat, and the
+    // first actual raise lands in 2028-08).
+    const tenant = makeTenant({
+      base_rent: 10000,
+      base_rent_as_of: "2026-08-01",
+      increase_month: "August",
+      increase_by: 1.05,
+      increase_type: "multiplier",
+      increase_effective_from: "2027-08-01",
+    });
+
+    it("stays flat for the skipped first year", () => {
+      expect(calculateRent(tenant, "2026-08")).toBe(10000);
+      expect(calculateRent(tenant, "2027-01")).toBe(10000);
+      expect(calculateRent(tenant, "2027-07")).toBe(10000);
+    });
+
+    it("stays flat through the year the schedule becomes effective, since that's the walk origin", () => {
+      expect(calculateRent(tenant, "2027-08")).toBe(10000);
+      expect(calculateRent(tenant, "2028-07")).toBe(10000);
+    });
+
+    it("applies the first real increment the following year", () => {
+      expect(calculateRent(tenant, "2028-08")).toBe(10500);
+    });
+
+    it("compounds normally in subsequent years", () => {
+      expect(calculateRent(tenant, "2029-08")).toBe(Math.round(10000 * 1.05 * 1.05));
+      expect(calculateRent(tenant, "2030-08")).toBe(
+        Math.round(10000 * 1.05 * 1.05 * 1.05)
+      );
+    });
+
+    it("is ignored when unparseable, falling back to normal base_rent_as_of behavior", () => {
+      const withGarbage = makeTenant({
+        base_rent: 10000,
+        base_rent_as_of: "2026-08-01",
+        increase_month: "August",
+        increase_by: 1.05,
+        increase_type: "multiplier",
+        increase_effective_from: "not-a-date",
+      });
+      // Falls through to the normal schedule anchored on base_rent_as_of,
+      // i.e. the increase applies on the very next crossing.
+      expect(calculateRent(withGarbage, "2027-08")).toBe(10500);
+    });
+
+    it("has no effect when unset — existing tenants are unaffected", () => {
+      const withoutField = makeTenant({
+        base_rent: 10000,
+        base_rent_as_of: "2026-08-01",
+        increase_month: "August",
+        increase_by: 1.05,
+        increase_type: "multiplier",
+      });
+      expect(calculateRent(withoutField, "2027-08")).toBe(10500);
+    });
+  });
 });
 
 describe("getIncreaseDisplay", () => {

@@ -15,6 +15,11 @@ export interface Tenant {
   increase_month?: string;
   increase_type?: "multiplier" | "flat" | string;
   increase_by?: number | string;
+  // First rent-month the increase_month/increase_by schedule actually takes
+  // effect. Months before this stay flat at base_rent even if increase_month
+  // is crossed — for agreements with a delayed first increment (e.g. no
+  // raise in year one). See lib/rent.ts#calculateRent.
+  increase_effective_from?: string;
 }
 
 export interface TenantDashboardItem extends Tenant {

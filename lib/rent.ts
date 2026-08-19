@@ -65,7 +65,12 @@ export function getPaymentMonth(
 
 type RentTenant = Pick<
   Tenant,
-  "base_rent" | "base_rent_as_of" | "increase_month" | "increase_by" | "increase_type"
+  | "base_rent"
+  | "base_rent_as_of"
+  | "increase_month"
+  | "increase_by"
+  | "increase_type"
+  | "increase_effective_from"
 >;
 
 export function calculateRent(
@@ -110,7 +115,7 @@ export function calculateRent(
     return Math.round(rent);
   }
 
-  const referenceDate = new Date(
+  let referenceDate = new Date(
     tenant.base_rent_as_of ?? ""
   );
 
@@ -122,6 +127,36 @@ export function calculateRent(
     Number(targetMonthNum) - 1,
     1
   );
+
+  // increase_effective_from delays the first application of the schedule —
+  // e.g. an agreement whose increase_month/increase_by would otherwise
+  // apply every year, but is contractually flat for the first year. Months
+  // before it stay flat at base_rent; from it onward, it's used as the walk
+  // origin in place of base_rent_as_of (rent hasn't changed between the two,
+  // by construction — that's the flat stretch).
+  if (tenant.increase_effective_from) {
+    const effectiveDate = new Date(
+      tenant.increase_effective_from
+    );
+
+    if (
+      !Number.isNaN(effectiveDate.getTime()) &&
+      !Number.isNaN(targetDate.getTime())
+    ) {
+      if (
+        targetDate.getFullYear() <
+          effectiveDate.getFullYear() ||
+        (targetDate.getFullYear() ===
+          effectiveDate.getFullYear() &&
+          targetDate.getMonth() <
+            effectiveDate.getMonth())
+      ) {
+        return Math.round(rent);
+      }
+
+      referenceDate = effectiveDate;
+    }
+  }
 
   if (
     Number.isNaN(referenceDate.getTime()) ||
