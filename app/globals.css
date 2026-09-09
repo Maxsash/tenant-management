@@ -31,14 +31,22 @@
   --color-danger-soft: #fbeae7;
   --color-danger-border: #e3aea8;
 
-  /* Reserved for future dashboard/chart work — validated categorical
-     palette (dataviz skill), green/red slots skipped to avoid colliding
-     with the paid/unpaid status semantic above. Unused until charts land. */
+  /* Validated categorical palette (dataviz skill), green/red slots skipped to
+     avoid colliding with the paid/unpaid status semantic above.
+
+     Slot 5 was #e87ba4, which failed the normal-vision floor against slot 6
+     (ΔE 12.9, below the 15 minimum — full-colour readers could not reliably
+     separate that pink from the orange). Re-stepped to #b8489a, which clears
+     it at ΔE 19.9 and improves tritan separation too.
+
+     The expense insights screen is deliberately single-series throughout
+     (one hue plus de-emphasis), so nothing consumes these yet — they are
+     here for a future chart that genuinely needs to tell series apart. */
   --color-chart-1: #2a78d6;
   --color-chart-2: #1baf7a;
   --color-chart-3: #eda100;
   --color-chart-4: #4a3aa7;
-  --color-chart-5: #e87ba4;
+  --color-chart-5: #b8489a;
   --color-chart-6: #eb6834;
 
   --radius-sm: 12px;

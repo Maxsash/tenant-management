@@ -10,6 +10,7 @@ import Skeleton from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
 import PageContainer from "@/components/ui/PageContainer";
 import ExpenseEntryRow from "./ExpenseEntryRow";
+import ExpenseSectionNav from "./ExpenseSectionNav";
 import { formatCurrency } from "@/utils/currency";
 import { getCategoryIcon } from "@/lib/expense-categories";
 import type { Expense, ExpenseCategory, ExpenseMonthData } from "@/types/expense";
@@ -41,8 +42,11 @@ export default function ExpenseDashboard({
 
   return (
     <PageContainer size="lg">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="font-display text-3xl font-semibold text-foreground">Expenses</h1>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <h1 className="font-display text-3xl font-semibold text-foreground">Expenses</h1>
+          <ExpenseSectionNav className="md:w-64" />
+        </div>
 
         <div className="flex items-center gap-3">
           <MonthPicker value={month} onChange={onMonthChange} className="flex-1 md:w-56" />

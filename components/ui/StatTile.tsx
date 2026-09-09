@@ -12,6 +12,7 @@ type Props = {
   tone?: Tone;
   helper?: ReactNode;
   onClick?: () => void;
+  className?: string;
 };
 
 const toneClasses: Record<Tone, string> = {
@@ -21,7 +22,14 @@ const toneClasses: Record<Tone, string> = {
   danger: "bg-danger-soft text-danger",
 };
 
-export default function StatTile({ label, value, tone = "neutral", helper, onClick }: Props) {
+export default function StatTile({
+  label,
+  value,
+  tone = "neutral",
+  helper,
+  onClick,
+  className,
+}: Props) {
   const Comp = onClick ? motion.button : motion.div;
 
   return (
@@ -31,7 +39,8 @@ export default function StatTile({ label, value, tone = "neutral", helper, onCli
       className={cn(
         "flex flex-col gap-1 rounded-xl border border-border p-4 text-left shadow-card",
         toneClasses[tone],
-        onClick && "cursor-pointer"
+        onClick && "cursor-pointer",
+        className
       )}
     >
       <span className="text-[13px] font-semibold uppercase tracking-wide opacity-70">

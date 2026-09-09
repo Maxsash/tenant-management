@@ -131,8 +131,13 @@ Two independent, unrelated gates exist — don't conflate them:
 app/api/**/route.ts        Route handlers — the only place allowed to talk
                             to lib/db.ts / Supabase directly from a request.
 app/{tenant,expense}/       Page shells, just render the top-level component.
+                            `/expense/insights` is the analytics screen.
 components/tenants/**       Rent/tenant UI (fetch-and-render only).
 components/expenses/**      Expense UI (fetch-and-render only).
+                            `insights/` holds the analytics screen; charts are
+                            single-series CSS bars (no chart library), and
+                            every derived number arrives from the API already
+                            computed — components only pick an index.
 lib/                        All business logic. See below.
 utils/                      Presentation-only formatting helpers (currency,
                             date display, `cn` classname merge) — no domain
@@ -164,6 +169,24 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   classification logic).
 - `lib/expense-summary.ts`, `lib/expense-categories.ts` — expense aggregation
   and category/item grouping helpers.
+- `lib/expense-analytics.ts` — everything behind `/expense/insights`:
+  `buildExpenseAnalytics` turns the raw rows into month/category/item series
+  plus the per-month narrative (deltas, run rate, coverage, price moves,
+  recurring gaps). Series are built across every month that has data and only
+  sliced to the requested window at the end, so a delta at the left edge still
+  compares against the real previous month. Quantities are only summed when an
+  item has been logged in a single unit — see `dominantUnit`. The tuning
+  constants for the "usually logged, missing here" check are exported rather
+  than inlined, since the heuristic is a judgement call worth seeing.
+- `lib/consumption-table.ts` — the month-by-month grid on the consumption tab.
+  A table only ever covers ONE unit, because kilos and pieces cannot share a
+  column of numbers; anything else in the category is named in a footnote
+  rather than dropped. `listMeasurableCategories` picks the default by
+  `coherence * itemCount`, so a big mostly-kilos category beats both a
+  many-unit one and a tidy two-item one. Blended rates divide
+  `ItemSeries.pricedAmounts` by `pricedQuantities`, never the full totals — a
+  row with a price but no weight, or a weight but no price, would otherwise
+  push the rupees-per-kilo outside the range of the months it averages.
 - `lib/config.ts` — `isAdminActionsEnabled()`, scoped only to the WhatsApp
   buttons (see "PIN-gated admin actions" below).
 - `lib/admin-auth.ts` — PIN/session primitives for the real server-side
