@@ -82,6 +82,39 @@ export async function insertExpense(expense: {
   return data;
 }
 
+export interface ExpenseInsert {
+  expense_date: string;
+  item_id?: string | null;
+  item_name: string;
+  category: string;
+  quantity?: number | null;
+  unit?: string | null;
+  amount: number;
+  payment_method: string;
+  notes?: string | null;
+  is_itemized?: boolean;
+}
+
+/**
+ * Writes a whole slip at once. Supabase applies a single multi-row insert
+ * atomically, so a batch either lands complete or not at all — which is what
+ * the review screen promises when it says "Save 12 entries".
+ */
+export async function insertExpenses(expenses: ExpenseInsert[]) {
+  if (expenses.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("expenses")
+    .insert(expenses)
+    .select();
+
+  if (error) {
+    throw new Error(`Failed to insert expenses: ${error.message}`);
+  }
+
+  return data ?? [];
+}
+
 export async function updateExpense(
   id: string,
   patch: Partial<{

@@ -55,10 +55,46 @@ Copy/create `.env.local` at the repo root. Keys currently in use:
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase client (`lib/supabase.ts`). Required for every DB call — the app throws at startup without these. |
 | `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/publishable keys (not currently used server-side, kept for reference/future use). |
 | `NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS` | Set to `"true"` to show write-action buttons (mark rent paid, add/edit/delete expense, broadcast). Client-side gate only — see AGENTS.md. |
+| `USER_PIN`, `ADMIN_PIN` | The two shared numeric PINs enforced server-side (`lib/admin-auth.ts`). Rotating `ADMIN_PIN` signs out every outstanding session of both tiers. |
+| `GEMINI_API_KEY` | Powers **Scan slip**. Get one free at [aistudio.google.com](https://aistudio.google.com/apikey) — no card, no expiry. See the privacy note below. |
+| `ANTHROPIC_API_KEY` | Alternative reader for **Scan slip**, used in preference to Gemini when set. Reads the handwriting better and does not train on inputs, but bills per call — a Claude Pro subscription does **not** include API credits. |
 | `WHATSAPP_WORKER_URL` | Overrides the default `http://localhost:4005` for the WhatsApp worker. Only needed if the worker runs elsewhere. |
 | `WA_TOKEN`, `NEXT_PUBLIC_API_SECRET`, `API_SECRET` | Present in `.env.local` but not currently wired into any route — legacy/reserved. |
 | `GOOGLE_SHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` | Leftover from the pre-Supabase Google Sheets era. No longer read by the app. |
 | `POSTGRES_*` | Auto-populated by the Supabase/Vercel integration; not read directly (the app talks to Supabase via its JS client, not raw Postgres). |
+
+## Scanning handwritten slips
+
+The **Scan slip** button in the expense entry sheet reads a photographed slip
+into draft rows you correct before saving. Set `GEMINI_API_KEY` to switch it
+on; without a key it returns a clear error and the rest of the app is
+unaffected.
+
+The reader is told the day-first Indian date convention (`3.7.26` is 3 July)
+and is handed your item catalogue, so it answers in your own Hinglish
+spellings and the lines link back to existing items instead of starting
+parallel histories. Nothing is written to the database from the photo — only
+what you confirm on the review screen is saved.
+
+On a phone, tap the camera button beside the `+` on the Expenses screen. If you
+use this from a home-screen icon, you can also save `/expense?scan=1` as its
+own icon, which opens straight to the camera.
+
+A photographed page is often a running list covering several days. Each line
+keeps its own date, and the sheet groups them by day so a page spanning the end
+of a month lands in both months rather than being flattened into one.
+
+**Two things to know before turning it on:**
+
+- **Google's free tier may use what you send it to improve their products.**
+  The paid tier and Vertex do not. Every slip you scan is a photo of household
+  spending going to Google on those terms. If that is not acceptable, leave
+  `GEMINI_API_KEY` unset and type entries in — the entry sheet is built to be
+  fast without it.
+- **Free-tier Gemini is a Flash model**, so it will misread some handwriting.
+  That is why every line lands on a review screen, why uncertain ones are
+  flagged, and why the slip's own total is checked against the lines. Read the
+  draft before saving it; do not trust it blind.
 
 ## Database setup
 

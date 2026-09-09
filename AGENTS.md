@@ -27,6 +27,9 @@ A Next.js App Router app (`/`) that hubs into a few sub-apps via
   WhatsApp rent-reminder broadcasts.
 - **`/expense`** — household expense tracking: log expenses against a
   catalog of items/categories, monthly summaries with category breakdowns.
+  Logging is basket-shaped (one date and payment method, many lines) and a
+  slip can be photographed and read in rather than typed — see "Logging
+  expenses: the entry sheet" and "Reading handwritten slips" below.
 
 The other Hub tiles (Accounts, Family, Properties, Documents) are placeholders
 — no routes exist for them yet. Don't assume they're implemented.
@@ -103,7 +106,9 @@ Two independent, unrelated gates exist — don't conflate them:
   admin PIN" error rather than silently failing later.
 
   **USER-level** gates (viewing sensitive info; a stranger without any PIN
-  gets a degraded response, not necessarily an error): `GET /api/dashboard`
+  gets a degraded response, not necessarily an error): `POST /api/slip-scan`
+  hard-`401`s below user level (it both reads back household spending and
+  spends money at the Anthropic API on every call), `GET /api/dashboard`
   omits `phone`/`tenant_since`/`security_deposit`/`bank`/`increase_*` unless
   at least user-level, `GET /api/expenses` returns `expenses: []` (but real
   `total`/`categoryTotals`, aggregated over the full month regardless of
@@ -120,6 +125,12 @@ Two independent, unrelated gates exist — don't conflate them:
   the env flag above — closes the "no server check" gap for WhatsApp sends
   too).
 
+  **Deliberately open**, alongside `POST /api/expenses`:
+  `POST /api/expenses/bulk`. Saving a whole slip is still creating expenses,
+  and the family should not need the admin PIN to log the shopping. Note the
+  asymmetry this creates with `/api/slip-scan` above: anyone can type a slip
+  in, but reading one off a photo needs at least the family PIN.
+
   Mirror this pattern (pick the right tier, check `hasUserSession` or
   `hasAdminSession` in the route handler, or shape the response like
   `dashboard`/`expenses` do) for new write-capable or sensitive-read
@@ -134,6 +145,9 @@ app/{tenant,expense}/       Page shells, just render the top-level component.
                             `/expense/insights` is the analytics screen.
 components/tenants/**       Rent/tenant UI (fetch-and-render only).
 components/expenses/**      Expense UI (fetch-and-render only).
+                            `entry/` is the logging flow — one sheet that
+                            covers a single expense, a whole slip, and a
+                            photographed slip (see "Entry sheet" below).
                             `insights/` holds the analytics screen; charts are
                             single-series CSS bars (no chart library), and
                             every derived number arrives from the API already
@@ -193,6 +207,27 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   admin gate (see "PIN-gated admin actions" below).
 - `lib/date.ts` — `currentMonth()`/`currentDate()`, single-sourced so routes
   and components agree on "today."
+- `lib/ids.ts` — `newId()` for client-side list keys. Guards
+  `crypto.randomUUID`, which does not exist outside a secure context: this app
+  is opened from phones over the house LAN on plain http, so an unguarded call
+  throws on exactly the devices it is built for.
+- `lib/units.ts` — `normalizeMeasure`/`unitsAgree`. Folds written units onto
+  the four canonical ones (kg, L, pcs, packet) — 500 g becomes 0.5 kg, a dozen
+  becomes 12 pcs. Everything entering from a slip goes through here, because
+  consumption analytics can only sum a column that shares a unit, and the same
+  vegetable having been logged both ways is what forced the rewrite in step 1
+  of `scripts/import-slips-2026-07-to-09.sql`.
+- `lib/entry-lines.ts` — the editable line behind the entry sheet, and every
+  derivation over it: `slipDraftToEntryLines`, `expenseToEntryLine` (mode is
+  re-derived, it is not a column), `entryLineToPayload`, `entryLinesTotal`,
+  `validateEntryLines`. Amounts and quantities are held as **strings**, since
+  they bind straight to text inputs and a half-typed "1." is a legitimate
+  state a number would round away under the user's fingers.
+- `lib/expense-items.ts` — `rankItemsByUsage`/`suggestItems`: recency-weighted
+  purchase counts, so the item picker opens on what the household actually
+  buys instead of an empty search box. Only rows linked by `item_id` count.
+- `lib/slip-prompt.ts`, `lib/slip-matching.ts`, `lib/slip-vision.ts` — the
+  slip camera flow; see "Reading handwritten slips" below.
 
 ### Domain concepts worth knowing before touching rent/payment code
 
@@ -224,6 +259,156 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   from that month onward — valid because `base_rent` hasn't changed between
   the two by construction. Omit it and behavior is identical to before this
   field existed; every pre-existing tenant row omits it.
+
+## Logging expenses: the entry sheet
+
+`components/expenses/entry/` replaced the old one-expense-at-a-time
+`ExpenseFormDialog` + `ItemPicker` (both deleted). The complaint it was built
+to answer was scrolling back and forth for even a simple entry: the old dialog
+stacked a mode switcher, an item picker, amount, date, quantity, unit, payment
+method and notes down one scrolling column, so choosing an item pushed the
+amount off-screen.
+
+The shape now follows the paper. **A slip is one date, one payment method and
+many lines**, so:
+
+- `EntrySheet.tsx` — the two facts that hold for the whole trip sit in a
+  header bar, set once. Lines stack under them, with the running total and
+  Save pinned in the footer. A single expense is a basket of one, and editing
+  an existing expense is the same sheet with one line, so there is one layout
+  to learn rather than two.
+- `ItemPickerPanel.tsx` — slides **over** the sheet rather than sitting inside
+  it, which is what stops picking an item from scrolling the amount away. It
+  opens on the household's most-bought items (`lib/expense-items.ts`) instead
+  of an empty search box, and always offers "log this anyway" so it cannot
+  dead-end someone whose word is not in the catalogue.
+- `EntryLineRow.tsx` — one line fits on a phone without scrolling: what it was
+  on top, then quantity, unit and amount side by side. Choosing an item moves
+  the caret straight to the amount, so pick-then-price is one motion. Note
+  that `autoFocus` cannot do this — the row already exists by then — hence the
+  ref-and-effect. A date field appears on the row only when the basket spans
+  several days, where the date is news rather than noise.
+
+Two entry points into scanning, because the app is opened from a home-screen
+icon and a slip photo is the usual way expenses arrive: a camera button beside
+the `+` on the dashboard, and `/expense?scan=1`, which opens the sheet leading
+with the camera so that URL can be saved as its own icon. A file picker cannot
+be opened without a real tap, so neither can skip the one deliberate press —
+that is a browser rule, not a missing feature.
+
+Two traps worth knowing before editing `EntrySheet`:
+
+- **The reset effect must not depend on `items` or `categories`.** Those
+  arrive from a fetch that lands *after* the sheet opens, and a new array
+  identity would re-run the reset and wipe whatever had just been typed or
+  scanned. The catalogue is read through `itemsRef` for that reason.
+- **A scan replaces the basket, it does not append to it** — mixing a
+  half-typed line into a freshly read slip makes its totals check lie. The
+  sheet confirms first when there is anything to lose.
+
+## Reading handwritten slips
+
+Photograph a slip, get draft rows to correct, save the ones you confirm. The
+manual pipeline this replaces is preserved in
+`scripts/import-slips-2026-07-to-09.sql` — worth reading before touching any
+of this, since it is the ground truth for what these slips actually look like.
+
+**The reader is pluggable, and which one runs is a cost decision.**
+`lib/slip-reader/` holds one module per provider behind a common `SlipReader`
+interface; `getSlipReader()` picks the first whose key is set, Anthropic
+before Gemini. With neither, `/api/slip-scan` returns a `501` naming both
+variables and nothing else in the app is affected.
+
+- `lib/slip-reader/gemini.ts` — **the one that actually runs here.**
+  `GEMINI_MODELS` via `GEMINI_API_KEY`, because Gemini's free tier is
+  indefinite, needs no card, and covers the Flash models. Two consequences to
+  keep in view: Flash reads handwritten Devanagari less reliably than a
+  frontier model, and **the free tier may train on what it is sent** (the paid
+  tier and Vertex do not). Every slip photographed through it is household
+  spending handed to Google on those terms. It also decodes HEIC/HEIF, which
+  the Anthropic reader does not — hence `imageTypes` being per-provider.
+  There is a *list* of models rather than one because the free tier really
+  does run out: the newest Flash returns `503 UNAVAILABLE` under load often
+  enough to hit on an ordinary evening. A capacity or rate-limit failure moves
+  down the list (a different model usually has room when one does not);
+  anything else fails immediately, since a bad key would fail the same way on
+  every model.
+- `lib/slip-reader/anthropic.ts` — `claude-opus-5` via `ANTHROPIC_API_KEY`.
+  Reads this handwriting better and does not train on inputs, but bills per
+  call; **a Claude Pro subscription does not include API credits**, which is
+  why it is not the default. Preferred automatically if a key ever appears.
+- `lib/slip-reader/schema.ts` — the answer shape both providers return, and
+  the prompt they share, so switching provider changes only transport. The
+  model's answer is re-validated with zod even when the provider claims to
+  have constrained it — a caller about to write rows should never be handed a
+  half-parsed slip.
+- `lib/slip-prompt.ts` — the instructions. Two things in it are load-bearing:
+  the **day-first date convention** (`3.7.26` is 3 July 2026 — read
+  month-first it becomes 7 March and files the whole slip in the wrong month),
+  and the **catalogue**, which is what makes the model answer "Aaloo" rather
+  than "Potato".
+- `lib/slip-matching.ts` — everything that decides what the answer *means*,
+  and therefore everything worth unit-testing. Matches names against the
+  catalogue through `foldName`, which converges Hinglish spelling drift
+  (Aaloo/Aalu/Alu, Pyaaz/Pyaz) before comparing.
+
+Why matching leans on `item_id`: `lib/expense-analytics.ts` keys an item's
+history by it and only falls back to the name, so a slip line that lands as
+free text starts a second, parallel history for something already tracked.
+
+Why it still flags: only an **exact** folded match is treated as settled.
+Anything else comes back `fuzzy`, or `ambiguous` when a second item scored
+nearly as well — the common case being a slip that writes the plain word
+("Mirch powder") where the catalogue holds two variants of it. Silently
+attaching a line to the wrong item is worse than asking, so every uncertain
+line reaches the review screen carrying its reason.
+
+The **totals check** is the one that earns its keep: a slip usually writes its
+own total, and comparing it against the sum of the lines catches a whole line
+having been missed, which no per-line confidence can. It re-runs live as the
+person corrects the draft, so fixing a line clears the warning.
+
+**Dates live on the line, not on the slip.** This is the single most important
+thing here and it is not obvious from the name "slip": a photographed page is
+usually a *running ledger*, a date written once with ditto marks under it, and
+it routinely straddles the end of a month. The first real slip tested covered
+31 August to 3 September on one page. An earlier design carried one date for
+the whole basket, which would have filed that August spending into September
+and skewed every month-over-month figure on the insights screen. So:
+`SlipLine.line_date`, `SlipDraftLine.expense_date`, `EntryLine.date` and a
+per-line `expense_date` on `/api/expenses/bulk` all exist for that reason.
+`buildSlipDraft` carries the last seen date down lines the reader left
+undated, and the top-level `expense_date` is only the header's opening value —
+never the authority. Do not collapse these back into one date.
+
+The catalogue is rendered as `- Name | unit`, not `- Name (unit)`. That is
+also from a real slip: with parentheses the model copied the unit into the
+item name and answered "Paav (packet)", matching nothing and starting a
+duplicate beside the real "Paav".
+
+`MATCH_TUNING` and the unit alias table are exported rather than inlined, on
+the same principle as the analytics constants — they are judgement calls about
+handwriting, not facts.
+
+### Phone-first, and what that forces
+
+The app is used mostly from an iPhone, added to the home screen so it runs as
+a standalone PWA. Three things in this flow exist only because of that:
+
+- `lib/slip-image.ts` downscales and re-encodes every photo to JPEG **on the
+  device** before upload. iPhones shoot HEIC, Safari's file input has not been
+  consistent across iOS versions about converting it, and a full-resolution
+  photo is far past the upload ceiling anyway. A slip reads fine from a 2000px
+  long edge. If the browser cannot decode the file, the original is sent and
+  the server decides — never drop a photo silently on the device.
+- The file input carries **no `capture` attribute**, on purpose. With it, iOS
+  jumps straight to the camera; without it, iOS offers Photo Library / Take
+  Photo / Choose File, and slips are as often photographed earlier and logged
+  later.
+- Amount and quantity inputs are `type="text"` with `inputMode="decimal"`,
+  not `type="number"` — it brings up the numeric keypad without the spinner
+  and scroll-to-change behaviour that makes a number field hazardous on a
+  touchscreen.
 
 ## whatsapp-worker (separate service)
 
@@ -282,6 +467,13 @@ Conventions:
   pattern casually — it exists only because this one bug class genuinely
   can't be tested any other way.
 
+- `test/manual/` — not in the config's `include`, so nothing there runs in the
+  normal suite. It holds the end-to-end slip reader check, which needs a real
+  API key and a real photograph and costs a request. Worth running against
+  actual handwriting after touching the prompt or the matcher: it is what
+  caught both the running-ledger dates and the `name (unit)` bug, neither of
+  which any fixture would have shown. See `test/manual/README.md`.
+
 `pnpm test` is fully green (no intentionally-failing tests) — a failure
 always means a real regression.
 
@@ -338,3 +530,9 @@ modes are easy to reintroduce by accident during a future refactor:
 at the repo root is a vestigial leftover from the original `create-next-app`
 scaffold and hasn't moved — ignore it, don't update it, use `pnpm` for all
 installs.
+
+`@google/genai`, `@anthropic-ai/sdk` and `zod` were added for the slip reader
+and are used only under `lib/slip-reader/`. `zod` is there for that one
+structured-output schema, not as a general validation library — the rest of
+the app validates by hand in route handlers, and there is no plan to change
+that.

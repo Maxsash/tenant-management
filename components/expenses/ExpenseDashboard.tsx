@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Lock, Plus, Settings } from "lucide-react";
+import { Camera, Lock, Plus, Settings } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -22,6 +22,7 @@ type Props = {
   loading: boolean;
   categories: ExpenseCategory[];
   onAdd: () => void;
+  onScan: () => void;
   onEditEntry: (expense: Expense) => void;
   onRequestUnlock: () => void;
 };
@@ -33,6 +34,7 @@ export default function ExpenseDashboard({
   loading,
   categories,
   onAdd,
+  onScan,
   onEditEntry,
   onRequestUnlock,
 }: Props) {
@@ -131,14 +133,29 @@ export default function ExpenseDashboard({
         </>
       )}
 
-      <Button
-        size="lg"
-        onClick={onAdd}
-        aria-label="Add expense"
-        className="fixed right-5 bottom-28 z-30 w-14 !p-0 rounded-full shadow-float md:right-10 md:bottom-10"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
+      {/* Two ways in, stacked in the thumb's reach. The camera sits above the
+          plus because a photographed slip is the usual way expenses arrive
+          here — one tap from opening the app, rather than buried inside the
+          entry sheet. */}
+      <div className="fixed right-5 bottom-28 z-30 flex flex-col items-center gap-3 md:right-10 md:bottom-10">
+        <Button
+          variant="outline"
+          onClick={onScan}
+          aria-label="Scan a slip"
+          className="h-12 w-12 !p-0 rounded-full shadow-float"
+        >
+          <Camera className="h-5 w-5 text-accent" />
+        </Button>
+
+        <Button
+          size="lg"
+          onClick={onAdd}
+          aria-label="Add expense"
+          className="w-14 !p-0 rounded-full shadow-float"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      </div>
     </PageContainer>
   );
 }
