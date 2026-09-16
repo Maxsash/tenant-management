@@ -171,4 +171,26 @@ describe("GET /api/dashboard", () => {
       paid_on: null,
     });
   });
+
+  describe("overdue_other_months", () => {
+    it("totals what current tenants still owe from months other than the one on screen", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-16T12:00:00Z"));
+      vi.mocked(getTenants).mockResolvedValue([
+        makeTenant({ id: "t1", tenant_since: "2026-05-01", base_rent: 10000 }),
+        makeTenant({ id: "gone", tenant_since: "2026-05-01", active: false, vacated_on: "2026-06-30" }),
+      ]);
+      vi.mocked(getPayments).mockResolvedValue([
+        // t1 paid May and August rent, skipped June and July; gone paid nothing.
+        { ...makePayment({ tenant_id: "t1", month: "2026-06", paid_on: "2026-06-03" }), rent_month: "2026-05" },
+        { ...makePayment({ tenant_id: "t1", month: "2026-09", paid_on: "2026-09-03" }), rent_month: "2026-08" },
+      ]);
+
+      const body = await (await GET(makeGetRequest("?month=2026-07"))).json();
+
+      // June only: July is the month on screen, and the tenant who moved out
+      // isn't counted here.
+      expect(body.overdue_other_months).toEqual({ amount: 10000, tenants: 1 });
+    });
+  });
 });

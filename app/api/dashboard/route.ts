@@ -1,9 +1,10 @@
 import { getTenants, getPayments } from "@/lib/db";
-import { calculateRent } from "@/lib/rent";
 import { NextResponse } from "next/server";
-import { getActiveTenants } from "@/lib/tenant";
-import { evaluatePaymentStatus, getOnTimeDeadline } from "@/lib/payment-status";
-import { currentMonth } from "@/lib/date";
+import { getOnTimeDeadline } from "@/lib/payment-status";
+import { getRentMonth } from "@/lib/rent";
+import { buildRentLedger, HISTORY_START } from "@/lib/rent-ledger";
+import { overdueTotals } from "@/lib/rent-analytics";
+import { currentDate, currentMonth } from "@/lib/date";
 import { hasUserSession } from "@/lib/admin-auth";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
@@ -22,21 +23,14 @@ export async function GET(req: Request) {
     getPayments<Payment>(),
   ]);
 
-  // `getPayments` provides `payment_month` and `rent_month` fields
-  // derived from the DB's `month` column. Filter by `rent_month`.
-  const paymentsForRent = payments.filter((p) => p.rent_month === rentMonth);
+  // Who owed rent this month, how much, and whether it came in — the same
+  // derivation a tenant's history and the insights screen use.
+  const ledger = buildRentLedger(tenants, payments, {
+    from: rentMonth,
+    to: rentMonth,
+  });
 
-  const activeTenants = getActiveTenants(tenants, rentMonth);
-
-  const result = activeTenants.map((t) => {
-    const paymentStatus = evaluatePaymentStatus({
-      tenant: t,
-      payments: paymentsForRent,
-      rentMonth,
-    });
-
-    const amount = calculateRent(t, rentMonth);
-
+  const result = ledger.map(({ tenant: t, amount, status, paid_on }) => {
     // Personal info (phone, financial/lease details) is only included once
     // the caller has at least a user-level session — a stranger hitting
     // this route directly should only ever see name/amount/paid-status.
@@ -57,17 +51,34 @@ export async function GET(req: Request) {
       name: t.name,
       property_type: t.property_type,
       amount,
-      paid: paymentStatus.status !== "pending",
-      paid_on: paymentStatus.paid_on,
+      paid: status !== "pending",
+      paid_on,
       ...personalInfo,
     };
   });
+
+  // The dashboard shows one month at a time, so a tenant who skipped some
+  // other month is invisible unless someone happens to pick it. This is the
+  // total of that, for current tenants — the month on screen is left out,
+  // since its unpaid rent is already listed.
+  const today = currentDate();
+  const stillHere = new Set(
+    buildRentLedger(tenants, payments, {
+      from: currentMonth(),
+      to: currentMonth(),
+    }).map((e) => e.tenant.id)
+  );
+  const otherMonths = buildRentLedger(tenants, payments, {
+    from: HISTORY_START,
+    to: getRentMonth(currentMonth()),
+  }).filter((e) => e.rent_month !== rentMonth);
 
   return NextResponse.json({
     rent_month: rentMonth,
     // Shown when choosing a payment date, so back-dating is an informed choice.
     on_time_by: getOnTimeDeadline(rentMonth),
     tenants: result,
+    overdue_other_months: overdueTotals(otherMonths, today, stillHere).current,
     unlocked,
   });
 }

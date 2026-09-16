@@ -24,7 +24,8 @@ A Next.js App Router app (`/`) that hubs into a few sub-apps via
 
 - **`/tenant`** — rent tracking: tenants, monthly rent calculation (with
   scheduled increases), payment status (paid/late/pending), payment history,
-  WhatsApp rent-reminder broadcasts.
+  WhatsApp rent-reminder broadcasts. `/tenant/insights` is the analytics
+  screen — see "Rent insights" below.
 - **`/expense`** — household expense tracking: log expenses against a
   catalog of items/categories, monthly summaries with category breakdowns.
   Logging is basket-shaped (one date and payment method, many lines) and a
@@ -115,7 +116,10 @@ Two independent, unrelated gates exist — don't conflate them:
   at least user-level, `GET /api/expenses` returns `expenses: []` (but real
   `total`/`categoryTotals`, aggregated over the full month regardless of
   lock state) unless at least user-level, and `GET /api/tenant-payments/[id]`
-  hard-`401`s below user-level. `dashboard`/`expenses` both include a
+  hard-`401`s below user-level. `GET /api/rent-analytics` keeps its totals
+  open but empties everything that names a tenant (who paid when, tenant
+  behaviour, deposits, alerts, upcoming increases) unless at least
+  user-level. `dashboard`/`expenses`/`rent-analytics` all include a
   top-level `unlocked: boolean` so the client knows which it got.
 
   **ADMIN-level** gates (hard `401` via `hasAdminSession(req)` below admin
@@ -147,6 +151,7 @@ app/api/**/route.ts        Route handlers — the only place allowed to talk
 app/{tenant,expense}/       Page shells, just render the top-level component.
                             `/expense/insights` is the analytics screen.
 components/tenants/**       Rent/tenant UI (fetch-and-render only).
+                            `insights/` holds the rent analytics screen.
 components/expenses/**      Expense UI (fetch-and-render only).
                             `entry/` is the logging flow — one sheet that
                             covers a single expense, a whole slip, and a
@@ -184,6 +189,19 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   (looks a payment up by tenant and **rent** month).
 - `lib/tenant.ts` — `getActiveTenants` (filters to tenants active in a given
   month; wraps the not-exported `isActiveTenant`).
+- `lib/rent-ledger.ts` — `buildRentLedger`: one entry per tenant per month
+  they owed rent, carrying amount, status and on-time deadline. **The only
+  place a tenant and a rent month are put together** — the dashboard, a
+  tenant's payment history and the insights screen all read from it, so they
+  cannot disagree about who owed what. It decides nothing itself: who owed is
+  `getActiveTenants`, how much is `calculateRent`, paid/late/pending is
+  `evaluatePaymentStatus`. Also home of `HISTORY_START`.
+- `lib/rent-analytics.ts` — everything behind `/tenant/insights`, built on the
+  ledger: per-month collection, per-tenant behaviour, deposits, financial
+  years, the 12-month projection and the "Needs a look" alerts. See "Rent
+  insights" below. `overdueTotals` is also used by `GET /api/dashboard`.
+- `lib/numbers.ts` — `round`, `sum`, `median`, and `percentOf`, which never
+  rounds to 100 or 0 unless it really is all or nothing.
 - `lib/db.ts` — all Supabase reads/writes. Every DB access in the app goes
   through here; nothing outside `lib/db.ts` should call `lib/supabase.ts`
   directly except `lib/db.ts` itself.
@@ -215,7 +233,8 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   admin gate (see "PIN-gated admin actions" below).
 - `lib/date.ts` — `currentMonth()`/`currentDate()`, single-sourced so routes
   and components agree on "today." `isValidMonth()` for checking a
-  client-supplied `YYYY-MM` before formatting it.
+  client-supplied `YYYY-MM` before formatting it. `addMonths`/`monthRange`/
+  `daysBetween` for timezone-free month and day arithmetic.
 - `lib/whatsapp.ts` — everything a rent message is made of: who gets one
   (`getReminderRecipients` = active and pending, `getGreetingRecipients` =
   all active), the Hindi wording (`buildWhatsAppMessage`), and the
@@ -271,9 +290,14 @@ There is deliberately no way to delete a payment from the app yet.
 - **Payment status** is always evaluated through
   `lib/payment-status.ts#evaluatePaymentStatus` — don't reimplement
   paid/late/pending logic elsewhere.
-- **`GLOBAL_CUTOFF = "2023-12"`** (`app/api/tenant-payments/[id]/route.ts`) —
-  the earliest month the app will ever generate payment-history rows for,
-  regardless of how far back `tenant_since` goes (predates reliable data).
+- **`HISTORY_START = "2023-12"`** (`lib/rent-ledger.ts`, formerly
+  `GLOBAL_CUTOFF` in the tenant-payments route) — the earliest rent month the
+  app reports on, regardless of how far back `tenant_since` goes (predates
+  reliable data).
+- **A `vacated_on` on the 1st still owes that month's rent** —
+  `getActiveTenants` counts a tenant through the month of `vacated_on`. Two
+  older rows (T06, T07) were entered as the 1st and so show one extra month
+  unpaid; month-end dates don't have the problem.
 - **`active` on a tenant** is a plain `boolean` (`types/tenant.ts`), matching
   the current Supabase column. It used to be free text left over from the
   pre-migration Google Sheets era (`"true"`/`"yes"`/`"y"` in any casing,
@@ -441,6 +465,46 @@ a standalone PWA. Three things in this flow exist only because of that:
   not `type="number"` — it brings up the numeric keypad without the spinner
   and scroll-to-change behaviour that makes a number field hazardous on a
   touchscreen.
+
+## Rent insights
+
+`/tenant/insights` mirrors `/expense/insights`: one filter row (6 months,
+1 year, 2 years), a card with a tappable column per month, and tabs below
+(Overview, Month, Tenants, Deposits). `GET /api/rent-analytics?months=`
+returns the whole window already derived.
+
+- **Every rupee comes from the ledger.** The payments table holds no amounts
+  (`id, tenant_id, month, paid_on`), so collected and expected are
+  `calculateRent` over `buildRentLedger` entries. Don't total rent any other
+  way.
+- **Unpaid splits in two.** `due` is unpaid but still inside its first week;
+  `overdue` is past the 7th. A month's on-time rate is null while it is still
+  open, since it would only describe the early payers.
+- **Money owed counts the whole history, not the window.** A month that fell
+  off the left edge is still owed.
+- **Current and former tenants are kept apart.** On real data every rupee
+  overdue belonged to tenants who had moved out, often settled against a
+  deposit or never recorded. One red total would have been misleading, so
+  `summary.overdueAmount` is current tenants only; former tenants get
+  `formerOwedAmount` and the end of the alert list.
+- **Alerts flag change, not habit.** `late_streak` only fires for someone who
+  used to pay on time, and "paying later" compares recent payments with the
+  ones before them over a fixed 12-month lookback, whatever the window. A
+  tenant who has always paid late isn't news every month; their card says so.
+  The tuning constants are exported for the same reason as the expense ones.
+- **Tapping a month opens the Month tab**, because tapping is asking about
+  that month.
+- **The chart is a meter** (collected fills a column the height of what was
+  due), so `components/ui/MonthColumns.tsx` doesn't fade unfocused months in
+  that mode: a faded fill is indistinguishable from the unfilled part.
+- **Status marks.** On time is green, late is `--color-late` (a validated
+  amber; `--color-warning` is too close to danger as a fill), unpaid is a
+  hollow red ring. Green and red collapse for protanopes, so shape carries the
+  difference.
+- **Financial years** run April to March by rent month.
+- **The dashboard shows `overdue_other_months`**: rent current tenants owe from
+  any month other than the one on screen, linking to insights. Without it a
+  skipped month is invisible unless someone happens to pick it.
 
 ## WhatsApp: two ways to send
 

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Lock } from "lucide-react";
+import {  } from "lucide-react";
 
-import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import LockedCard from "@/components/ui/LockedCard";
 import StatTile from "@/components/ui/StatTile";
-import DeltaChip from "./DeltaChip";
+import DeltaChip from "@/components/ui/DeltaChip";
 import { formatCompactCurrency, formatCurrency } from "@/utils/currency";
 import { getCategoryIcon } from "@/lib/expense-categories";
 import type {
@@ -145,15 +145,7 @@ export default function SpendingTab({
         </h2>
 
         {!unlocked ? (
-          <Card className="flex flex-col items-center gap-3 p-6 text-center">
-            <Lock className="h-5 w-5 text-muted" aria-hidden="true" />
-            <p className="text-sm text-muted">
-              Enter the PIN to see item-level detail.
-            </p>
-            <Button variant="outline" onClick={onRequestUnlock}>
-              Unlock
-            </Button>
-          </Card>
+          <LockedCard message="Enter the PIN to see item-level detail." onUnlock={onRequestUnlock} />
         ) : month.topItems.length === 0 ? (
           <Card className="p-5 text-sm text-muted">
             No itemised entries this month.

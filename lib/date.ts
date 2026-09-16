@@ -29,3 +29,39 @@ export function isValidDate(value: unknown): value is string {
     date.getUTCDate() === day
   );
 }
+
+const MONTH_RE = /^\d{4}-\d{2}$/;
+
+/** Month arithmetic on "YYYY-MM" without touching Date, so no timezone drift. */
+export function addMonths(month: string, delta: number): string {
+  if (!MONTH_RE.test(month)) return month;
+
+  const year = Number(month.slice(0, 4));
+  const index = Number(month.slice(5, 7)) - 1 + delta;
+  const shiftedYear = year + Math.floor(index / 12);
+  const shiftedMonth = ((index % 12) + 12) % 12;
+
+  return `${shiftedYear}-${String(shiftedMonth + 1).padStart(2, "0")}`;
+}
+
+/** Every month from `from` to `to`, inclusive. */
+export function monthRange(from: string, to: string): string[] {
+  if (!MONTH_RE.test(from) || !MONTH_RE.test(to) || from > to) return [];
+
+  const months: string[] = [];
+  for (let m = from; m <= to; m = addMonths(m, 1)) months.push(m);
+
+  return months;
+}
+
+/** Whole days from one "YYYY-MM-DD" to another; negative when `to` is earlier.
+ *  Counted in UTC so a daylight-saving shift can't make a day 23 hours. */
+export function daysBetween(from: string, to: string): number {
+  const [fromYear, fromMonth, fromDay] = from.split("-").map(Number);
+  const [toYear, toMonth, toDay] = to.split("-").map(Number);
+
+  return Math.round(
+    (Date.UTC(toYear, toMonth - 1, toDay) - Date.UTC(fromYear, fromMonth - 1, fromDay)) /
+      86_400_000
+  );
+}

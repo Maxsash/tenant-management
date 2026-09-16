@@ -3,12 +3,12 @@
 import { getPayments, getTenants } from "@/lib/db";
 import { calculateRent, getRentMonth } from "@/lib/rent";
 import { evaluatePaymentStatus, PaymentStatus } from "@/lib/payment-status";
+import { buildRentLedger, HISTORY_START } from "@/lib/rent-ledger";
+import { currentMonth } from "@/lib/date";
 import { hasUserSession } from "@/lib/admin-auth";
 import { NextResponse } from "next/server";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
-
-const GLOBAL_CUTOFF = "2023-12";
 
 // Payment before 8th = on time
 const ON_TIME_DAY_LIMIT = 7;
@@ -83,7 +83,7 @@ export async function GET(
         // before cutoff
         return (
           paymentMonth >=
-          GLOBAL_CUTOFF
+          HISTORY_START
         );
       })
 
@@ -134,7 +134,7 @@ export async function GET(
 
     // MONTHLY BREAKDOWN
     const monthlyBreakdown =
-      await generateMonthlyBreakdown(
+      generateMonthlyBreakdown(
         tenant,
         tenantPayments
       );
@@ -149,7 +149,7 @@ export async function GET(
       payments: tenantPayments,
       summary,
       monthlyBreakdown,
-      dataFrom: GLOBAL_CUTOFF,
+      dataFrom: HISTORY_START,
     });
   } catch (error) {
     console.error(
@@ -167,80 +167,26 @@ export async function GET(
   }
 }
 
-async function generateMonthlyBreakdown(
+function generateMonthlyBreakdown(
   tenant: Tenant,
   payments: TenantPaymentEntry[]
-) {
-  if (!tenant) {
-    return [];
-  }
-
-  const breakdown: MonthlyBreakdownEntry[] = [];
-
-  // tenant_since expected YYYY-MM
-  const tenantSince = tenant
-    .tenant_since
-    ? String(
-        tenant.tenant_since
-      ).slice(0, 7)
-    : GLOBAL_CUTOFF;
-
-  // later of:
-  // - global cutoff
-  // - tenant onboarding
-  const startMonth =
-    tenantSince > GLOBAL_CUTOFF
-      ? tenantSince
-      : GLOBAL_CUTOFF;
-
-  const [startYear, startMonthNum] =
-    startMonth.split("-");
-
-  let current = new Date(
-    Number(startYear),
-    Number(startMonthNum) - 1,
-    1
-  );
-
-  const now = new Date();
-
-  // Rent for month M is due the following month (1st-7th),
-  // so the current calendar month's rent isn't due yet.
-  const end = new Date(
-    now.getFullYear(),
-    now.getMonth() - 1,
-    1
-  );
-
-  while (current <= end) {
-    const rentMonth = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
-
-    const paymentStatus = evaluatePaymentStatus({
-      tenant,
-      payments,
-      rentMonth,
-      onTimeDayLimit: ON_TIME_DAY_LIMIT,
-    });
-
-    const amount = calculateRent(tenant, rentMonth);
-
-    breakdown.push({
-      month: rentMonth,
-      amount,
-      status: paymentStatus.status,
-      paid_on: paymentStatus.paid_on,
-      isLate: paymentStatus.isLate,
-    });
-
-    // NEVER mutate Date objects
-    current = new Date(
-      current.getFullYear(),
-      current.getMonth() + 1,
-      1
-    );
-  }
-
-  return breakdown.reverse();
+): MonthlyBreakdownEntry[] {
+  // Rent for month M is due the following month (1st-7th), so the current
+  // calendar month's rent isn't due yet and the breakdown stops a month short.
+  // Months before tenant_since or after vacated_on are left out by the ledger,
+  // so a tenant who has moved out isn't shown owing rent ever since.
+  return buildRentLedger([tenant], payments, {
+    from: HISTORY_START,
+    to: getRentMonth(currentMonth()),
+  })
+    .map((entry) => ({
+      month: entry.rent_month,
+      amount: entry.amount,
+      status: entry.status,
+      paid_on: entry.paid_on,
+      isLate: entry.status === "late",
+    }))
+    .reverse();
 }
 
 function calculateSummary(

@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Lock, TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 
-import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import DeltaChip from "./DeltaChip";
+import LockedCard from "@/components/ui/LockedCard";
+import DeltaChip from "@/components/ui/DeltaChip";
 import MiniBars from "./MiniBars";
 import ConsumptionTable from "./ConsumptionTable";
 import {
@@ -67,15 +67,7 @@ export default function ConsumptionTab({
   // Every hook has to run before this, so the locked branch comes after them.
   if (!unlocked) {
     return (
-      <Card className="flex flex-col items-center gap-3 p-6 text-center">
-        <Lock className="h-5 w-5 text-muted" aria-hidden="true" />
-        <p className="text-sm text-muted">
-          Enter the PIN to see what was consumed.
-        </p>
-        <Button variant="outline" onClick={onRequestUnlock}>
-          Unlock
-        </Button>
-      </Card>
+      <LockedCard message="Enter the PIN to see what was consumed." onUnlock={onRequestUnlock} />
     );
   }
 

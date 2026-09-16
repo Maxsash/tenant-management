@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Camera, Lock, Plus, Settings } from "lucide-react";
+import { Camera, Plus, Settings } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import LockedCard from "@/components/ui/LockedCard";
 import MonthPicker from "@/components/ui/MonthPicker";
 import Skeleton from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
@@ -105,13 +106,7 @@ export default function ExpenseDashboard({
             <h2 className="font-display text-xl font-semibold text-foreground">Entries</h2>
 
             {!data?.unlocked ? (
-              <Card className="flex flex-col items-center gap-3 p-6 text-center">
-                <Lock className="h-5 w-5 text-muted" />
-                <p className="text-sm text-muted">Enter the PIN to view expense entries.</p>
-                <Button variant="outline" onClick={onRequestUnlock}>
-                  Unlock
-                </Button>
-              </Card>
+              <LockedCard message="Enter the PIN to view expense entries." onUnlock={onRequestUnlock} />
             ) : expenses.length === 0 ? (
               <EmptyState
                 title="No expenses yet"

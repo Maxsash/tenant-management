@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Megaphone, MessageCircle, PartyPopper } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, CircleAlert, Megaphone, MessageCircle, PartyPopper } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import MonthPicker from "@/components/ui/MonthPicker";
@@ -10,6 +11,7 @@ import StatTile from "@/components/ui/StatTile";
 import Skeleton from "@/components/ui/Skeleton";
 import PageContainer from "@/components/ui/PageContainer";
 import TenantCard from "@/components/tenants/TenantCard";
+import TenantSectionNav from "@/components/tenants/TenantSectionNav";
 import WhatsAppSendSheet from "@/components/tenants/WhatsAppSendSheet";
 import PaidDateDialog, { type PaidDateMode } from "@/components/tenants/PaidDateDialog";
 
@@ -17,18 +19,12 @@ import { sendBroadcast } from "@/services/broadcast";
 import { sendMonthlyGreeting } from "@/services/monthly-greeting";
 import { isAdminActionsEnabled } from "@/lib/config";
 import { cn } from "@/utils/cn";
-import type { TenantDashboardItem } from "@/types/tenant";
+import { formatCurrency } from "@/utils/currency";
+import type { TenantDashboardData, TenantDashboardItem } from "@/types/tenant";
 import type { AdminLevel } from "@/types/admin";
 
-type DashboardData = {
-  rent_month: string;
-  on_time_by: string | null;
-  tenants: TenantDashboardItem[];
-  unlocked: boolean;
-};
-
 type Props = {
-  data: DashboardData | null;
+  data: TenantDashboardData | null;
   month: string;
   onMonthChange: (month: string) => void;
   loading: boolean;
@@ -146,8 +142,10 @@ export default function Dashboard({
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="font-display text-3xl font-semibold text-foreground">Tenants</h1>
-          <MonthPicker value={month} onChange={onMonthChange} className="md:w-56" />
+          <TenantSectionNav className="md:w-64" />
         </div>
+
+        <MonthPicker value={month} onChange={onMonthChange} className="md:w-56" />
 
         <div className="flex flex-col gap-3 sm:flex-row">
           {adminEnabled && (
@@ -203,6 +201,23 @@ export default function Dashboard({
           onClick={() => scrollToSection("unpaid")}
         />
       </div>
+
+      {(data?.overdue_other_months.amount ?? 0) > 0 && data && (
+        <Link
+          href="/tenant/insights"
+          className="-mt-3 flex items-center gap-3 rounded-xl border border-danger-border bg-danger-soft px-4 py-3 text-danger transition-transform active:scale-[0.99]"
+        >
+          <CircleAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1 text-sm">
+            <span className="font-semibold">
+              {formatCurrency(data.overdue_other_months.amount)} from other months
+            </span>{" "}
+            is still not marked paid ({data.overdue_other_months.tenants} tenant
+            {data.overdue_other_months.tenants === 1 ? "" : "s"}). See who in Insights.
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0" aria-hidden="true" />
+        </Link>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

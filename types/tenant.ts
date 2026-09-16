@@ -27,3 +27,13 @@ export interface TenantDashboardItem extends Tenant {
   paid: boolean;
   paid_on: string | null;
 }
+
+/** GET /api/dashboard. */
+export interface TenantDashboardData {
+  rent_month: string;
+  on_time_by: string | null;
+  tenants: TenantDashboardItem[];
+  /** Rent current tenants still owe from months other than `rent_month`. */
+  overdue_other_months: { amount: number; tenants: number };
+  unlocked: boolean;
+}

@@ -196,6 +196,29 @@ describe("GET /api/tenant-payments/[id]", () => {
     );
   });
 
+  it("stops the breakdown at the month a tenant moved out, rather than showing them owing ever since", async () => {
+    const tenant = makeTenant({
+      id: "t1",
+      tenant_since: "2026-03-01",
+      active: false,
+      vacated_on: "2026-04-30",
+    });
+    vi.mocked(getTenants).mockResolvedValue([tenant]);
+    vi.mocked(getPayments).mockResolvedValue([
+      { tenant_id: "t1", month: "2026-04", paid_on: "2026-04-03" },
+      { tenant_id: "t1", month: "2026-05", paid_on: "2026-05-03" },
+    ]);
+
+    const res = await callGet("t1");
+    const body = await res.json();
+
+    expect(body.monthlyBreakdown.map((m: { month: string }) => m.month)).toEqual([
+      "2026-04",
+      "2026-03",
+    ]);
+    expect(body.summary.totalPending).toBe(0);
+  });
+
   describe("summary", () => {
     it("computes totalPaid/totalPending/onTimeCount/latePaymentCount/onTimePercentage from a small breakdown", async () => {
       const tenant = makeTenant({ id: "t1", tenant_since: "2026-05-01", base_rent: 10000 });

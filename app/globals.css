@@ -31,6 +31,15 @@
   --color-danger-soft: #fbeae7;
   --color-danger-border: #e3aea8;
 
+  /* Mark fill for "paid late" in rent charts, beside --color-success (on time)
+     and --color-danger (unpaid). --color-warning is tuned for text and sits
+     only ΔE 10.3 from danger as a fill — too close to tell apart even with
+     full colour vision. This amber clears ΔE 24 against both (validated with
+     the dataviz skill's script). Never use it for text: 2.4:1 on surface.
+     Green and red still collapse for protanopes (ΔE 2.1), so unpaid is drawn
+     as a hollow ring, not a filled dot — shape carries it, not hue. */
+  --color-late: #d99a2b;
+
   /* Validated categorical palette (dataviz skill), green/red slots skipped to
      avoid colliding with the paid/unpaid status semantic above.
 

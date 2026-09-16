@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { makeExpense } from "@/test/fixtures/expenses";
 import {
-  addMonths,
   buildExpenseAnalytics,
   daysInMonth,
   deltaSeries,
   dominantUnit,
   longestGap,
-  monthRange,
 } from "./expense-analytics";
 
 function build(
@@ -33,37 +31,6 @@ function veg(date: string, name: string, quantity: number, amount: number) {
     amount,
   });
 }
-
-describe("addMonths", () => {
-  it("moves forward across a year boundary", () => {
-    expect(addMonths("2026-11", 3)).toBe("2027-02");
-  });
-
-  it("moves backward across a year boundary", () => {
-    expect(addMonths("2026-02", -3)).toBe("2025-11");
-  });
-
-  it("passes malformed input through untouched", () => {
-    expect(addMonths("", 1)).toBe("");
-    expect(addMonths("2026", 1)).toBe("2026");
-  });
-});
-
-describe("monthRange", () => {
-  it("is inclusive at both ends", () => {
-    expect(monthRange("2026-07", "2026-10")).toEqual([
-      "2026-07",
-      "2026-08",
-      "2026-09",
-      "2026-10",
-    ]);
-  });
-
-  it("returns nothing when the range is inverted or malformed", () => {
-    expect(monthRange("2026-10", "2026-07")).toEqual([]);
-    expect(monthRange("nope", "2026-07")).toEqual([]);
-  });
-});
 
 describe("daysInMonth", () => {
   it("handles month lengths including leap February", () => {

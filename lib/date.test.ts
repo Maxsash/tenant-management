@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { currentDate, currentMonth, isValidDate, isValidMonth } from "./date";
+import {
+  addMonths,
+  currentDate,
+  currentMonth,
+  daysBetween,
+  isValidDate,
+  isValidMonth,
+  monthRange,
+} from "./date";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -57,5 +65,51 @@ describe("isValidDate", () => {
     "2026-07-00",
   ])("rejects %j", (value) => {
     expect(isValidDate(value)).toBe(false);
+  });
+});
+
+describe("addMonths", () => {
+  it("moves forward across a year boundary", () => {
+    expect(addMonths("2026-11", 3)).toBe("2027-02");
+  });
+
+  it("moves backward across a year boundary", () => {
+    expect(addMonths("2026-02", -3)).toBe("2025-11");
+  });
+
+  it("passes malformed input through untouched", () => {
+    expect(addMonths("", 1)).toBe("");
+    expect(addMonths("2026", 1)).toBe("2026");
+  });
+});
+
+describe("monthRange", () => {
+  it("is inclusive at both ends", () => {
+    expect(monthRange("2026-07", "2026-10")).toEqual([
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10",
+    ]);
+  });
+
+  it("returns nothing when the range is inverted or malformed", () => {
+    expect(monthRange("2026-10", "2026-07")).toEqual([]);
+    expect(monthRange("nope", "2026-07")).toEqual([]);
+  });
+});
+
+describe("daysBetween", () => {
+  it("counts whole days, across a month boundary", () => {
+    expect(daysBetween("2026-08-28", "2026-09-07")).toBe(10);
+  });
+
+  it("is zero for the same day and negative when the second date is earlier", () => {
+    expect(daysBetween("2026-09-07", "2026-09-07")).toBe(0);
+    expect(daysBetween("2026-09-07", "2026-09-01")).toBe(-6);
+  });
+
+  it("counts a leap day", () => {
+    expect(daysBetween("2028-02-28", "2028-03-01")).toBe(2);
   });
 });

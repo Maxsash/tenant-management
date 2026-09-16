@@ -56,3 +56,9 @@ export function formatQuantity(value: number, unit: string | null) {
 
   return `${rounded} ${noun}`;
 }
+
+/** A signed rupee change, e.g. "+₹500" or "−₹200". */
+export function formatSignedCurrency(value: number) {
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  return `${sign}${formatCurrency(Math.abs(value))}`;
+}

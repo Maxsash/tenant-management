@@ -8,21 +8,15 @@ import TenantDetails from "./TenantDetails";
 import PageLoader from "@/components/ui/PageLoader";
 import PinPromptDialog from "@/components/ui/PinPromptDialog";
 import { useAdminUnlock } from "@/hooks/useAdminUnlock";
-import type { TenantDashboardItem } from "@/types/tenant";
-
-type DashboardData = {
-  rent_month: string;
-  on_time_by: string | null;
-  tenants: TenantDashboardItem[];
-  unlocked: boolean;
-};
+import { currentMonth } from "@/lib/date";
+import { getRentMonth } from "@/lib/rent";
+import type { TenantDashboardData as DashboardData, TenantDashboardItem } from "@/types/tenant";
 
 export default function TenantHome() {
-  const [month, setMonth] = useState(() => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - 1);
-    return date.toISOString().slice(0, 7);
-  });
+  // Opens on the newest rent month that has come due — last month's, paid
+  // this month. The same arithmetic as everywhere else, rather than local
+  // Date maths that slipped a month on the 31st and across the IST/UTC line.
+  const [month, setMonth] = useState(() => getRentMonth(currentMonth()));
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);

@@ -9,6 +9,8 @@ import type {
   TopItem,
 } from "@/types/expense";
 import type { Expense } from "@/types/expense";
+import { monthRange } from "@/lib/date";
+import { median, round, sum } from "@/lib/numbers";
 
 /**
  * Tuning for the "recurring, not logged" check. Exported so the heuristic is
@@ -50,48 +52,12 @@ export function monthOf(date: string): string {
   return date.slice(0, 7);
 }
 
-/** Month arithmetic on "YYYY-MM" without touching Date, so no timezone drift. */
-export function addMonths(month: string, delta: number): string {
-  if (!MONTH_RE.test(month)) return month;
-
-  const year = Number(month.slice(0, 4));
-  const index = Number(month.slice(5, 7)) - 1 + delta;
-  const shiftedYear = year + Math.floor(index / 12);
-  const shiftedMonth = ((index % 12) + 12) % 12;
-
-  return `${shiftedYear}-${String(shiftedMonth + 1).padStart(2, "0")}`;
-}
-
-export function monthRange(from: string, to: string): string[] {
-  if (!MONTH_RE.test(from) || !MONTH_RE.test(to) || from > to) return [];
-
-  const months: string[] = [];
-  for (let m = from; m <= to; m = addMonths(m, 1)) months.push(m);
-
-  return months;
-}
-
 export function daysInMonth(month: string): number {
   if (!MONTH_RE.test(month)) return 0;
   // Day 0 of the next month is the last day of this one.
   return new Date(
     Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)
   ).getUTCDate();
-}
-
-function round(value: number, places: number): number {
-  const factor = 10 ** places;
-  return Math.round(value * factor) / factor;
-}
-
-function median(values: number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
 }
 
 /**
@@ -119,10 +85,6 @@ export function longestGap(dates: Set<number>, upToDay: number): number {
   }
 
   return longest;
-}
-
-function sum(values: number[]): number {
-  return values.reduce((total, value) => total + value, 0);
 }
 
 /**

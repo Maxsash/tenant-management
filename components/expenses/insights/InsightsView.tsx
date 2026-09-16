@@ -3,15 +3,15 @@
 import { useState } from "react";
 
 import Card from "@/components/ui/Card";
+import DeltaChip from "@/components/ui/DeltaChip";
 import EmptyState from "@/components/ui/EmptyState";
+import MonthColumns from "@/components/ui/MonthColumns";
 import PageContainer from "@/components/ui/PageContainer";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import Tabs, { TabsContent } from "@/components/ui/Tabs";
 import ExpenseSectionNav from "../ExpenseSectionNav";
 import ChecksTab from "./ChecksTab";
 import ConsumptionTab from "./ConsumptionTab";
-import DeltaChip from "./DeltaChip";
-import MonthColumns from "./MonthColumns";
 import SpendingTab from "./SpendingTab";
 import { formatCurrency } from "@/utils/currency";
 import { formatMonthLabel } from "@/utils/date";
@@ -104,9 +104,10 @@ export default function InsightsView({
             </div>
 
             <MonthColumns
-              months={months}
+              columns={months.map((m) => ({ month: m.month, value: m.total }))}
               selectedMonth={active.month}
               onSelect={setSelectedMonth}
+              ariaLabel="Monthly spend"
             />
 
             <p className="text-xs text-muted">Tap a month to look at it.</p>

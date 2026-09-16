@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Dialog from "@/components/ui/Dialog";
 import { changePaidOnDate, markRentPaid } from "@/services/payments";
 import { currentDate } from "@/lib/date";
+import { formatCurrency } from "@/utils/currency";
 import { formatFullDate, formatMonthLabel } from "@/utils/date";
 import type { TenantDashboardItem } from "@/types/tenant";
 
@@ -114,7 +115,7 @@ export default function PaidDateDialog({
           <div>
             <p className="font-display text-lg font-semibold text-foreground">{tenant.name}</p>
             <p className="text-sm text-muted">
-              {formatMonthLabel(month)} rent · ₹{tenant.amount}
+              {formatMonthLabel(month)} rent · {formatCurrency(tenant.amount)}
             </p>
           </div>
 

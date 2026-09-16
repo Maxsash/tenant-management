@@ -10,7 +10,8 @@ things off if/when they happen. No pressure, no order.
       `app/globals.css` already has `--color-chart-1` … `--color-chart-6`
       seeded from the `dataviz` skill's validated palette — read that skill
       before building anything, it has the form/color/interaction rules.
-- [ ] Rent collection trend over time (on-time % by month, across all tenants).
+- [x] Rent collection trend over time (on-time % by month, across all tenants).
+      Lives on `/tenant/insights`.
 - [ ] A real "Accounts" section — net worth / balances snapshot.
 - [ ] CSV export for payment history and expense entries.
 
@@ -61,12 +62,12 @@ writeup if any of these need more context before picking one up.
       can and does return `null`). Its `getCurrentMonthStatus()` method also
       calls `/api/tenant-payments/[id]/current-month`, a route that doesn't
       exist anywhere in `app/api/` — dead code, no caller.
-- [ ] `components/tenants/PaymentHistoryTab.tsx` has its own local
+- [x] `components/tenants/PaymentHistoryTab.tsx` has its own local
       `formatMonthYear` (locale `en-US`) that duplicates the exported-but-
       never-imported `formatMonthYear` in `utils/date.ts` (locale `en-IN`,
       matching every other date on the site). Delete the unused one or the
       duplicate — right now there are two, disagreeing.
-- [ ] `components/tenants/TenantHome.tsx` computes its default "last month"
+- [x] `components/tenants/TenantHome.tsx` computes its default "last month"
       via inline `Date` math inside a `useState` initializer. That's the
       "date defaults" category of logic AGENTS.md explicitly says belongs in
       `lib/` — compare `components/expenses/ExpenseHome.tsx`, which does

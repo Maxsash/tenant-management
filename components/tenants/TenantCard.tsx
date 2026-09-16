@@ -4,6 +4,7 @@ import { CalendarDays, CheckCircle2, Clock3 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { formatShortDate } from "@/utils/date";
+import { formatCurrency } from "@/utils/currency";
 import { cn } from "@/utils/cn";
 import type { TenantDashboardItem } from "@/types/tenant";
 
@@ -34,7 +35,7 @@ export default function TenantCard({ tenant, onClick, onMarkPaid, onChangePaidDa
               <p className="mt-0.5 text-sm text-muted">{tenant.property_type}</p>
             </div>
             <p className={cn("text-2xl font-bold", isPaid ? "text-success" : "text-danger")}>
-              ₹{tenant.amount}
+              {formatCurrency(tenant.amount)}
             </p>
           </div>
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { CalendarX, CheckCircle2, Lock, TriangleAlert } from "lucide-react";
+import { CalendarX, CheckCircle2, TriangleAlert } from "lucide-react";
 
-import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import LockedCard from "@/components/ui/LockedCard";
 import { formatCurrency } from "@/utils/currency";
 import { formatMonthLabel } from "@/utils/date";
 import type { MonthInsight } from "@/types/expense";
@@ -85,15 +85,7 @@ export default function ChecksTab({ month, unlocked, onRequestUnlock }: Props) {
         </div>
 
         {!unlocked ? (
-          <Card className="flex flex-col items-center gap-3 p-6 text-center">
-            <Lock className="h-5 w-5 text-muted" aria-hidden="true" />
-            <p className="text-sm text-muted">
-              Enter the PIN to run this check.
-            </p>
-            <Button variant="outline" onClick={onRequestUnlock}>
-              Unlock
-            </Button>
-          </Card>
+          <LockedCard message="Enter the PIN to run this check." onUnlock={onRequestUnlock} />
         ) : month.missingRecurring.length === 0 ? (
           <Card className="flex items-center gap-3 p-5">
             <CheckCircle2

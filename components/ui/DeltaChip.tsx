@@ -7,8 +7,9 @@ type Props = {
   /** Null when there is nothing to compare against. */
   deltaPct: number | null;
   /** Spend and unit prices read better when a rise is coloured as a warning;
-   *  a quantity is just a quantity, so it stays neutral. */
-  tone?: "spend" | "neutral";
+   *  income (rent) the other way round; a quantity is just a quantity, so it
+   *  stays neutral. */
+  tone?: "spend" | "income" | "neutral";
   label?: string;
   className?: string;
 };
@@ -29,12 +30,13 @@ export default function DeltaChip({
   if (deltaPct === null) return null;
 
   const Icon = deltaPct > 0 ? ArrowUp : deltaPct < 0 ? ArrowDown : Minus;
+  const good = tone === "income" ? deltaPct > 0 : deltaPct < 0;
   const toneClass =
     tone === "neutral" || deltaPct === 0
       ? "bg-accent-soft text-accent"
-      : deltaPct > 0
-        ? "bg-danger-soft text-danger"
-        : "bg-success-soft text-success";
+      : good
+        ? "bg-success-soft text-success"
+        : "bg-danger-soft text-danger";
 
   return (
     <span
