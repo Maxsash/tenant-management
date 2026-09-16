@@ -41,6 +41,15 @@ If you don't run this, the "Broadcast" and "Monthly greeting" buttons in the
 tenant dashboard will fail with a 500 (the Next.js API can't reach
 `localhost:4005`) — that's expected, not a bug.
 
+**Away from the laptop**, use **Message on WhatsApp** on the tenant dashboard
+instead (admin PIN). It needs no worker, so it works from the live site on
+your phone: pick rent reminder or monthly greeting, then tap each tenant.
+WhatsApp opens with the message already typed and you press send. The list
+marks who you've opened so far.
+
+The worker gets its message text from the app (`lib/whatsapp.ts`), so after
+pulling a change to the wording, restart the worker as well as the app.
+
 The Chrome executable path is hardcoded in `whatsapp-worker/index.js`
 (`CHROME_PATH`, currently pointing at a specific `puppeteer`-managed Chrome
 for Testing build). If Puppeteer's cached Chrome build changes version, update

@@ -78,7 +78,7 @@ writeup if any of these need more context before picking one up.
       `expense-categories` route (7 of 10 route files) don't, so an
       unexpected Supabase error there hits Next's default 500 instead of the
       JSON error shape the frontend's toasts expect.
-- [ ] `app/api/broadcast/route.ts` and `app/api/monthly-greeting/route.ts`
+- [x] `app/api/broadcast/route.ts` and `app/api/monthly-greeting/route.ts`
       both duplicate the same "active tenants with a phone number →
       {id,name,phone,rent}" recipient-list logic — candidate for a shared
       `lib/` helper.
@@ -88,7 +88,7 @@ writeup if any of these need more context before picking one up.
       near-identical list+dialog+confirm-delete CRUD boilerplate — a shared
       `components/ui/` text-field primitive (or a small generic CRUD-list
       pattern) would remove most of the duplication.
-- [ ] whatsapp-worker's `/send-broadcast` and `/send-monthly-greeting`
+- [x] whatsapp-worker's `/send-broadcast` and `/send-monthly-greeting`
       handlers duplicate validation + connection-check + result-summary
       boilerplate, differing only in the Hindi message template — could
       collapse into one `handleSend(req, res, buildMessage)` helper.

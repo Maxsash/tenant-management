@@ -120,16 +120,6 @@ function normalizePhone(phone) {
   throw new Error(`Invalid Indian phone number: ${phone}`);
 }
 
-function getMonthName(month) {
-  const [year, monthNumber] = month.split("-");
-  return new Date(
-    Number(year),
-    Number(monthNumber) - 1
-  ).toLocaleString("hi-IN", {
-    month: "long",
-  });
-}
-
 async function ensureWhatsAppConnected() {
   try {
     const state = await client.getState();
@@ -152,7 +142,7 @@ async function ensureWhatsAppConnected() {
   }
 }
 
-async function sendMessages(recipients, messageBuilder) {
+async function sendMessages(recipients) {
   const results = [];
 
   for (const user of recipients) {
@@ -161,7 +151,7 @@ async function sendMessages(recipients, messageBuilder) {
     try {
       phone = normalizePhone(user.phone);
 
-      const message = messageBuilder(user);
+      const message = user.message;
 
       console.log("Resolving WhatsApp number:", {
         name: user.name,
@@ -222,10 +212,13 @@ app.get("/status", async (req, res) => {
 });
 
 /* ========================
-SEND BROADCAST
+SEND ROUTES
 ======================== */
 
-app.post("/send-broadcast", async (req, res) => {
+// The message text arrives ready-made on each recipient — the Next.js app
+// owns the wording (lib/whatsapp.ts) so these sends and the phone's
+// tap-to-send links always say the same thing. This service only delivers.
+async function handleSend(req, res, label) {
   try {
     const { recipients, month } = req.body;
 
@@ -235,9 +228,13 @@ app.post("/send-broadcast", async (req, res) => {
       });
     }
 
-    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    if (
+      recipients.some(
+        (user) => typeof user?.message !== "string" || !user.message.trim()
+      )
+    ) {
       return res.status(400).json({
-        error: "Invalid month. Expected format YYYY-MM",
+        error: "Every recipient needs a message",
       });
     }
 
@@ -250,21 +247,11 @@ app.post("/send-broadcast", async (req, res) => {
       });
     }
 
-    const monthName = getMonthName(month);
-
-    const results = await sendMessages(
-      recipients,
-      (user) => 
-        "नमस्कार,\n\n" +
-        "यह " + monthName + " माह के किराये ₹" + user.rent + 
-        " के संबंध में एक विनम्र स्मरण है। कृपया लंबित किराया शीघ्र जमा करने का कष्ट करें।\n\n" +
-        "यदि भुगतान पहले ही किया जा चुका है, तो कृपया पुष्टि कर दें। अन्यथा कृपया इस संदेश को अनदेखा करें।\n\n" +
-        "सादर।"
-    );
+    const results = await sendMessages(recipients);
     const failedResults = results.filter((result) => result.status === "failed");
 
     if (failedResults.length > 0) {
-      console.error("WhatsApp broadcast completed with failures", {
+      console.error(`WhatsApp ${label} completed with failures`, {
         month,
         totalRecipients: recipients.length,
         failed: failedResults.length,
@@ -279,68 +266,18 @@ app.post("/send-broadcast", async (req, res) => {
       results,
     });
   } catch (error) {
-    console.error("❌ Broadcast error:", error);
+    console.error(`❌ ${label} error:`, error);
     return res.status(500).json({
       error: error.message,
     });
   }
-});
+}
 
-/* ========================
-MONTHLY GREETING
-======================== */
+app.post("/send-broadcast", (req, res) => handleSend(req, res, "broadcast"));
 
-app.post("/send-monthly-greeting", async (req, res) => {
-  try {
-    const { recipients, month } = req.body;
-
-    if (!recipients || !Array.isArray(recipients)) {
-      return res.status(400).json({
-        error: "Invalid recipients list",
-      });
-    }
-
-    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-      return res.status(400).json({
-        error: "Invalid month. Expected format YYYY-MM",
-      });
-    }
-
-    const connection = await ensureWhatsAppConnected();
-
-    if (!connection.connected) {
-      return res.status(503).json({
-        error: "WhatsApp client not connected",
-        state: connection.state,
-      });
-    }
-
-    const monthName = getMonthName(month);
-
-    const results = await sendMessages(
-      recipients,
-      (user) =>
-        "नमस्कार,\n\n" +
-        "आपको " + monthName + " माह की हार्दिक शुभकामनाएँ। आशा है कि आप और आपका परिवार स्वस्थ एवं सुखी होंगे।\n\n" +
-        monthName + " माह के लिए देय किराया ₹" + user.rent + 
-        " है। कृपया सुविधानुसार समय पर भुगतान करें।\n\n" +
-        "आपके सहयोग हेतु धन्यवाद।\n\n" +
-        "सादर।"
-    );
-
-    return res.json({
-      success: true,
-      sent: results.filter((result) => result.status === "sent").length,
-      failed: results.filter((result) => result.status === "failed").length,
-      results,
-    });
-  } catch (error) {
-    console.error("❌ Monthly greeting error:", error);
-    return res.status(500).json({
-      error: error.message,
-    });
-  }
-});
+app.post("/send-monthly-greeting", (req, res) =>
+  handleSend(req, res, "monthly greeting")
+);
 
 /* ========================
 START SERVER

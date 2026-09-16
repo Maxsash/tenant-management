@@ -1,9 +1,8 @@
 import { getTenants, getPayments } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { calculateRent } from "@/lib/rent";
-import { getActiveTenants } from "@/lib/tenant";
-import { evaluatePaymentStatus } from "@/lib/payment-status";
 import { hasAdminSession } from "@/lib/admin-auth";
+import { isValidMonth } from "@/lib/date";
+import { buildWhatsAppMessage, getReminderRecipients } from "@/lib/whatsapp";
 import { Tenant } from "@/types/tenant";
 import { Payment } from "@/types/payment";
 
@@ -25,29 +24,23 @@ export async function POST(req: Request) {
     // the dashboard's month selector), not the payment month.
     const { month: rentMonth } = await req.json();
 
+    if (!isValidMonth(rentMonth)) {
+      return NextResponse.json({ error: "Invalid month. Expected YYYY-MM" }, { status: 400 });
+    }
+
     const [tenants, payments] = await Promise.all([
       getTenants<Tenant>(),
       getPayments<Payment>(),
     ]);
 
-    const activeTenants = getActiveTenants(tenants, rentMonth);
-
-    const unpaid = activeTenants.filter((t) => {
-      const paymentStatus = evaluatePaymentStatus({
-        tenant: t,
-        payments,
-        rentMonth,
-      });
-
-      return paymentStatus.status === "pending" && t.phone;
-    });
-
-    const recipients = unpaid.map((t) => ({
-      id: t.id,
-      name: t.name,
-      phone: t.phone,
-      rent: calculateRent(t, rentMonth),
-    }));
+    // The worker sends exactly the text it's given — wording lives in
+    // lib/whatsapp.ts, shared with the tap-to-send links.
+    const recipients = getReminderRecipients(tenants, payments, rentMonth)
+      .filter((r) => r.phone)
+      .map((r) => ({
+        ...r,
+        message: buildWhatsAppMessage("reminder", r.rent, rentMonth),
+      }));
 
     // 🚀 CALL WHATSAPP WORKER
     const whatsappRes = await fetch(

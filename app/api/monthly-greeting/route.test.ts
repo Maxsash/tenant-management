@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeTenant } from "@/test/fixtures/tenants";
 import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-auth";
+import { buildWhatsAppMessage } from "@/lib/whatsapp";
 
 vi.mock("@/lib/db", () => ({
   getTenants: vi.fn(),
@@ -62,6 +63,28 @@ describe("POST /api/monthly-greeting", () => {
       expect.objectContaining({ id: "t1", phone: "+91111" }),
     ]);
   });
+
+  it("hands the worker the finished greeting text for each recipient", async () => {
+    const tenant = makeTenant({ id: "t1", phone: "+91111", base_rent: 9500, tenant_since: undefined });
+    vi.mocked(getTenants).mockResolvedValue([tenant]);
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ sent: 1, results: [] }));
+
+    await POST(makeRequest({ month: "2026-06" }));
+
+    const fetchBody = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
+    expect(fetchBody.recipients[0].message).toBe(buildWhatsAppMessage("greeting", 9500, "2026-06"));
+  });
+
+  it.each([{}, { month: "2026-13" }, { month: "June" }])(
+    "returns 400 and never reaches the worker for a bad month (%j)",
+    async (body) => {
+      const res = await POST(makeRequest(body));
+
+      expect(res.status).toBe(400);
+      expect(getTenants).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    }
+  );
 
   it("excludes tenants with no phone number", async () => {
     const tenant = makeTenant({ id: "t1", phone: "", tenant_since: undefined });

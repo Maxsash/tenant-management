@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Megaphone, PartyPopper } from "lucide-react";
+import { Megaphone, MessageCircle, PartyPopper } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import MonthPicker from "@/components/ui/MonthPicker";
@@ -10,6 +10,7 @@ import StatTile from "@/components/ui/StatTile";
 import Skeleton from "@/components/ui/Skeleton";
 import PageContainer from "@/components/ui/PageContainer";
 import TenantCard from "@/components/tenants/TenantCard";
+import WhatsAppSendSheet from "@/components/tenants/WhatsAppSendSheet";
 
 import { sendBroadcast } from "@/services/broadcast";
 import { sendMonthlyGreeting } from "@/services/monthly-greeting";
@@ -52,6 +53,7 @@ export default function Dashboard({
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [sendingGreeting, setSendingGreeting] = useState(false);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [whatsAppSheetOpen, setWhatsAppSheetOpen] = useState(false);
 
   const adminEnabled = isAdminActionsEnabled();
 
@@ -114,6 +116,14 @@ export default function Dashboard({
     }
   }
 
+  // Tap-to-send from the phone. Unlike the two buttons above it, this needs
+  // no worker, so it isn't hidden behind isAdminActionsEnabled() — only the
+  // admin PIN, same as the bulk sends.
+  async function handleOpenWhatsAppSheet() {
+    if (!(await ensureUnlocked())) return;
+    setWhatsAppSheetOpen(true);
+  }
+
   async function handleMarkPaid(tenant: TenantDashboardItem) {
     if (!(await ensureUnlocked())) return;
 
@@ -145,32 +155,44 @@ export default function Dashboard({
           <MonthPicker value={month} onChange={onMonthChange} className="md:w-56" />
         </div>
 
-        {adminEnabled && (
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button
-              variant="outline"
-              size="lg"
-              loading={sendingGreeting}
-              onClick={handleMonthlyGreeting}
-              className="sm:flex-1"
-            >
-              <PartyPopper className="h-5 w-5" />
-              Send Monthly Greeting
-            </Button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {adminEnabled && (
+            <>
+              <Button
+                variant="outline"
+                size="lg"
+                loading={sendingGreeting}
+                onClick={handleMonthlyGreeting}
+                className="sm:flex-1"
+              >
+                <PartyPopper className="h-5 w-5" />
+                Send Monthly Greeting
+              </Button>
 
-            <Button
-              size="lg"
-              variant={unpaid.length === 0 ? "outline" : "solid"}
-              className={cn("sm:flex-1", unpaid.length > 0 && "bg-warning hover:brightness-95")}
-              disabled={unpaid.length === 0}
-              loading={sendingBroadcast}
-              onClick={handleBroadcast}
-            >
-              <Megaphone className="h-5 w-5" />
-              Send Reminders ({unpaid.length})
-            </Button>
-          </div>
-        )}
+              <Button
+                size="lg"
+                variant={unpaid.length === 0 ? "outline" : "solid"}
+                className={cn("sm:flex-1", unpaid.length > 0 && "bg-warning hover:brightness-95")}
+                disabled={unpaid.length === 0}
+                loading={sendingBroadcast}
+                onClick={handleBroadcast}
+              >
+                <Megaphone className="h-5 w-5" />
+                Send Reminders ({unpaid.length})
+              </Button>
+            </>
+          )}
+
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handleOpenWhatsAppSheet}
+            className="sm:flex-1"
+          >
+            <MessageCircle className="h-5 w-5" />
+            Message on WhatsApp
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -231,6 +253,12 @@ export default function Dashboard({
           </div>
         </>
       )}
+
+      <WhatsAppSendSheet
+        open={whatsAppSheetOpen}
+        onOpenChange={setWhatsAppSheetOpen}
+        month={month}
+      />
     </PageContainer>
   );
 }

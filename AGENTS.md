@@ -69,7 +69,9 @@ Two independent, unrelated gates exist — don't conflate them:
   `components/tenants/Dashboard.tsx`). Purely hides/shows those two buttons;
   not used anywhere else. This is the only remaining "no server-side check,
   UI-visibility-only" gate in the app, and it's intentional — the actual
-  security boundary for those two actions is the PIN tier below.
+  security boundary for those two actions is the PIN tier below. The
+  "Message on WhatsApp" button beside them is deliberately **not** behind
+  this flag: it needs no worker, so it is the one that works in production.
 - **`USER_PIN` / `ADMIN_PIN`** (server-only env vars) — two shared numeric
   PINs, enforced **server-side**, gating everything else. **Hierarchical**:
   an admin-level session satisfies anything a user-level session does, plus
@@ -121,9 +123,10 @@ Two independent, unrelated gates exist — don't conflate them:
   (not `POST` — creating an expense stays open to everyone), `POST` on
   `/api/expense-items` and `/api/expense-categories` (not their `GET`s —
   reading the catalog stays open), `PATCH`/`DELETE` on their `/[id]` routes,
-  and `POST /api/broadcast` / `POST /api/monthly-greeting` (yes, on top of
+  `POST /api/broadcast` / `POST /api/monthly-greeting` (yes, on top of
   the env flag above — closes the "no server check" gap for WhatsApp sends
-  too).
+  too), and `GET /api/whatsapp-links` (its links carry every recipient's
+  phone number).
 
   **Deliberately open**, alongside `POST /api/expenses`:
   `POST /api/expenses/bulk`. Saving a whole slip is still creating expenses,
@@ -206,7 +209,14 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
 - `lib/admin-auth.ts` — PIN/session primitives for the real server-side
   admin gate (see "PIN-gated admin actions" below).
 - `lib/date.ts` — `currentMonth()`/`currentDate()`, single-sourced so routes
-  and components agree on "today."
+  and components agree on "today." `isValidMonth()` for checking a
+  client-supplied `YYYY-MM` before formatting it.
+- `lib/whatsapp.ts` — everything a rent message is made of: who gets one
+  (`getReminderRecipients` = active and pending, `getGreetingRecipients` =
+  all active), the Hindi wording (`buildWhatsAppMessage`), and the
+  tap-to-send link (`buildWhatsAppLink`). Both ways of sending read from
+  here — see "WhatsApp: two ways to send" below — so change the wording here
+  and nowhere else.
 - `lib/ids.ts` — `newId()` for client-side list keys. Guards
   `crypto.randomUUID`, which does not exist outside a secure context: this app
   is opened from phones over the house LAN on plain http, so an unguarded call
@@ -410,6 +420,29 @@ a standalone PWA. Three things in this flow exist only because of that:
   and scroll-to-change behaviour that makes a number field hazardous on a
   touchscreen.
 
+## WhatsApp: two ways to send
+
+Rent reminders and monthly greetings can go out two ways. They share
+recipients and wording (`lib/whatsapp.ts`):
+
+- **Bulk, from the laptop** — "Send Monthly Greeting" / "Send Reminders" on
+  the tenant dashboard call `/api/broadcast` and `/api/monthly-greeting`,
+  which hand whatsapp-worker the finished text for each tenant. One click
+  sends to everyone, but only while the worker is running locally, so these
+  buttons are hidden unless `NEXT_PUBLIC_ENABLE_ADMIN_ACTIONS` is set.
+- **Tap-to-send, from the phone** — "Message on WhatsApp" opens
+  `components/tenants/WhatsAppSendSheet.tsx`, which lists
+  `GET /api/whatsapp-links?month=&kind=reminder|greeting`: one prefilled
+  `wa.me` link per tenant. Tapping one opens WhatsApp with the message typed;
+  the admin presses send. No worker, no automation, works from production.
+  The links are plain `<a>` elements rendered *before* the tap on purpose —
+  opening WhatsApp from code after an `await` counts as a popup and iOS
+  blocks it. Tenants with no usable phone come back with `link: null` and
+  are shown, not dropped.
+
+Messages sent by tap go from whichever WhatsApp account is on the phone that
+taps, not the account linked to the worker.
+
 ## whatsapp-worker (separate service)
 
 `whatsapp-worker/` is a **standalone Node/Express service**, not part of the
@@ -420,6 +453,11 @@ via Puppeteer) and exposes two endpoints the Next.js API calls via HTTP:
   payment.
 - `POST /send-monthly-greeting` — greeting + rent-due message to all active
   tenants.
+
+Both endpoints only **deliver**: each recipient arrives with its `message`
+already written by the Next.js route, and the worker rejects a recipient
+without one. The worker holds no wording of its own, so edit messages in
+`lib/whatsapp.ts`, never in `whatsapp-worker/index.js`.
 
 It listens on **port 4005** by default. `app/api/broadcast/route.ts` and
 `app/api/monthly-greeting/route.ts` call it at

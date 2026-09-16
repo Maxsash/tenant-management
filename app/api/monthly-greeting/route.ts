@@ -1,8 +1,8 @@
 import { getTenants } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { calculateRent } from "@/lib/rent";
-import { getActiveTenants } from "@/lib/tenant";
 import { hasAdminSession } from "@/lib/admin-auth";
+import { isValidMonth } from "@/lib/date";
+import { buildWhatsAppMessage, getGreetingRecipients } from "@/lib/whatsapp";
 import { Tenant } from "@/types/tenant";
 
 const WHATSAPP_WORKER_URL =
@@ -18,18 +18,19 @@ export async function POST(req: Request) {
     // the dashboard's month selector), not the payment month.
     const { month: rentMonth } = await req.json();
 
+    if (!isValidMonth(rentMonth)) {
+      return NextResponse.json({ error: "Invalid month. Expected YYYY-MM" }, { status: 400 });
+    }
+
     const tenants = await getTenants<Tenant>();
 
-    // Active tenants only
-    const activeTenants = getActiveTenants(tenants, rentMonth);
-
-    const recipients = activeTenants
-      .filter((t) => t.phone)
-      .map((t) => ({
-        id: t.id,
-        name: t.name,
-        phone: t.phone,
-        rent: calculateRent(t, rentMonth),
+    // The worker sends exactly the text it's given — wording lives in
+    // lib/whatsapp.ts, shared with the tap-to-send links.
+    const recipients = getGreetingRecipients(tenants, rentMonth)
+      .filter((r) => r.phone)
+      .map((r) => ({
+        ...r,
+        message: buildWhatsAppMessage("greeting", r.rent, rentMonth),
       }));
 
     // 🚀 CALL WHATSAPP WORKER
