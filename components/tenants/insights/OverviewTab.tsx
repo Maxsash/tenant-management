@@ -13,6 +13,7 @@ import Card from "@/components/ui/Card";
 import LockedCard from "@/components/ui/LockedCard";
 import MonthColumns from "@/components/ui/MonthColumns";
 import StatTile from "@/components/ui/StatTile";
+import ProgressBar from "@/components/ui/ProgressBar";
 import {
   formatCompactCurrency,
   formatCurrency,
@@ -217,12 +218,7 @@ export default function OverviewTab({
                     {formatCurrency(year.collected)}
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-accent-soft">
-                  <div
-                    className="h-full rounded-full bg-accent transition-[width] duration-500"
-                    style={{ width: `${year.collectedPct ?? 0}%` }}
-                  />
-                </div>
+                <ProgressBar percent={year.collectedPct ?? 0} />
                 <p className="text-xs tabular-nums text-muted">
                   {year.collectedPct ?? 0}% of {formatCurrency(year.expected)} due
                 </p>

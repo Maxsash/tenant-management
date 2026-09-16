@@ -18,7 +18,7 @@ type Props = {
 };
 
 const inputClass =
-  "h-12 w-full rounded-xl border border-border bg-surface px-3.5 text-[15px] text-foreground outline-none focus:border-accent";
+  "h-12 w-full rounded-xl border border-border bg-background px-3.5 text-[15px] text-foreground outline-none focus:border-accent";
 const labelClass = "mb-1.5 block text-sm font-medium text-muted";
 
 export default function ManageCategoriesTab({ categories, onChanged }: Props) {
@@ -146,7 +146,7 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
                 onClick={() => toggleActive(category)}
                 className={cn(
                   "rounded-full px-2.5 py-1 text-xs font-semibold",
-                  category.active ? "bg-success-soft text-success" : "bg-border text-muted"
+                  category.active ? "bg-success-soft text-success" : "bg-surface-sunk text-muted"
                 )}
               >
                 {category.active ? "Active" : "Inactive"}
@@ -168,7 +168,7 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
         onClick={openAdd}
         aria-label="Add category"
         size="lg"
-        className="fixed right-5 bottom-28 z-30 w-14 !p-0 rounded-full shadow-float md:right-10 md:bottom-10"
+        className="fixed right-5 bottom-28 z-30 w-14 !p-0 shadow-float ring-4 ring-surface/80 md:right-10 md:bottom-10"
       >
         <Plus className="h-6 w-6" />
       </Button>

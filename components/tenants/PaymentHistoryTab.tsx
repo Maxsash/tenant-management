@@ -104,7 +104,7 @@ export default function PaymentHistoryTab({ tenantId }: Props) {
 
   return (
     <div className="flex flex-col gap-5 px-5 py-4">
-      <div className="flex items-start gap-2 rounded-lg bg-accent-soft px-3 py-2.5 text-sm text-accent">
+      <div className="flex items-start gap-2 rounded-2xl bg-accent-soft px-3.5 py-2.5 text-sm text-accent">
         <Info className="h-4 w-4 shrink-0 translate-y-0.5" />
         <span>
           Showing payment records from{" "}
@@ -139,7 +139,7 @@ export default function PaymentHistoryTab({ tenantId }: Props) {
           {visibleMonths.map((month) => (
             <div
               key={month.month}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3"
+              className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3"
             >
               <div>
                 <p className="font-medium text-foreground">{formatMonthLabel(month.month)}</p>
@@ -154,7 +154,7 @@ export default function PaymentHistoryTab({ tenantId }: Props) {
               </div>
 
               <div className="flex flex-col items-end gap-1">
-                <span className="font-semibold text-foreground">
+                <span className="font-semibold tabular-nums text-foreground">
                   {formatCurrency(month.amount)}
                 </span>
                 <span

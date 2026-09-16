@@ -7,6 +7,7 @@ import Card from "@/components/ui/Card";
 import LockedCard from "@/components/ui/LockedCard";
 import StatTile from "@/components/ui/StatTile";
 import DeltaChip from "@/components/ui/DeltaChip";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { formatCompactCurrency, formatCurrency } from "@/utils/currency";
 import { getCategoryIcon } from "@/lib/expense-categories";
 import type {
@@ -113,14 +114,7 @@ export default function SpendingTab({
                     </span>
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-accent-soft">
-                  <div
-                    className="h-full rounded-full bg-accent transition-[width] duration-500"
-                    style={{
-                      width: `${widest > 0 ? (c.amount / widest) * 100 : 0}%`,
-                    }}
-                  />
-                </div>
+                <ProgressBar percent={widest > 0 ? (c.amount / widest) * 100 : 0} />
               </div>
             ))}
 

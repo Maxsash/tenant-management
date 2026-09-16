@@ -160,6 +160,9 @@ components/expenses/**      Expense UI (fetch-and-render only).
                             single-series CSS bars (no chart library), and
                             every derived number arrives from the API already
                             computed — components only pick an index.
+components/ui/**            Shared primitives (Button, Card, Dialog, Tabs, …).
+                            `sea/` holds the maxsash.com artwork — see "Look
+                            and feel" below.
 lib/                        All business logic. See below.
 utils/                      Presentation-only formatting helpers (currency,
                             date display, `cn` classname merge) — no domain
@@ -497,14 +500,59 @@ returns the whole window already derived.
 - **The chart is a meter** (collected fills a column the height of what was
   due), so `components/ui/MonthColumns.tsx` doesn't fade unfocused months in
   that mode: a faded fill is indistinguishable from the unfilled part.
-- **Status marks.** On time is green, late is `--color-late` (a validated
-  amber; `--color-warning` is too close to danger as a fill), unpaid is a
-  hollow red ring. Green and red collapse for protanopes, so shape carries the
-  difference.
+- **Status marks.** Drawn with `--color-mark-on-time`, `--color-mark-late`
+  and `--color-mark-unpaid`, never the text tokens (`--color-warning` is too
+  close to danger as a fill). Unpaid is a hollow ring: green and red collapse
+  for protanopes and deuteranopes, so shape carries that difference.
 - **Financial years** run April to March by rent month.
 - **The dashboard shows `overdue_other_months`**: rent current tenants owe from
   any month other than the one on screen, linking to insights. Without it a
   skipped month is invisible unless someone happens to pick it.
+
+## Look and feel
+
+The app wears the look of [maxsash.com](https://www.maxsash.com), the owner's
+studio site: sea, sand, ships and maths. Light mode is a sunny harbour, dark
+mode the same harbour by moonlight. **The phone's own setting picks the theme**
+(`prefers-color-scheme`); there is deliberately no toggle, nothing stored, no
+time-of-day logic. Looks only — none of it changes what a screen does.
+
+- **Colours are tokens in `app/globals.css`.** `@theme` holds the light values;
+  a `prefers-color-scheme: dark` block in `@layer base` overrides the same
+  `--color-*` names, so every `bg-accent`/`text-muted` utility follows the
+  theme without a `dark:` class. Add a colour as a token pair (light and dark),
+  never as a hex in a component.
+- **Text on a filled colour uses its `on-*` token** (`text-on-accent`,
+  `text-on-success`, …), not `text-white`: the dark theme's fills are light,
+  so their text is dark. Every text/background pair clears 4.5:1 in both
+  themes; re-measure if you move a value.
+- **Rent marks have their own tokens** (`--color-mark-*`), validated as a set
+  per theme with the dataviz skill's `validate_palette.js`. Its comments say
+  which warnings remain and what covers them.
+- **Shadows are tinted through variables** (`--shadow-tint*`). Tailwind inlines
+  `--shadow-*` values into the utilities at build time, so a dark override of
+  `--shadow-card` itself would never reach the page.
+- **`components/ui/sea/`** is the artwork. `art.ts` holds path data lifted
+  from maxsash.com: the Maxsash mark (an integral sign rigged as a mast) and
+  four wave bands, each repeating every third of its width so a band drawn at
+  double width and slid a third along loops without a seam. `WaveBand` draws
+  one band at a fixed height per band (`WAVE_HEIGHT`, not scaled with width,
+  so a boat placed against it floats at the same line on any screen);
+  `SeaScene` is the full harbour; `Mark` is the logo. All decorative,
+  `aria-hidden`, and still under reduced motion.
+- **Named utilities** in `globals.css`: `.graph-paper` (squared paper behind
+  a panel), `.squiggle` (a drawn wave line in the text colour — page titles,
+  the active tab), `.porthole` (brass ring around a round badge), `.sea-fill`.
+- **Shared pieces:** `PageHeader` (nautical eyebrow, plain title, squiggle —
+  keep the title plain, it is what people read), `ProgressBar` (every
+  horizontal bar; don't hand-roll another), and `Button` variants including
+  `warning`.
+- **Fonts** match maxsash.com: Fraunces (display, with SOFT turned up for a
+  rounder serif), Inter (body), JetBrains Mono (eyebrows and small labels).
+- **Icons and share cards** (`app/_metadata/`) render outside the page, so
+  they use fixed light-theme hexes (`BADGE_COLORS`) rather than tokens. The
+  badge is a single SVG because the OG renderer does not clip a positioned
+  child to a rounded parent. `app/favicon.ico` was rendered from `app/icon.svg`.
 
 ## WhatsApp: two ways to send
 

@@ -3,6 +3,7 @@
 import { CalendarDays, CheckCircle2, Clock3 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import WaveBand from "@/components/ui/sea/WaveBand";
 import { formatShortDate } from "@/utils/date";
 import { formatCurrency } from "@/utils/currency";
 import { cn } from "@/utils/cn";
@@ -21,12 +22,13 @@ export default function TenantCard({ tenant, onClick, onMarkPaid, onChangePaidDa
   return (
     <Card
       onClick={onClick}
-      className="cursor-pointer overflow-hidden transition-transform active:scale-[0.99]"
+      className="relative isolate cursor-pointer overflow-hidden transition-transform active:scale-[0.99]"
     >
       <div className="flex">
-        <div className={cn("w-1.5 shrink-0", isPaid ? "bg-success" : "bg-danger")} />
+        {/* A painted stripe down the hull, in the colour of where rent stands. */}
+        <div className={cn("w-2 shrink-0", isPaid ? "bg-success" : "bg-danger")} />
 
-        <div className="flex-1 p-5">
+        <div className="flex-1 p-5 pb-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="font-display text-xl font-semibold text-foreground">
@@ -34,7 +36,12 @@ export default function TenantCard({ tenant, onClick, onMarkPaid, onChangePaidDa
               </p>
               <p className="mt-0.5 text-sm text-muted">{tenant.property_type}</p>
             </div>
-            <p className={cn("text-2xl font-bold", isPaid ? "text-success" : "text-danger")}>
+            <p
+              className={cn(
+                "font-display text-[26px] leading-tight font-semibold tabular-nums",
+                isPaid ? "text-success" : "text-danger"
+              )}
+            >
               {formatCurrency(tenant.amount)}
             </p>
           </div>
@@ -83,6 +90,12 @@ export default function TenantCard({ tenant, onClick, onMarkPaid, onChangePaidDa
           </div>
         </div>
       </div>
+
+      <WaveBand
+        band="far"
+        water={isPaid ? "var(--color-success-soft)" : "var(--color-accent-soft)"}
+        className="-bottom-5 -z-10 opacity-70"
+      />
     </Card>
   );
 }

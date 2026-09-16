@@ -25,7 +25,7 @@ export default function ExpenseEntryRow({ expense, categories, onClick }: Props)
         onClick && "cursor-pointer transition-transform active:scale-[0.99]"
       )}
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xl">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xl ring-2 ring-brass/25 ring-offset-2 ring-offset-surface">
         {getCategoryIcon(categories, expense.category)}
       </div>
 
@@ -41,7 +41,9 @@ export default function ExpenseEntryRow({ expense, categories, onClick }: Props)
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="font-semibold text-foreground">{formatCurrency(expense.amount)}</span>
+        <span className="font-display text-lg font-semibold text-foreground tabular-nums">
+          {formatCurrency(expense.amount)}
+        </span>
         <div className="flex gap-1">
           {expense.is_itemized === false && (
             <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">

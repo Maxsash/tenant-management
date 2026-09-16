@@ -5,6 +5,7 @@ import * as RadixDialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
 import { cn } from "@/utils/cn";
+import WaveBand from "./sea/WaveBand";
 
 type Props = {
   open: boolean;
@@ -22,7 +23,7 @@ export default function Dialog({ open, onOpenChange, title, children, footer }: 
           <RadixDialog.Portal forceMount>
             <RadixDialog.Overlay asChild forceMount>
               <motion.div
-                className="fixed inset-0 z-50 bg-black/40"
+                className="fixed inset-0 z-50 bg-sea-abyss/45 backdrop-blur-[2px]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -33,7 +34,7 @@ export default function Dialog({ open, onOpenChange, title, children, footer }: 
               <RadixDialog.Content asChild forceMount>
                 <motion.div
                   className={cn(
-                    "flex max-h-[88vh] w-full flex-col rounded-t-2xl bg-surface shadow-float",
+                    "relative flex max-h-[88vh] w-full flex-col bg-surface shadow-float",
                     "sm:max-h-[85vh] sm:max-w-md sm:rounded-2xl"
                   )}
                   style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
@@ -42,13 +43,26 @@ export default function Dialog({ open, onOpenChange, title, children, footer }: 
                   exit={{ y: 48, opacity: 0 }}
                   transition={{ type: "spring", stiffness: 320, damping: 30 }}
                 >
-                  <div className="flex items-center justify-between border-b border-border px-5 py-4">
-                    <RadixDialog.Title className="font-display text-lg font-semibold text-foreground">
-                      {title}
-                    </RadixDialog.Title>
+                  {/* On a phone the sheet rises from the bottom, so its top
+                      edge is a wave coming in. */}
+                  <WaveBand
+                    band="near"
+                    water="var(--color-surface)"
+                    crest="var(--color-foam)"
+                    drift="40s"
+                    className="bottom-[calc(100%-1px)] sm:hidden"
+                  />
+
+                  <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-3 sm:pt-5">
+                    <div className="min-w-0">
+                      <RadixDialog.Title className="font-display text-xl font-semibold text-foreground">
+                        {title}
+                      </RadixDialog.Title>
+                      <div aria-hidden="true" className="squiggle mt-1 w-14 text-accent/60" />
+                    </div>
                     <RadixDialog.Close
                       aria-label="Close"
-                      className="rounded-full p-1.5 text-muted transition-colors hover:bg-accent-soft hover:text-accent"
+                      className="shrink-0 rounded-full p-2 text-muted transition-colors hover:bg-accent-soft hover:text-accent"
                     >
                       <X className="h-5 w-5" />
                     </RadixDialog.Close>
@@ -56,7 +70,11 @@ export default function Dialog({ open, onOpenChange, title, children, footer }: 
 
                   <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
-                  {footer && <div className="border-t border-border px-5 py-4">{footer}</div>}
+                  {footer && (
+                    <div className="border-t border-dashed border-border bg-surface-sunk/60 px-5 py-4 sm:rounded-b-2xl">
+                      {footer}
+                    </div>
+                  )}
                 </motion.div>
               </RadixDialog.Content>
             </div>

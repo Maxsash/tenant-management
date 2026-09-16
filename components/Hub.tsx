@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import PageContainer from "@/components/ui/PageContainer";
+import SeaScene from "@/components/ui/sea/SeaScene";
+import WaveBand from "@/components/ui/sea/WaveBand";
 
 const liveApps = [
   { title: "Tenants", description: "Rent & payments", href: "/tenant", icon: Building2 },
@@ -38,12 +40,20 @@ const item = {
 export default function Hub() {
   return (
     <PageContainer size="lg">
-      <div className="text-center md:text-left">
-        <p className="font-display text-[34px] italic leading-tight text-accent">
-          Shrivastava Hub
-        </p>
-        <p className="mt-1 text-[15px] text-muted">Everything, in one place.</p>
-      </div>
+      <header className="relative -mx-2 overflow-hidden rounded-2xl border border-border shadow-card sm:mx-0">
+        <SeaScene className="h-80 sm:h-96" shore="var(--color-surface)" />
+
+        <div className="absolute inset-x-0 top-0 p-6 sm:p-8">
+          <p className="font-mono text-[11px] font-medium tracking-[0.2em] text-muted uppercase">
+            Maxsash Studio · Ghar
+          </p>
+          <h1 className="mt-2 font-display text-[40px] leading-[1.02] font-semibold text-foreground italic sm:text-5xl">
+            Shrivastava
+            <span className="block text-accent">Hub</span>
+          </h1>
+          <p className="mt-2 text-[15px] font-medium text-foreground/80">Everything, in one place.</p>
+        </div>
+      </header>
 
       <motion.div
         className="grid grid-cols-2 gap-4 sm:grid-cols-3"
@@ -56,14 +66,20 @@ export default function Hub() {
           return (
             <motion.div key={app.title} variants={item}>
               <Link href={app.href}>
-                <Card className="flex h-40 flex-col items-center justify-center gap-3 p-4 text-center transition-transform active:scale-[0.97]">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white">
+                <Card className="relative isolate flex h-44 flex-col items-center justify-center gap-3 overflow-hidden p-4 text-center transition-transform active:scale-[0.97]">
+                  <div className="porthole sea-fill flex h-14 w-14 items-center justify-center rounded-full text-on-sea">
                     <Icon className="h-7 w-7" />
                   </div>
                   <div>
-                    <p className="font-semibold text-foreground">{app.title}</p>
+                    <p className="font-display text-lg font-semibold text-foreground">{app.title}</p>
                     <p className="text-xs text-muted">{app.description}</p>
                   </div>
+                  <WaveBand
+                    band="mid"
+                    water="var(--color-accent-soft)"
+                    crest="color-mix(in oklab, var(--color-accent) 18%, transparent)"
+                    className="-bottom-4 -z-10"
+                  />
                 </Card>
               </Link>
             </motion.div>
@@ -74,15 +90,16 @@ export default function Hub() {
           const Icon = app.icon;
           return (
             <motion.div key={app.title} variants={item}>
-              <Card className="flex h-40 flex-col items-center justify-center gap-3 border-dashed p-4 text-center opacity-60">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+              {/* Uncharted water: drawn on the chart, not yet sailed to. */}
+              <div className="graph-paper flex h-44 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-accent/35 bg-surface/50 p-4 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full border border-dashed border-accent/40 text-accent/80">
                   <Icon className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground">{app.title}</p>
-                  <p className="text-xs text-muted">Coming soon</p>
+                  <p className="font-semibold text-foreground/80">{app.title}</p>
+                  <p className="font-mono text-[11px] tracking-[0.12em] text-muted uppercase">Coming soon</p>
                 </div>
-              </Card>
+              </div>
             </motion.div>
           );
         })}

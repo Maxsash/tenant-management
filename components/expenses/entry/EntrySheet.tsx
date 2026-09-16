@@ -9,6 +9,7 @@ import { Camera, Loader2, Plus, ShoppingBasket, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import WaveBand from "@/components/ui/sea/WaveBand";
 import EntryLineRow from "./EntryLineRow";
 import ItemPickerPanel from "./ItemPickerPanel";
 import { PAYMENT_METHODS } from "@/lib/expense-categories";
@@ -392,7 +393,7 @@ export default function EntrySheet({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 28 }}
                   transition={{ duration: 0.22, ease: "easeOut" }}
-                  className="fixed inset-0 z-50 md:flex md:items-center md:justify-center md:bg-black/40 md:p-6"
+                  className="fixed inset-0 z-50 md:flex md:items-center md:justify-center md:bg-sea-abyss/45 md:p-6 md:backdrop-blur-[2px]"
                 >
                   <RadixDialog.Content asChild forceMount>
                     <div className="relative flex h-full w-full flex-col overflow-hidden bg-surface md:h-[88vh] md:max-w-2xl md:rounded-2xl md:border md:border-border md:shadow-float">
@@ -400,9 +401,12 @@ export default function EntrySheet({
                         className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6"
                         style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
                       >
-                        <RadixDialog.Title className="font-display text-xl font-semibold text-foreground">
-                          {isEditing ? "Edit Expense" : "Add Expenses"}
-                        </RadixDialog.Title>
+                        <div className="min-w-0">
+                          <RadixDialog.Title className="font-display text-2xl font-semibold text-foreground">
+                            {isEditing ? "Edit Expense" : "Add Expenses"}
+                          </RadixDialog.Title>
+                          <div aria-hidden="true" className="squiggle mt-1 w-14 text-accent/60" />
+                        </div>
 
                         <div className="flex items-center gap-1">
                           {!isEditing && (
@@ -411,7 +415,7 @@ export default function EntrySheet({
                               onClick={() => fileInputRef.current?.click()}
                               disabled={scanning}
                               aria-label="Read a slip from a photo"
-                              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-sm font-semibold text-accent transition-colors hover:bg-accent-soft disabled:opacity-50"
+                              className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-2 text-sm font-semibold text-accent shadow-card transition-colors hover:bg-accent-soft disabled:opacity-50"
                             >
                               {scanning ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -438,14 +442,14 @@ export default function EntrySheet({
                           `hidden` attribute, which Tailwind's `flex` would
                           override. */}
                       {!showCameraCard && (
-                      <div className="flex shrink-0 flex-col gap-2.5 border-b border-border px-5 py-3 sm:flex-row sm:items-center sm:px-6">
+                      <div className="flex shrink-0 flex-col gap-2.5 border-b border-border bg-surface-sunk/70 px-5 py-3 sm:flex-row sm:items-center sm:px-6">
                         <label className="flex items-center gap-2">
                           <span className="sr-only">Date</span>
                           <input
                             type="date"
                             value={expenseDate}
                             onChange={(e) => changeHeaderDate(e.target.value)}
-                            className="h-11 w-full rounded-lg border border-border bg-background px-3 text-[15px] text-foreground outline-none [color-scheme:light] focus:border-accent sm:w-44"
+                            className="h-11 w-full rounded-full border border-border bg-surface px-4 text-[15px] text-foreground outline-none focus:border-accent sm:w-44"
                           />
                         </label>
 
@@ -465,7 +469,7 @@ export default function EntrySheet({
                       <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6">
                         <div className="mx-auto flex max-w-xl flex-col gap-3">
                           {scanning && (
-                            <div className="flex flex-col items-center gap-3 rounded-2xl bg-accent-soft px-4 py-8 text-center">
+                            <div className="relative isolate flex flex-col items-center gap-3 overflow-hidden rounded-2xl bg-accent-soft px-4 pt-8 pb-14 text-center">
                               {photoUrl && (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -484,6 +488,16 @@ export default function EntrySheet({
                               <p className="text-xs text-muted">
                                 This takes up to half a minute. Keep the app open.
                               </p>
+                              <WaveBand
+                                band="near"
+                                water="color-mix(in oklab, var(--color-accent) 22%, transparent)"
+                                crest="color-mix(in oklab, var(--color-accent) 12%, transparent)"
+                                drift="10s"
+                                heave="4s"
+                                lift="3px"
+                                fillBelow
+                                className="-bottom-4 -z-10"
+                              />
                             </div>
                           )}
 
@@ -495,9 +509,11 @@ export default function EntrySheet({
                             <button
                               type="button"
                               onClick={() => fileInputRef.current?.click()}
-                              className="flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-accent bg-accent-soft px-5 py-10 text-center transition-colors hover:bg-accent-soft/70"
+                              className="graph-paper flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-accent/60 bg-accent-soft px-5 py-10 text-center transition-colors hover:bg-accent-soft/70"
                             >
-                              <Camera className="h-8 w-8 text-accent" aria-hidden="true" />
+                              <span className="porthole sea-fill mb-2 flex h-16 w-16 items-center justify-center rounded-full text-on-sea">
+                                <Camera className="h-8 w-8" aria-hidden="true" />
+                              </span>
                               <span className="font-display text-lg font-semibold text-foreground">
                                 Take a photo of the slip
                               </span>
@@ -509,7 +525,7 @@ export default function EntrySheet({
                           )}
 
                           {photoUrl && !scanning && (
-                            <div className="flex items-center gap-3 rounded-xl border border-border bg-background p-2">
+                            <div className="flex items-center gap-3 rounded-2xl border border-border bg-background p-2">
                               <button
                                 type="button"
                                 onClick={() => setPhotoOpen(true)}
@@ -542,13 +558,13 @@ export default function EntrySheet({
                           )}
 
                           {unreadable && (
-                            <p className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">
+                            <p className="rounded-2xl bg-warning-soft px-4 py-3 text-sm text-warning">
                               Couldn’t read part of it: {unreadable}
                             </p>
                           )}
 
                           {multiDay && (
-                            <p className="rounded-xl bg-accent-soft px-4 py-3 text-sm text-accent">
+                            <p className="rounded-2xl bg-accent-soft px-4 py-3 text-sm text-accent">
                               This page covers {dateGroups.length} days. Each line keeps
                               its own date.
                             </p>
@@ -559,11 +575,11 @@ export default function EntrySheet({
                             <section key={group.date} className="flex flex-col gap-2.5">
                               {multiDay && (
                                 <div className="flex items-center gap-2 pt-1">
-                                  <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">
+                                  <h3 className="font-mono text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">
                                     {formatShortDate(group.date)}
                                   </h3>
-                                  <span className="h-px flex-1 bg-border" />
-                                  <span className="text-xs font-medium text-muted">
+                                  <span className="h-px flex-1 border-t border-dashed border-border" />
+                                  <span className="font-mono text-xs font-medium text-muted tabular-nums">
                                     {formatCurrency(entryLinesTotal(group.lines))}
                                   </span>
                                 </div>
@@ -613,7 +629,7 @@ export default function EntrySheet({
                           )}
 
                           {agreement === false && (
-                            <p className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">
+                            <p className="rounded-2xl bg-warning-soft px-4 py-3 text-sm text-warning">
                               The slip says {formatCurrency(statedTotal ?? 0)}, these lines
                               come to {formatCurrency(total)}. A line may be missing or
                               misread.
@@ -621,14 +637,14 @@ export default function EntrySheet({
                           )}
 
                           {agreement === true && (
-                            <p className="rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
+                            <p className="rounded-2xl bg-success-soft px-4 py-3 text-sm text-success">
                               Matches the slip’s own total of{" "}
                               {formatCurrency(statedTotal ?? 0)}.
                             </p>
                           )}
 
                           {error && (
-                            <p className="rounded-lg bg-danger-soft px-3 py-2.5 text-sm text-danger">
+                            <p className="rounded-2xl bg-danger-soft px-4 py-3 text-sm text-danger">
                               {error}
                             </p>
                           )}
@@ -636,7 +652,7 @@ export default function EntrySheet({
                       </div>
 
                       <footer
-                        className="shrink-0 border-t border-border px-5 py-4 sm:px-6"
+                        className="shrink-0 border-t border-dashed border-border bg-surface-sunk/70 px-5 py-4 sm:px-6"
                         style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
                       >
                         <div className="mx-auto flex max-w-xl items-center gap-3">
@@ -650,8 +666,8 @@ export default function EntrySheet({
                             </Button>
                           ) : (
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs text-muted">Total</p>
-                              <p className="font-display text-xl font-semibold text-foreground">
+                              <p className="font-mono text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">Total</p>
+                              <p className="font-display text-2xl font-semibold text-foreground tabular-nums">
                                 {formatCurrency(total)}
                               </p>
                             </div>
@@ -681,7 +697,7 @@ export default function EntrySheet({
                             exit={{ opacity: 0 }}
                             onClick={() => setPhotoOpen(false)}
                             aria-label="Close the photo"
-                            className="absolute inset-0 z-20 flex items-center justify-center bg-black/90 p-3"
+                            className="absolute inset-0 z-20 flex items-center justify-center bg-sea-abyss/95 p-3"
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img

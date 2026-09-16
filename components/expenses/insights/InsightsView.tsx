@@ -7,6 +7,7 @@ import DeltaChip from "@/components/ui/DeltaChip";
 import EmptyState from "@/components/ui/EmptyState";
 import MonthColumns from "@/components/ui/MonthColumns";
 import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import Tabs, { TabsContent } from "@/components/ui/Tabs";
 import ExpenseSectionNav from "../ExpenseSectionNav";
@@ -62,12 +63,9 @@ export default function InsightsView({
   return (
     <PageContainer size="lg">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h1 className="font-display text-3xl font-semibold text-foreground">
-            Insights
-          </h1>
+        <PageHeader eyebrow="Charting the spending" title="Insights">
           <ExpenseSectionNav className="md:w-64" />
-        </div>
+        </PageHeader>
 
         {/* One filter row, scoping everything below it. */}
         <SegmentedControl
@@ -89,14 +87,14 @@ export default function InsightsView({
           // flashing a skeleton and jumping the layout.
           className={`flex flex-col gap-8 ${loading ? "opacity-60" : ""}`}
         >
-          <Card className="flex flex-col gap-5 p-5">
+          <Card className="flex flex-col gap-5 bg-linear-to-b from-sky-high/45 to-surface to-40% p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <div>
                 <p className="text-sm font-medium text-muted">
                   {formatMonthLabel(active.month)}
                   {active.isCurrentMonth && " so far"}
                 </p>
-                <p className="font-display text-[40px] leading-tight font-semibold text-foreground">
+                <p className="font-display text-[44px] leading-tight font-semibold text-foreground tabular-nums">
                   {formatCurrency(active.total)}
                 </p>
               </div>

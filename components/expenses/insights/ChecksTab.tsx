@@ -4,6 +4,7 @@ import { CalendarX, CheckCircle2, TriangleAlert } from "lucide-react";
 
 import Card from "@/components/ui/Card";
 import LockedCard from "@/components/ui/LockedCard";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { formatCurrency } from "@/utils/currency";
 import { formatMonthLabel } from "@/utils/date";
 import type { MonthInsight } from "@/types/expense";
@@ -38,18 +39,13 @@ export default function ChecksTab({ month, unlocked, onRequestUnlock }: Props) {
               {month.daysWithEntries} of {month.daysElapsed}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-accent-soft">
-            <div
-              className="h-full rounded-full bg-accent transition-[width] duration-500"
-              style={{
-                width: `${
-                  month.daysElapsed > 0
-                    ? (month.daysWithEntries / month.daysElapsed) * 100
-                    : 0
-                }%`,
-              }}
-            />
-          </div>
+          <ProgressBar
+            percent={
+              month.daysElapsed > 0
+                ? (month.daysWithEntries / month.daysElapsed) * 100
+                : 0
+            }
+          />
           <p className="flex items-center gap-2 text-sm text-muted">
             {month.longestGapDays > 2 ? (
               <>

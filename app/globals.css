@@ -1,56 +1,88 @@
 @import "tailwindcss";
 
+/*
+ * Sea, sand, ship and sums — the look shared with maxsash.com.
+ *
+ * Light is a sunny morning at the harbour: sky at the top of every page, dry
+ * sand underneath, the sea as the one accent, graph paper behind it all. Dark
+ * is the same harbour by moonlight, never an inverted copy: each step is
+ * chosen for the navy it sits on. The system setting picks between them —
+ * there is no toggle and nothing is remembered.
+ *
+ * Every text/background pair below clears WCAG AA (4.5:1) in both themes, and
+ * the three rent marks were run through the dataviz skill's validator against
+ * each theme's card surface. Re-check both if you move a value.
+ */
 @theme {
   --font-display: var(--font-fraunces);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
 
-  --color-background: #f7f3e8;
-  --color-surface: #fffdf8;
-  --color-foreground: #201c15;
-  --color-muted: #6f6a5c;
-  --color-border: #e7e0d1;
+  --color-background: #fbf5e9; /* dry sand */
+  --color-surface: #fffdf7; /* sailcloth */
+  --color-surface-sunk: #f5eddd; /* damp sand, for bars set into a sheet */
+  --color-foreground: #0c2e3f; /* deep-water ink */
+  --color-muted: #4a6573;
+  --color-border: #e6dac2;
 
-  --color-accent: #1f5c3f;
-  --color-accent-soft: #e6efe8;
-  --color-accent-strong: #164430;
-  --color-gold: #b08a3e;
+  --color-accent: #1e7392; /* the sea */
+  --color-accent-bright: #267e9b; /* sunlit top of a sea-coloured button; white on it still clears 4.5:1 */
+  --color-accent-strong: #0e5a78;
+  --color-accent-soft: #e4f2f6;
+  --color-on-accent: #ffffff;
 
-  --color-success: #1f5c3f;
-  --color-success-soft: #e6efe8;
-  --color-success-border: #a9c9b4;
+  --color-brass: #86621a;
+  --color-teak: #9a5c33;
 
-  /* #a3660f measured 4.17:1 on --color-warning-soft — fails WCAG AA (4.5:1)
-     at the small sizes it's used at (ExpenseEntryRow's "Mixed" badge,
-     PaymentHistoryTab's "Late" pill). Darkened to 4.70:1, same hue. */
-  --color-warning: #95600e;
-  --color-warning-soft: #fbf0dc;
-  --color-warning-border: #e2bf87;
+  --color-success: #1d7250;
+  --color-success-soft: #e1f1e7;
+  --color-success-border: #a9d2bb;
+  --color-on-success: #ffffff;
 
-  --color-danger: #a23b34;
-  --color-danger-soft: #fbeae7;
-  --color-danger-border: #e3aea8;
+  --color-warning: #8d5a0c;
+  --color-warning-soft: #fbefd6;
+  --color-warning-border: #e6c58a;
+  --color-on-warning: #ffffff;
 
-  /* Mark fill for "paid late" in rent charts, beside --color-success (on time)
-     and --color-danger (unpaid). --color-warning is tuned for text and sits
-     only ΔE 10.3 from danger as a fill — too close to tell apart even with
-     full colour vision. This amber clears ΔE 24 against both (validated with
-     the dataviz skill's script). Never use it for text: 2.4:1 on surface.
-     Green and red still collapse for protanopes (ΔE 2.1), so unpaid is drawn
-     as a hollow ring, not a filled dot — shape carries it, not hue. */
-  --color-late: #d99a2b;
+  --color-danger: #ac3a2c;
+  --color-danger-soft: #fbe7e2;
+  --color-danger-border: #eab1a6;
+  --color-on-danger: #ffffff;
+
+  /* Rent marks, kept apart from the text tokens above because a dot has to
+     be told apart from its neighbours while a word only has to be read.
+     Validated as a set (light, on --color-surface): lightness band, chroma,
+     normal-vision floor all pass. On time vs unpaid sits in the 6–8 CVD band
+     for deuteranopes, which is legal only with a second encoding — and it has
+     one: unpaid is drawn as a hollow ring, not a dot. Late is 2.4:1 on the
+     card, so it is never used without a label nearby. Never use these for
+     text. */
+  --color-mark-on-time: #1f7a55;
+  --color-mark-late: #d99a2b;
+  --color-mark-unpaid: #b8412f;
+
+  /* The scene: sky, sun, water and the boat, as drawn on maxsash.com. */
+  --color-sky-high: #cfe8f6;
+  --color-sky-mid: #e9f4f2;
+  --color-sky-low: #fdf0d5;
+  --color-sun: #ffcf5c;
+  --color-sun-glow: #ffe7a3;
+  --color-foam: #e7f5f1;
+  --color-shallow: #a5dcde;
+  --color-sea-lit: #4ea5b8;
+  --color-sea: #1e7392;
+  --color-sea-deep: #0e4a66;
+  --color-sea-abyss: #082f44;
+  --color-sand: #f2e6cf;
+  --color-sand-deep: #e5d3b0;
+  --color-boat: #082f44;
+  --color-on-sea: #ffffff;
+  --color-on-sea-muted: #e6f4f7;
 
   /* Validated categorical palette (dataviz skill), green/red slots skipped to
-     avoid colliding with the paid/unpaid status semantic above.
-
-     Slot 5 was #e87ba4, which failed the normal-vision floor against slot 6
-     (ΔE 12.9, below the 15 minimum — full-colour readers could not reliably
-     separate that pink from the orange). Re-stepped to #b8489a, which clears
-     it at ΔE 19.9 and improves tritan separation too.
-
-     The expense insights screen is deliberately single-series throughout
-     (one hue plus de-emphasis), so nothing consumes these yet — they are
-     here for a future chart that genuinely needs to tell series apart. */
+     avoid colliding with the paid/unpaid status semantic above. Nothing
+     consumes these yet, and they have no dark steps — give them some, and
+     validate them against the dark surface, before the first chart uses them. */
   --color-chart-1: #2a78d6;
   --color-chart-2: #1baf7a;
   --color-chart-3: #eda100;
@@ -60,26 +92,143 @@
 
   --radius-sm: 12px;
   --radius-md: 16px;
-  --radius-lg: 18px;
-  --radius-xl: 20px;
-  --radius-2xl: 28px;
+  --radius-lg: 20px;
+  --radius-xl: 22px;
+  --radius-2xl: 30px;
 
-  --shadow-card: 0 1px 2px rgba(32, 24, 8, 0.04), 0 8px 24px -6px rgba(32, 24, 8, 0.12);
-  --shadow-float: 0 12px 32px -8px rgba(32, 24, 8, 0.22);
+  /* Shadows are inlined into the utilities at build time, so their tint is a
+     variable that the dark theme can still change. */
+  --shadow-card: 0 1px 2px var(--shadow-tint-soft), 0 10px 26px -12px var(--shadow-tint);
+  --shadow-float: 0 20px 44px -16px var(--shadow-tint-strong);
+
+  --animate-sea-drift: sea-drift var(--drift, 30s) linear infinite;
+  --animate-sea-heave: sea-heave var(--heave, 8s) ease-in-out infinite;
+  --animate-boat-bob: boat-bob var(--heave, 7s) ease-in-out infinite;
+  --animate-float: float 9s ease-in-out infinite;
+
+  @keyframes sea-drift {
+    to {
+      transform: translateX(-33.3333%);
+    }
+  }
+
+  @keyframes sea-heave {
+    0%,
+    100% {
+      transform: translateY(calc(var(--lift, 6px) * -1));
+    }
+    50% {
+      transform: translateY(var(--lift, 6px));
+    }
+  }
+
+  @keyframes boat-bob {
+    0%,
+    100% {
+      transform: translateY(-5px) rotate(-2.5deg);
+    }
+    50% {
+      transform: translateY(5px) rotate(2deg);
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translate(0, 0);
+    }
+    50% {
+      transform: translate(14px, -6px);
+    }
+  }
 }
 
 /*
- * Everything below is wrapped in Tailwind's `base` layer on purpose.
- * An earlier version of this file had a plain, unlayered `* { margin: 0 }`
- * reset — per the CSS Cascade Layers spec, UNLAYERED rules always beat
- * LAYERED ones regardless of specificity, so that one rule silently beat
- * every Tailwind utility (mx-auto, gap, etc.) sitewide. Keep all custom
- * global CSS inside a named layer so it plays by the same cascade rules
- * as everything else.
+ * Everything below is wrapped in a cascade layer on purpose. An earlier
+ * version of this file had a plain, unlayered `* { margin: 0 }` reset — per
+ * the CSS Cascade Layers spec, UNLAYERED rules always beat LAYERED ones
+ * regardless of specificity, so that one rule silently beat every Tailwind
+ * utility (mx-auto, gap, etc.) sitewide. Keep all custom global CSS inside a
+ * named layer so it plays by the same cascade rules as everything else.
  */
 @layer base {
   :root {
-    --weather-edge: rgba(80, 55, 20, 1);
+    color-scheme: light dark;
+
+    --shadow-tint-soft: rgb(8 47 68 / 0.05);
+    --shadow-tint: rgb(8 47 68 / 0.2);
+    --shadow-tint-strong: rgb(8 47 68 / 0.38);
+    --grid: color-mix(in oklab, var(--color-foreground) 5%, transparent);
+    --grid-major: color-mix(in oklab, var(--color-foreground) 8%, transparent);
+  }
+
+  /* The harbour by moonlight: navy water rather than black, a moon where the
+     sun was, and every accent lifted so it still reads on the dark. Gentle on
+     purpose — nothing here is a storm. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background: #0b2231;
+      --color-surface: #112d40;
+      --color-surface-sunk: #0d2636;
+      --color-foreground: #e8f1f2;
+      --color-muted: #9db6c0;
+      --color-border: #234a5e;
+
+      --color-accent: #62bcd0;
+      --color-accent-bright: #7ccadb;
+      --color-accent-strong: #95d7e5;
+      --color-accent-soft: #143e52;
+      --color-on-accent: #06212e;
+
+      --color-brass: #d8ab4a;
+      --color-teak: #ce9067;
+
+      --color-success: #6fcf97;
+      --color-success-soft: #163d30;
+      --color-success-border: #2f6b53;
+      --color-on-success: #062117;
+
+      --color-warning: #e7b665;
+      --color-warning-soft: #3b3018;
+      --color-warning-border: #6b5526;
+      --color-on-warning: #231704;
+
+      --color-danger: #f08f86;
+      --color-danger-soft: #45232a;
+      --color-danger-border: #7a3d44;
+      --color-on-danger: #2a0b0e;
+
+      /* Validated as a set on #112d40 (the dark surface): all checks pass, with
+         on time vs late in the 6–8 CVD band. Both are filled dots, so there the
+         relief is words, not shape: every strip sits over a sentence counting
+         on-time and late months, beside a labelled legend. A set that clears 8
+         exists (#3a732c, #a7951e) but its green drops to 2.5:1 on the card —
+         a dim dot for everyone, and on time is the commonest mark. */
+      --color-mark-on-time: #47aa62;
+      --color-mark-late: #cc7d1b;
+      --color-mark-unpaid: #c7527a;
+
+      --color-sky-high: #0a1a2e;
+      --color-sky-mid: #13304b;
+      --color-sky-low: #2c4d6b;
+      --color-sun: #f3ead0; /* the moon */
+      --color-sun-glow: #4d6a86;
+      --color-foam: #9fd0d6;
+      --color-shallow: #2f7f94;
+      --color-sea-lit: #1f6682;
+      --color-sea: #154d68;
+      --color-sea-deep: #0d3850;
+      --color-sea-abyss: #051824;
+      --color-sand: #173548;
+      --color-sand-deep: #1d3f54;
+      --color-boat: #cfe6ea;
+      --color-on-sea: #f2f8f9;
+      --color-on-sea-muted: #b5d6de;
+
+      --shadow-tint-soft: rgb(0 0 0 / 0.25);
+      --shadow-tint: rgb(0 0 0 / 0.5);
+      --shadow-tint-strong: rgb(0 0 0 / 0.65);
+    }
   }
 
   html {
@@ -94,40 +243,44 @@
     min-height: 100%;
   }
 
+  /* Sky at the top of every page, settling onto sand. The theme-color meta in
+     layout.tsx matches --color-sky-high so the phone's status bar is part of
+     the same sky. */
   body {
     color: var(--color-foreground);
     background-color: var(--color-background);
+    background-image: linear-gradient(
+      to bottom,
+      var(--color-sky-high) 0,
+      var(--color-sky-mid) 12rem,
+      color-mix(in oklab, var(--color-sky-low) 45%, var(--color-background)) 22rem,
+      var(--color-background) 34rem
+    );
+    background-repeat: no-repeat;
     font-family: var(--font-sans), Arial, Helvetica, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* A whisper of the old paper warmth — crisp, not aged. Opacity (not the
-     raw image/blend) is what keeps this faint; tune it here rather than
-     the layers. */
+  /* Graph paper behind everything — the maths in the sea. Below the content,
+     so cards cover it; faded out at the edges so it never reads as a border. */
   body::before {
     content: "";
     position: fixed;
     inset: 0;
+    z-index: -1;
     pointer-events: none;
-    z-index: 40;
-    opacity: 0.16;
-
-    background-image: linear-gradient(
-        to bottom,
-        color-mix(in srgb, var(--weather-edge) 10%, transparent) 0%,
-        transparent 10%
-      ),
-      linear-gradient(
-        to top,
-        color-mix(in srgb, var(--weather-edge) 12%, transparent) 0%,
-        transparent 10%
-      ),
-      url("/paper-texture.webp");
-    background-repeat: no-repeat, no-repeat, repeat;
-    background-size: auto, auto, 900px auto;
-    background-position: top, bottom, top left;
-    mix-blend-mode: multiply;
+    background-image:
+      linear-gradient(to right, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    background-size:
+      128px 128px,
+      128px 128px,
+      32px 32px,
+      32px 32px;
+    mask-image: radial-gradient(ellipse 90% 75% at 50% 35%, #000 30%, transparent 100%);
   }
 
   a {
@@ -135,8 +288,26 @@
     text-decoration: none;
   }
 
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 26%, transparent);
+  }
+
+  :where(a, button, [tabindex], input, select):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /* Fraunces with its soft, rounded terminals turned up: a friendlier serif
+     for a family app, like the italic "Studio" on maxsash.com. */
+  .font-display {
+    font-variation-settings:
+      "SOFT" 60,
+      "WONK" 0,
+      "opsz" 72;
+  }
+
   /* Neutralizes plain CSS transitions/animations (Tailwind's
-     transition-colors, transition-transform, the .skeleton shimmer below,
+     transition-colors, the waves, the boat, the .skeleton shimmer below,
      etc.) for users who've asked for reduced motion. Doesn't reach the
      JS-driven motion/react spring animations (page transitions, nav/tab
      indicators) — those would need touching individually; not attempted
@@ -163,14 +334,57 @@
     }
   }
 
+  /* Loading placeholders as light moving across shallow water. */
   .skeleton {
     background-image: linear-gradient(
       100deg,
-      color-mix(in srgb, var(--color-border) 55%, transparent) 20%,
-      color-mix(in srgb, white 70%, var(--color-surface)) 40%,
-      color-mix(in srgb, var(--color-border) 55%, transparent) 60%
+      color-mix(in oklab, var(--color-accent) 9%, var(--color-surface)) 20%,
+      color-mix(in oklab, var(--color-foam) 55%, var(--color-surface)) 40%,
+      color-mix(in oklab, var(--color-accent) 9%, var(--color-surface)) 60%
     );
     background-size: 200% 100%;
     animation: shimmer 1.6s ease-in-out infinite;
+  }
+
+  /* Graph paper for a single panel, e.g. behind a chart. */
+  .graph-paper {
+    background-image:
+      linear-gradient(to right, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    background-size:
+      96px 96px,
+      96px 96px,
+      24px 24px,
+      24px 24px;
+  }
+
+  /* A drawn wave line in the current text colour: under page titles, and as
+     the active tab's marker. */
+  .squiggle {
+    height: 6px;
+    background-color: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6' viewBox='0 0 16 6'%3E%3Cpath d='M0 3 Q4 0.6 8 3 T16 3' fill='none' stroke='black' stroke-width='1.9'/%3E%3C/svg%3E")
+      repeat-x left center / 16px 6px;
+  }
+
+  /* A ring of brass around a round badge, like a porthole. */
+  .porthole {
+    box-shadow:
+      0 0 0 3px var(--color-surface),
+      0 0 0 5px color-mix(in oklab, var(--color-brass) 55%, transparent),
+      0 8px 18px -8px var(--shadow-tint-strong);
+  }
+
+  /* The sea itself, as a fill: sunlit at the top, deeper below. The top is
+     only part-way to --color-sea-lit so a light icon on it keeps its contrast. */
+  .sea-fill {
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--color-sea-lit) 45%, var(--color-sea)) 0%,
+      var(--color-sea) 55%,
+      var(--color-sea-deep) 100%
+    );
   }
 }

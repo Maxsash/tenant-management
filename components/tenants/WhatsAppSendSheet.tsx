@@ -122,7 +122,7 @@ export default function WhatsAppSendSheet({ open, onOpenChange, month }: Props) 
                       Opened
                     </span>
                   ) : (
-                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success px-3 py-1.5 text-sm font-semibold text-white">
+                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success px-3 py-1.5 text-sm font-semibold text-on-success">
                       <MessageCircle className="h-4 w-4" />
                       WhatsApp
                     </span>
@@ -131,7 +131,7 @@ export default function WhatsAppSendSheet({ open, onOpenChange, month }: Props) 
               );
 
               const rowClass =
-                "flex min-h-16 items-center justify-between gap-3 rounded-xl border border-border px-4 py-3";
+                "flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-border px-4 py-3";
 
               return (
                 <li key={recipient.id}>

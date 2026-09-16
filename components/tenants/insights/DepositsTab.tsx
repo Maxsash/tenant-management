@@ -5,6 +5,7 @@ import { CircleAlert, Info } from "lucide-react";
 import Card from "@/components/ui/Card";
 import LockedCard from "@/components/ui/LockedCard";
 import StatTile from "@/components/ui/StatTile";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { formatCompactCurrency, formatCurrency } from "@/utils/currency";
 import { formatFullDate } from "@/utils/date";
 import type { RentDeposits } from "@/types/rent-analytics";
@@ -64,14 +65,9 @@ export default function DepositsTab({ deposits, unlocked, onRequestUnlock }: Pro
                   {row.deposit > 0 ? formatCurrency(row.deposit) : "None"}
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-accent-soft">
-                <div
-                  className="h-full rounded-full bg-accent transition-[width] duration-500"
-                  // Scaled to the largest deposit so the small ones stay
-                  // visible; the figure is printed beside every bar anyway.
-                  style={{ width: `${largest > 0 ? (row.deposit / largest) * 100 : 0}%` }}
-                />
-              </div>
+              {/* Scaled to the largest deposit so the small ones stay
+                  visible; the figure is printed beside every bar anyway. */}
+              <ProgressBar percent={largest > 0 ? (row.deposit / largest) * 100 : 0} />
               <p className="flex items-center gap-1.5 text-xs text-muted">
                 {row.owedExceedsDeposit ? (
                   <>

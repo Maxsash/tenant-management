@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/utils/cn";
+import WaveBand from "./sea/WaveBand";
 
 type Tone = "neutral" | "success" | "warning" | "danger";
 
@@ -16,10 +17,19 @@ type Props = {
 };
 
 const toneClasses: Record<Tone, string> = {
-  neutral: "bg-surface text-foreground",
-  success: "bg-success-soft text-success",
-  warning: "bg-warning-soft text-warning",
-  danger: "bg-danger-soft text-danger",
+  neutral: "border-border bg-surface text-foreground",
+  success: "border-success-border bg-success-soft text-success",
+  warning: "border-warning-border bg-warning-soft text-warning",
+  danger: "border-danger-border bg-danger-soft text-danger",
+};
+
+// Neutral tiles set their label and helper in the muted ink; a toned tile
+// keeps its tone for all three, at full strength so it still reads.
+const quietText: Record<Tone, string> = {
+  neutral: "text-muted",
+  success: "",
+  warning: "",
+  danger: "",
 };
 
 export default function StatTile({
@@ -37,17 +47,25 @@ export default function StatTile({
       onClick={onClick}
       whileTap={onClick ? { scale: 0.97 } : undefined}
       className={cn(
-        "flex flex-col gap-1 rounded-xl border border-border p-4 text-left shadow-card",
+        "relative isolate flex flex-col gap-1 overflow-hidden rounded-xl border p-4 pb-5 text-left shadow-card",
         toneClasses[tone],
         onClick && "cursor-pointer",
         className
       )}
     >
-      <span className="text-[13px] font-semibold uppercase tracking-wide opacity-70">
+      <span
+        className={cn(
+          "font-mono text-[11px] font-semibold tracking-[0.12em] uppercase",
+          quietText[tone]
+        )}
+      >
         {label}
       </span>
-      <span className="font-display text-[28px] font-semibold leading-none">{value}</span>
-      {helper && <span className="text-xs opacity-70">{helper}</span>}
+      <span className="font-display text-[30px] font-semibold leading-none">{value}</span>
+      {helper && <span className={cn("text-xs", quietText[tone])}>{helper}</span>}
+
+      {/* A low tide line along the bottom, in the tile's own colour. */}
+      <WaveBand band="far" water="currentColor" className="-bottom-3 -z-10 opacity-[0.08]" />
     </Comp>
   );
 }

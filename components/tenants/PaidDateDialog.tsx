@@ -128,11 +128,12 @@ export default function PaidDateDialog({
               type="date"
               value={paidOn}
               onChange={(e) => setPaidOn(e.target.value)}
-              className="h-12 w-full rounded-lg border border-border bg-background px-3 text-base text-foreground outline-none [color-scheme:light] focus:border-accent"
+              className="h-12 w-full rounded-xl border border-border bg-background px-3.5 text-base text-foreground outline-none focus:border-accent"
             />
             {onTimeBy && (
               <p className="text-sm text-muted">
-                On time if paid by {formatFullDate(onTimeBy)}.
+                On time if paid by{" "}
+                <span className="font-semibold text-foreground">{formatFullDate(onTimeBy)}</span>.
               </p>
             )}
           </div>

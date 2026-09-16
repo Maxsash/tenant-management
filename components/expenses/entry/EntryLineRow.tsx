@@ -22,7 +22,7 @@ type Props = {
 };
 
 const fieldClass =
-  "h-11 rounded-lg border border-border bg-background px-3 text-[15px] text-foreground outline-none focus:border-accent";
+  "h-11 rounded-xl border border-border bg-background px-3 text-[15px] text-foreground outline-none focus:border-accent";
 
 /**
  * One line of the basket, laid out so a whole line fits on a phone without
@@ -59,7 +59,7 @@ export default function EntryLineRow({
   return (
     <li
       className={cn(
-        "rounded-xl border bg-surface p-3",
+        "rounded-2xl border bg-surface p-3 shadow-card",
         problem ? "border-danger" : warnings.length > 0 ? "border-warning-border" : "border-border"
       )}
     >
@@ -83,7 +83,7 @@ export default function EntryLineRow({
           <button
             type="button"
             onClick={onChooseItem}
-            className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1 text-left transition-colors hover:bg-accent-soft"
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl px-1 text-left transition-colors hover:bg-accent-soft"
           >
             <span
               aria-hidden="true"
@@ -130,7 +130,7 @@ export default function EntryLineRow({
             value={line.date}
             onChange={(e) => onChange({ date: e.target.value })}
             aria-label={`Date for ${line.item_name || "this line"}`}
-            className={cn(fieldClass, "w-[7.5rem] shrink-0 px-2 text-sm [color-scheme:light]")}
+            className={cn(fieldClass, "w-[7.5rem] shrink-0 px-2 text-sm")}
           />
         )}
 
@@ -156,7 +156,7 @@ export default function EntryLineRow({
           </>
         )}
 
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-border bg-background pl-3 focus-within:border-accent">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-border bg-background pl-3 focus-within:border-accent">
           <span aria-hidden="true" className="shrink-0 text-[15px] text-muted">
             ₹
           </span>
@@ -168,7 +168,7 @@ export default function EntryLineRow({
             onChange={(e) => onChange({ amount: e.target.value })}
             placeholder="0"
             aria-label={`Amount for ${line.item_name || "this line"}`}
-            className="h-11 w-full min-w-0 rounded-r-lg bg-transparent pr-3 text-right text-[15px] font-semibold text-foreground outline-none"
+            className="h-11 w-full min-w-0 rounded-r-xl bg-transparent pr-3 text-right text-[15px] font-semibold text-foreground tabular-nums outline-none"
           />
         </div>
       </div>

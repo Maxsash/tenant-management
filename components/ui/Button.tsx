@@ -6,7 +6,7 @@ import { motion } from "motion/react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/utils/cn";
 
-type Variant = "solid" | "outline" | "ghost" | "danger";
+type Variant = "solid" | "outline" | "ghost" | "danger" | "warning";
 type Size = "md" | "lg";
 
 type Props = Omit<ComponentProps<typeof motion.button>, "children"> & {
@@ -17,10 +17,14 @@ type Props = Omit<ComponentProps<typeof motion.button>, "children"> & {
 };
 
 const variantClasses: Record<Variant, string> = {
-  solid: "bg-accent text-white hover:bg-accent-strong",
-  outline: "border border-border bg-surface text-foreground hover:bg-accent-soft",
+  // Sunlit at the top, like the sea on the Hub.
+  solid:
+    "bg-accent bg-linear-to-b from-accent-bright to-accent text-on-accent shadow-[0_10px_20px_-12px_var(--shadow-tint-strong)] hover:from-accent hover:to-accent-strong",
+  outline:
+    "border border-border bg-surface text-foreground hover:border-accent/40 hover:bg-accent-soft",
   ghost: "text-foreground hover:bg-accent-soft",
-  danger: "bg-danger text-white hover:brightness-95",
+  danger: "bg-danger text-on-danger hover:brightness-95",
+  warning: "bg-warning text-on-warning hover:brightness-95",
 };
 
 const sizeClasses: Record<Size, string> = {
@@ -38,7 +42,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       whileTap={{ scale: 0.97 }}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50",
         variantClasses[variant],
         sizeClasses[size],
         className

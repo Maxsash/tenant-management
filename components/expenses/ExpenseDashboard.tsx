@@ -10,6 +10,9 @@ import MonthPicker from "@/components/ui/MonthPicker";
 import Skeleton from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
 import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
+import SeaScene from "@/components/ui/sea/SeaScene";
+import ProgressBar from "@/components/ui/ProgressBar";
 import ExpenseEntryRow from "./ExpenseEntryRow";
 import ExpenseSectionNav from "./ExpenseSectionNav";
 import { formatCurrency } from "@/utils/currency";
@@ -46,10 +49,9 @@ export default function ExpenseDashboard({
   return (
     <PageContainer size="lg">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h1 className="font-display text-3xl font-semibold text-foreground">Expenses</h1>
+        <PageHeader eyebrow="Ship's log" title="Expenses">
           <ExpenseSectionNav className="md:w-64" />
-        </div>
+        </PageHeader>
 
         <div className="flex items-center gap-3">
           <MonthPicker value={month} onChange={onMonthChange} className="flex-1 md:w-56" />
@@ -57,18 +59,24 @@ export default function ExpenseDashboard({
           <Link
             href="/expense/settings"
             aria-label="Expense settings"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-accent"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted shadow-card transition-colors hover:bg-accent-soft hover:text-accent"
           >
             <Settings className="h-5 w-5" />
           </Link>
         </div>
       </div>
 
-      <Card className="p-5 text-center">
-        <p className="text-sm font-medium text-muted">Total this month</p>
-        <p className="mt-1 font-display text-[36px] font-semibold text-foreground">
-          {formatCurrency(total)}
-        </p>
+      {/* The month's total, written in the sky above the harbour. */}
+      <Card className="relative isolate h-52 overflow-hidden">
+        <SeaScene className="absolute inset-0 -z-10" shore="var(--color-surface)" />
+        <div className="p-6">
+          <p className="font-mono text-[11px] font-semibold tracking-[0.14em] text-foreground/75 uppercase">
+            Total this month
+          </p>
+          <p className="mt-1 font-display text-[40px] leading-tight font-semibold text-foreground tabular-nums">
+            {formatCurrency(total)}
+          </p>
+        </div>
       </Card>
 
       {loading ? (
@@ -87,23 +95,18 @@ export default function ExpenseDashboard({
                     <span className="font-medium text-foreground">
                       {getCategoryIcon(categories, c.category)} {c.category}
                     </span>
-                    <span className="font-semibold text-foreground">
+                    <span className="font-semibold tabular-nums text-foreground">
                       {formatCurrency(c.amount)}
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-accent-soft">
-                    <div
-                      className="h-full rounded-full bg-accent transition-[width] duration-500"
-                      style={{ width: `${c.pct}%` }}
-                    />
-                  </div>
+                  <ProgressBar percent={c.pct} />
                 </div>
               ))}
             </Card>
           )}
 
           <div className="flex flex-col gap-3">
-            <h2 className="font-display text-xl font-semibold text-foreground">Entries</h2>
+            <h2 className="font-display text-2xl font-semibold text-foreground">Entries</h2>
 
             {!data?.unlocked ? (
               <LockedCard message="Enter the PIN to view expense entries." onUnlock={onRequestUnlock} />
@@ -137,7 +140,7 @@ export default function ExpenseDashboard({
           variant="outline"
           onClick={onScan}
           aria-label="Scan a slip"
-          className="h-12 w-12 !p-0 rounded-full shadow-float"
+          className="h-12 w-12 !p-0 shadow-float"
         >
           <Camera className="h-5 w-5 text-accent" />
         </Button>
@@ -146,7 +149,7 @@ export default function ExpenseDashboard({
           size="lg"
           onClick={onAdd}
           aria-label="Add expense"
-          className="w-14 !p-0 rounded-full shadow-float"
+          className="w-14 !p-0 shadow-float ring-4 ring-surface/80"
         >
           <Plus className="h-6 w-6" />
         </Button>

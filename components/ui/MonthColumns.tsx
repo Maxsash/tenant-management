@@ -32,6 +32,9 @@ type Props = {
 const MAX_LABELS = 12;
 const MAX_LABELS_WITH_YEAR = 6;
 
+/** Dashed rules at these fractions of the scale, as on squared chart paper. */
+const GRID_LINES = [0.25, 0.5, 0.75];
+
 /**
  * One column per month, and the month selector for the screen it sits on:
  * tapping a column refocuses everything below without a refetch.
@@ -45,6 +48,9 @@ const MAX_LABELS_WITH_YEAR = 6;
  * unfilled part, and "collected" would read as "not collected". So every
  * column keeps its true colours and the focused one is marked by its slot,
  * its value and its label instead.
+ *
+ * The rules behind the bars and the waterline under them are drawn in border
+ * and faint accent tones, so they stay recessive next to the data.
  */
 export default function MonthColumns({
   columns,
@@ -69,76 +75,86 @@ export default function MonthColumns({
 
   return (
     <div>
-      <div
-        className="flex items-end gap-1.5"
-        style={{ height }}
-        role="group"
-        aria-label={ariaLabel}
-      >
-        {columns.map((column) => {
-          const selected = column.month === selectedMonth;
-          const value = column.value ?? 0;
-          const outer = column.total ?? value;
-          const columnHeight =
-            max > 0 && column.value !== null ? Math.max((outer / max) * 100, 2) : 0;
-          const filled = outer > 0 ? Math.min(value / outer, 1) : 1;
+      <div className="relative">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          {GRID_LINES.map((line) => (
+            <span
+              key={line}
+              className="absolute inset-x-0 border-t border-dashed border-border"
+              style={{ bottom: `${line * 100}%` }}
+            />
+          ))}
+        </div>
 
-          return (
-            <button
-              key={column.month}
-              type="button"
-              onClick={() => onSelect(column.month)}
-              aria-pressed={selected}
-              aria-label={describe(column)}
-              // The whole column is the hit target, not just the drawn bar.
-              className={cn(
-                "group flex h-full min-w-0 flex-1 flex-col justify-end rounded-lg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
-                meter && selected && "bg-foreground/[0.08]"
-              )}
-            >
-              <span
+        <div
+          className="relative flex items-end gap-1.5"
+          style={{ height }}
+          role="group"
+          aria-label={ariaLabel}
+        >
+          {columns.map((column) => {
+            const selected = column.month === selectedMonth;
+            const value = column.value ?? 0;
+            const outer = column.total ?? value;
+            const columnHeight =
+              max > 0 && column.value !== null ? Math.max((outer / max) * 100, 2) : 0;
+            const filled = outer > 0 ? Math.min(value / outer, 1) : 1;
+
+            return (
+              <button
+                key={column.month}
+                type="button"
+                onClick={() => onSelect(column.month)}
+                aria-pressed={selected}
+                aria-label={describe(column)}
+                // The whole column is the hit target, not just the drawn bar.
                 className={cn(
-                  // Flex-centred so a label wider than a thin column spills evenly
-                  // both ways instead of off to the right.
-                  "mb-1.5 flex justify-center text-[11px] font-semibold whitespace-nowrap tabular-nums transition-colors",
-                  selected ? "text-foreground" : "text-transparent"
+                  "group flex h-full min-w-0 flex-1 flex-col justify-end rounded-lg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
+                  meter && selected && "bg-accent/10"
                 )}
               >
-                {column.value === null ? "–" : formatValue(value)}
-              </span>
-              <span
-                style={{ height: `${columnHeight}%` }}
-                // Capped width with the slot's leftover left as air.
-                className="mx-auto flex w-full max-w-6 flex-col gap-0.5"
-              >
-                {filled < 1 && (
-                  <span
-                    style={{ flexGrow: 1 - filled }}
-                    className={cn(
-                      "min-h-0.5 basis-0 rounded-t bg-accent/15 transition-colors"
-                    )}
-                  />
-                )}
-                {filled > 0 && (
-                  <span
-                    style={{ flexGrow: filled }}
-                    className={cn(
-                      // Rounded at the data end, square on the baseline.
-                      "min-h-0.5 basis-0 transition-colors",
-                      filled === 1 && "rounded-t",
-                      selected || meter
-                        ? "bg-accent"
-                        : "bg-accent/25 group-hover:bg-accent/40"
-                    )}
-                  />
-                )}
-              </span>
-            </button>
-          );
-        })}
+                <span
+                  className={cn(
+                    // Flex-centred so a label wider than a thin column spills evenly
+                    // both ways instead of off to the right.
+                    "mb-1.5 flex justify-center font-mono text-[11px] font-semibold whitespace-nowrap tabular-nums transition-colors",
+                    selected ? "text-foreground" : "text-transparent"
+                  )}
+                >
+                  {column.value === null ? "–" : formatValue(value)}
+                </span>
+                <span
+                  style={{ height: `${columnHeight}%` }}
+                  // Capped width with the slot's leftover left as air.
+                  className="mx-auto flex w-full max-w-6 flex-col gap-0.5"
+                >
+                  {filled < 1 && (
+                    <span
+                      style={{ flexGrow: 1 - filled }}
+                      className="min-h-0.5 basis-0 rounded-t-md bg-accent/15 transition-colors"
+                    />
+                  )}
+                  {filled > 0 && (
+                    <span
+                      style={{ flexGrow: filled }}
+                      className={cn(
+                        // Rounded at the data end, square on the baseline.
+                        "min-h-0.5 basis-0 transition-colors",
+                        filled === 1 && "rounded-t-md",
+                        selected || meter
+                          ? "bg-accent"
+                          : "bg-accent/25 group-hover:bg-accent/40"
+                      )}
+                    />
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="mt-0 h-px bg-border" />
+      <div aria-hidden="true" className="h-0.5 rounded-full bg-accent/35" />
 
       <div className="flex gap-1.5 pt-2" aria-hidden="true">
         {columns.map((column, i) => (

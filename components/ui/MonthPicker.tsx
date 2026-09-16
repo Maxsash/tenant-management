@@ -13,17 +13,19 @@ export default function MonthPicker({ value, onChange, className }: Props) {
   return (
     <label
       className={cn(
-        "flex h-14 items-center gap-3 rounded-xl border border-border bg-surface px-4 shadow-card",
+        "flex h-14 items-center gap-3 rounded-full border border-border bg-surface pr-5 pl-2 shadow-card transition-colors focus-within:border-accent",
         className
       )}
     >
-      <Calendar className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+        <Calendar className="h-5 w-5" aria-hidden="true" />
+      </span>
       <span className="sr-only">Select month</span>
       <input
         type="month"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-transparent text-[15px] font-medium text-foreground outline-none [color-scheme:light]"
+        className="w-full bg-transparent text-[15px] font-medium text-foreground outline-none"
       />
     </label>
   );

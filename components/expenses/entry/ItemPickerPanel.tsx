@@ -76,7 +76,7 @@ export default function ItemPickerPanel({
       role="dialog"
       aria-label="Choose an item"
     >
-      <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+      <header className="flex items-center gap-2 border-b border-border bg-surface-sunk/70 px-4 py-3">
         <button
           type="button"
           onClick={onClose}
@@ -86,7 +86,7 @@ export default function ItemPickerPanel({
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        <div className="flex h-12 flex-1 items-center gap-2.5 rounded-xl border border-border bg-background px-3.5">
+        <div className="flex h-12 flex-1 items-center gap-2.5 rounded-full border border-border bg-background px-4 focus-within:border-accent">
           <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
           <input
             ref={searchRef}
@@ -106,7 +106,7 @@ export default function ItemPickerPanel({
           className={cn(
             "shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
             categoryFilter === null
-              ? "border-accent bg-accent text-white"
+              ? "border-accent bg-accent text-on-accent"
               : "border-border bg-surface text-foreground"
           )}
         >
@@ -120,7 +120,7 @@ export default function ItemPickerPanel({
             className={cn(
               "shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
               categoryFilter === c.name
-                ? "border-accent bg-accent text-white"
+                ? "border-accent bg-accent text-on-accent"
                 : "border-border bg-surface text-foreground"
             )}
           >
@@ -132,7 +132,7 @@ export default function ItemPickerPanel({
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {!browsing && suggested.length > 0 && (
           <section className="mb-6">
-            <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+            <h3 className="mb-2 font-mono text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">
               Often bought
             </h3>
             <div className="flex flex-col gap-1.5">
@@ -152,13 +152,13 @@ export default function ItemPickerPanel({
         ) : (
           <div className="flex flex-col gap-5">
             {!browsing && suggested.length > 0 && (
-              <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">
+              <h3 className="font-mono text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">
                 Everything else
               </h3>
             )}
             {grouped.map((group) => (
               <section key={group.category}>
-                <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+                <h3 className="mb-2 font-mono text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">
                   {group.icon} {group.category}
                 </h3>
                 <div className="flex flex-col gap-1.5">
@@ -180,7 +180,7 @@ export default function ItemPickerPanel({
                 categoryFilter ?? categories[0]?.name ?? "Other"
               )
             }
-            className="mt-5 flex w-full items-center gap-3 rounded-xl border border-dashed border-accent bg-accent-soft px-4 py-3.5 text-left transition-colors hover:bg-accent-soft/70"
+            className="mt-5 flex w-full items-center gap-3 rounded-2xl border border-dashed border-accent bg-accent-soft px-4 py-3.5 text-left transition-colors hover:bg-accent-soft/70"
           >
             <PlusCircle className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
             <span className="min-w-0">
@@ -209,11 +209,11 @@ function ItemButton({
     <button
       type="button"
       onClick={() => onPick(item)}
-      className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent hover:bg-accent-soft"
+      className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent hover:bg-accent-soft"
     >
       <span className="min-w-0 truncate font-medium text-foreground">{item.name}</span>
       {item.default_unit && (
-        <span className="shrink-0 text-xs text-muted">{item.default_unit}</span>
+        <span className="shrink-0 font-mono text-xs text-muted">{item.default_unit}</span>
       )}
     </button>
   );

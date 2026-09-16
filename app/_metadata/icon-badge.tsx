@@ -38,6 +38,20 @@ export const SECTION_COPY: Record<Section, { title: string; subtitle: string }> 
   expense: { title: "Expenses", subtitle: "Household spending — Shrivastava Hub" },
 };
 
+// Fixed hexes, not theme variables: these render to PNGs outside the page, so
+// there is no stylesheet to read. They are the light theme's sea (globals.css).
+export const BADGE_COLORS = {
+  seaLit: "#4ea5b8",
+  sea: "#1e7392",
+  seaDeep: "#0e4a66",
+  foam: "#e7f5f1",
+  sand: "#fbf5e9",
+};
+
+/** A wave along the foot of a 100-wide, 24-tall box, for badges and the share card. */
+export const BADGE_WAVE = "M0 9C10 3 20 3 30 8S50 15 60 9 80 2 90 6L100 8V24H0Z";
+export const BADGE_CREST = "M0 9C10 3 20 3 30 8S50 15 60 9 80 2 90 6L100 8";
+
 export function IconBadge({
   section,
   size,
@@ -50,37 +64,57 @@ export function IconBadge({
    * sliver showing between the two roundings. */
   radius?: number;
 }) {
-  const iconSize = Math.round(size * 0.52);
+  // One SVG on a 100-unit square, so the wave is clipped to the badge's own
+  // rounded corners — a positioned child of a rounded div is not clipped by
+  // the OG renderer.
+  const r = (radius / size) * 100;
+  const id = `badge-${section}`;
 
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        background: "#1f5c3f",
-        borderRadius: radius,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <svg
-        width={iconSize}
-        height={iconSize}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#f7f3e8"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        {ICON_PATHS[section].map((node, i) =>
-          node.type === "path" ? (
-            <path key={i} d={node.d} />
-          ) : (
-            <circle key={i} cx={node.cx} cy={node.cy} r={node.r} />
-          )
-        )}
+    <div style={{ width: size, height: size, display: "flex" }}>
+      <svg width={size} height={size} viewBox="0 0 100 100">
+        <defs>
+          <linearGradient id={`${id}-sea`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={BADGE_COLORS.seaLit} />
+            <stop offset="0.55" stopColor={BADGE_COLORS.sea} />
+            <stop offset="1" stopColor={BADGE_COLORS.seaDeep} />
+          </linearGradient>
+          <clipPath id={`${id}-clip`}>
+            <rect width="100" height="100" rx={r} />
+          </clipPath>
+        </defs>
+
+        <g clipPath={`url(#${id}-clip)`}>
+          <rect width="100" height="100" fill={`url(#${id}-sea)`} />
+          {/* The sea along the bottom of the badge. */}
+          <g transform="translate(0 76) scale(1 1.05)">
+            <path d={BADGE_WAVE} fill={BADGE_COLORS.seaDeep} />
+            <path
+              d={BADGE_CREST}
+              fill="none"
+              stroke={BADGE_COLORS.foam}
+              strokeOpacity={0.6}
+              strokeWidth={1.4}
+            />
+          </g>
+        </g>
+
+        <g
+          transform="translate(26 20) scale(2)"
+          fill="none"
+          stroke={BADGE_COLORS.sand}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {ICON_PATHS[section].map((node, i) =>
+            node.type === "path" ? (
+              <path key={i} d={node.d} />
+            ) : (
+              <circle key={i} cx={node.cx} cy={node.cy} r={node.r} />
+            )
+          )}
+        </g>
       </svg>
     </div>
   );

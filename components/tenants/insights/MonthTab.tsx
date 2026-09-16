@@ -6,6 +6,7 @@ import { ArrowRight, CheckCircle2, CircleAlert, Clock3, Hourglass, LogIn, LogOut
 import Card from "@/components/ui/Card";
 import LockedCard from "@/components/ui/LockedCard";
 import StatTile from "@/components/ui/StatTile";
+import ProgressBar from "@/components/ui/ProgressBar";
 import { formatCompactCurrency, formatCurrency, formatSignedCurrency } from "@/utils/currency";
 import { formatMonthLabel, formatPayDayShort, formatShortDate } from "@/utils/date";
 import { cn } from "@/utils/cn";
@@ -112,12 +113,7 @@ export default function MonthTab({ month, unlocked, onRequestUnlock }: Props) {
                     of {formatCurrency(bank.expected)}
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-accent-soft">
-                  <div
-                    className="h-full rounded-full bg-accent transition-[width] duration-500"
-                    style={{ width: `${bank.collectedPct ?? 0}%` }}
-                  />
-                </div>
+                <ProgressBar percent={bank.collectedPct ?? 0} />
               </div>
             ))}
           </Card>

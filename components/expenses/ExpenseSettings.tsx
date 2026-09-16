@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Lock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
-import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
+import LockedCard from "@/components/ui/LockedCard";
 import Tabs, { TabsContent } from "@/components/ui/Tabs";
 import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
 import PageLoader from "@/components/ui/PageLoader";
 import PinPromptDialog from "@/components/ui/PinPromptDialog";
 import ManageItemsTab from "./ManageItemsTab";
@@ -49,13 +49,10 @@ export default function ExpenseSettings() {
   if (!unlocked) {
     return (
       <PageContainer className="min-h-[70vh] items-center justify-center gap-4 text-center">
-        <Card className="flex flex-col items-center gap-3 p-6">
-          <Lock className="h-5 w-5 text-muted" />
-          <p className="text-sm text-muted">Enter the PIN to manage items &amp; categories.</p>
-          <Button variant="outline" onClick={handleUnlock}>
-            Unlock
-          </Button>
-        </Card>
+        <LockedCard
+          message="Enter the PIN to manage items & categories."
+          onUnlock={handleUnlock}
+        />
         <PinPromptDialog {...pinDialogProps} />
       </PageContainer>
     );
@@ -63,16 +60,19 @@ export default function ExpenseSettings() {
 
   return (
     <PageContainer size="lg" className="gap-5">
-      <div className="flex items-center gap-2">
-        <Link
-          href="/expense"
-          aria-label="Back to Expenses"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-accent"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <h1 className="font-display text-2xl font-semibold text-foreground">Settings</h1>
-      </div>
+      <PageHeader
+        eyebrow="Ship's stores"
+        title="Settings"
+        leading={
+          <Link
+            href="/expense"
+            aria-label="Back to Expenses"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted shadow-card transition-colors hover:bg-accent-soft hover:text-accent"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        }
+      />
 
       <Tabs
         value={activeTab}

@@ -113,7 +113,7 @@ export default function ConsumptionTable({
 
       <div className="flex flex-col gap-2">
         {categories.length > 1 && (
-          <label className="flex h-12 items-center gap-3 rounded-xl border border-border bg-surface px-4 shadow-card">
+          <label className="flex h-12 items-center gap-3 rounded-full border border-border bg-surface px-5 shadow-card focus-within:border-accent">
             <span className="sr-only">Category</span>
             <select
               value={category}

@@ -31,7 +31,10 @@ export default function SectionNav({ sections, ariaLabel, className }: Props) {
 
   return (
     <div
-      className={cn("flex gap-1 rounded-xl bg-accent-soft p-1", className)}
+      className={cn(
+        "flex gap-1 rounded-full bg-accent-soft p-1 shadow-[inset_0_1px_3px_var(--shadow-tint-soft)]",
+        className
+      )}
       role="navigation"
       aria-label={ariaLabel}
     >
@@ -44,8 +47,8 @@ export default function SectionNav({ sections, ariaLabel, className }: Props) {
             href={section.href}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "relative flex-1 rounded-lg px-3 py-2 text-center text-sm font-semibold transition-colors",
-              isActive ? "text-white" : "text-accent"
+              "relative flex-1 rounded-full px-3 py-2 text-center text-sm font-semibold transition-colors",
+              isActive ? "text-on-accent" : "text-accent"
             )}
           >
             {isActive && (
@@ -53,7 +56,7 @@ export default function SectionNav({ sections, ariaLabel, className }: Props) {
                 // Keyed by the nav, not the instance, so the pill can glide between
                 // the pages of one area.
                 layoutId={`section-nav-${ariaLabel}`}
-                className="absolute inset-0 rounded-lg bg-accent"
+                className="absolute inset-0 rounded-full bg-accent bg-linear-to-b from-accent-bright to-accent shadow-[0_6px_14px_-8px_var(--shadow-tint-strong)]"
                 transition={{ type: "spring", stiffness: 400, damping: 32 }}
               />
             )}

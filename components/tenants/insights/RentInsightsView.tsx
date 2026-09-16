@@ -9,6 +9,7 @@ import DeltaChip from "@/components/ui/DeltaChip";
 import EmptyState from "@/components/ui/EmptyState";
 import MonthColumns from "@/components/ui/MonthColumns";
 import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import Tabs, { TabsContent } from "@/components/ui/Tabs";
 import TenantSectionNav from "../TenantSectionNav";
@@ -72,12 +73,9 @@ export default function RentInsightsView({
   return (
     <PageContainer size="lg">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h1 className="font-display text-3xl font-semibold text-foreground">
-            Insights
-          </h1>
+        <PageHeader eyebrow="Charting the rent" title="Insights">
           <TenantSectionNav className="md:w-64" />
-        </div>
+        </PageHeader>
 
         {/* One filter row, scoping everything below it. */}
         <SegmentedControl
@@ -109,13 +107,13 @@ export default function RentInsightsView({
           // flashing a skeleton and jumping the layout.
           className={`flex flex-col gap-8 transition-opacity ${loading ? "opacity-60" : ""}`}
         >
-          <Card className="flex flex-col gap-5 p-5">
+          <Card className="flex flex-col gap-5 bg-linear-to-b from-sky-high/45 to-surface to-40% p-5">
             <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
               <div>
                 <p className="text-sm font-medium text-muted">
                   Rent for {formatMonthLabel(active.month)}
                 </p>
-                <p className="font-display text-[40px] leading-tight font-semibold text-foreground">
+                <p className="font-display text-[44px] leading-tight font-semibold text-foreground tabular-nums">
                   {formatCurrency(active.collected)}
                 </p>
                 <p className="text-sm text-muted">
@@ -150,11 +148,11 @@ export default function RentInsightsView({
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted">
               <span className="flex items-center gap-3">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-accent" aria-hidden="true" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
                   Collected
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-accent/15" aria-hidden="true" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-accent/15" aria-hidden="true" />
                   Not collected
                 </span>
               </span>

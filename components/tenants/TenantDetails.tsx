@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, Clock3 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import PageContainer from "@/components/ui/PageContainer";
 import Tabs, { TabsContent } from "@/components/ui/Tabs";
+import WaveBand from "@/components/ui/sea/WaveBand";
 import { formatFullDate } from "@/utils/date";
 import { formatCurrency } from "@/utils/currency";
 import { getIncreaseDisplay } from "@/lib/rent";
@@ -34,7 +35,7 @@ export default function TenantDetails({ tenant, onBack }: Props) {
     <PageContainer className="gap-4">
       <button
         onClick={onBack}
-        className="flex w-fit items-center gap-1.5 text-sm font-semibold text-muted transition-colors hover:text-accent"
+        className="flex w-fit items-center gap-1.5 rounded-full py-1.5 pr-3 pl-2 text-sm font-semibold text-muted transition-colors hover:bg-accent-soft hover:text-accent"
       >
         <ArrowLeft className="h-4 w-4" />
         Back
@@ -43,20 +44,20 @@ export default function TenantDetails({ tenant, onBack }: Props) {
       <Card className="overflow-hidden">
         <div
           className={cn(
-            "p-6 text-center",
+            "graph-paper relative isolate overflow-hidden p-6 pb-12 text-center",
             tenant.paid ? "bg-success-soft" : "bg-danger-soft"
           )}
         >
-          <p className="font-display text-2xl font-semibold text-foreground">{tenant.name}</p>
+          <p className="font-display text-[28px] font-semibold text-foreground">{tenant.name}</p>
           <p className="mt-0.5 text-sm text-muted">{tenant.property_type}</p>
-          <p className="mt-3 font-display text-4xl font-semibold text-foreground">
+          <p className="mt-3 font-display text-5xl font-semibold text-foreground tabular-nums">
             {rentAmount}
           </p>
 
           <span
             className={cn(
-              "mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold",
-              tenant.paid ? "bg-success text-white" : "bg-danger text-white"
+              "mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold shadow-card",
+              tenant.paid ? "bg-success text-on-success" : "bg-danger text-on-danger"
             )}
           >
             {tenant.paid ? (
@@ -71,6 +72,15 @@ export default function TenantDetails({ tenant, onBack }: Props) {
               </>
             )}
           </span>
+
+          {/* The card's own colour washing in over the status band. */}
+          <WaveBand
+            band="shore"
+            water="var(--color-surface)"
+            drift="36s"
+            fillBelow
+            className="-bottom-3 -z-10"
+          />
         </div>
 
         <Tabs

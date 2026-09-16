@@ -27,15 +27,16 @@ export default function Tabs({ items, value, onValueChange, children }: Props) {
               key={item.value}
               value={item.value}
               className={cn(
-                "relative flex-1 py-3 text-[15px] font-medium transition-colors outline-none",
-                active ? "text-accent" : "text-muted"
+                "relative flex-1 py-3 text-[15px] transition-colors outline-none",
+                active ? "font-semibold text-accent" : "font-medium text-muted"
               )}
             >
               {item.label}
               {active && (
+                // The active tab is underlined with a drawn wave.
                 <motion.div
                   layoutId={`tab-indicator-${layoutId}`}
-                  className="absolute inset-x-4 -bottom-px h-[3px] rounded-full bg-accent"
+                  className="squiggle absolute inset-x-4 -bottom-[3px] text-accent"
                   transition={{ type: "spring", stiffness: 400, damping: 34 }}
                 />
               )}

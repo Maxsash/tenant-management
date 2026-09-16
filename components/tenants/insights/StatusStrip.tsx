@@ -3,15 +3,16 @@ import type { RentState } from "@/types/rent-analytics";
 
 /**
  * How each state is drawn. On time and unpaid are green and red, which
- * protanopes can't tell apart, so unpaid is a hollow ring rather than a filled
- * dot: the shape carries the difference, not the hue. Late is a separate amber
- * validated against both (see --color-late in globals.css).
+ * protanopes and deuteranopes can't reliably tell apart, so unpaid is a hollow
+ * ring rather than a filled dot: the shape carries the difference, not the
+ * hue. The three fills are the --color-mark-* set in globals.css, validated
+ * together for each theme.
  */
 const MARKS: Record<RentState | "none", { className: string; label: string }> = {
-  on_time: { className: "h-2.5 w-2.5 rounded-full bg-success", label: "On time" },
-  late: { className: "h-2.5 w-2.5 rounded-full bg-late", label: "Late" },
+  on_time: { className: "h-2.5 w-2.5 rounded-full bg-mark-on-time", label: "On time" },
+  late: { className: "h-2.5 w-2.5 rounded-full bg-mark-late", label: "Late" },
   overdue: {
-    className: "h-2.5 w-2.5 rounded-full border-2 border-danger",
+    className: "h-2.5 w-2.5 rounded-full border-2 border-mark-unpaid",
     label: "Unpaid",
   },
   due: { className: "h-2.5 w-2.5 rounded-full border-2 border-muted/60", label: "Not due yet" },

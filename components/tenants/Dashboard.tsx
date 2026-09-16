@@ -10,6 +10,7 @@ import MonthPicker from "@/components/ui/MonthPicker";
 import StatTile from "@/components/ui/StatTile";
 import Skeleton from "@/components/ui/Skeleton";
 import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
 import TenantCard from "@/components/tenants/TenantCard";
 import TenantSectionNav from "@/components/tenants/TenantSectionNav";
 import WhatsAppSendSheet from "@/components/tenants/WhatsAppSendSheet";
@@ -18,7 +19,6 @@ import PaidDateDialog, { type PaidDateMode } from "@/components/tenants/PaidDate
 import { sendBroadcast } from "@/services/broadcast";
 import { sendMonthlyGreeting } from "@/services/monthly-greeting";
 import { isAdminActionsEnabled } from "@/lib/config";
-import { cn } from "@/utils/cn";
 import { formatCurrency } from "@/utils/currency";
 import type { TenantDashboardData, TenantDashboardItem } from "@/types/tenant";
 import type { AdminLevel } from "@/types/admin";
@@ -140,10 +140,9 @@ export default function Dashboard({
   return (
     <PageContainer size="lg">
       <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h1 className="font-display text-3xl font-semibold text-foreground">Tenants</h1>
+        <PageHeader eyebrow="Ship's ledger" title="Tenants">
           <TenantSectionNav className="md:w-64" />
-        </div>
+        </PageHeader>
 
         <MonthPicker value={month} onChange={onMonthChange} className="md:w-56" />
 
@@ -163,8 +162,8 @@ export default function Dashboard({
 
               <Button
                 size="lg"
-                variant={unpaid.length === 0 ? "outline" : "solid"}
-                className={cn("sm:flex-1", unpaid.length > 0 && "bg-warning hover:brightness-95")}
+                variant={unpaid.length === 0 ? "outline" : "warning"}
+                className="sm:flex-1"
                 disabled={unpaid.length === 0}
                 loading={sendingBroadcast}
                 onClick={handleBroadcast}
@@ -205,7 +204,7 @@ export default function Dashboard({
       {(data?.overdue_other_months.amount ?? 0) > 0 && data && (
         <Link
           href="/tenant/insights"
-          className="-mt-3 flex items-center gap-3 rounded-xl border border-danger-border bg-danger-soft px-4 py-3 text-danger transition-transform active:scale-[0.99]"
+          className="-mt-3 flex items-center gap-3 rounded-2xl border border-danger-border bg-danger-soft px-4 py-3 text-danger transition-transform active:scale-[0.99]"
         >
           <CircleAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 text-sm">
@@ -228,7 +227,11 @@ export default function Dashboard({
       ) : (
         <>
           <div ref={unpaidRef} className="flex flex-col gap-4">
-            <h2 className="font-display text-xl font-semibold text-danger">Pending Rent</h2>
+            <h2 className="flex items-center gap-2.5 font-display text-2xl font-semibold text-danger">
+              {/* The same hollow ring the rent charts use for unpaid. */}
+              <span aria-hidden="true" className="h-3 w-3 rounded-full border-[2.5px] border-mark-unpaid" />
+              Pending Rent
+            </h2>
 
             {unpaid.length === 0 ? (
               <p className="text-sm text-muted">Everyone&apos;s paid up for this month.</p>
@@ -247,7 +250,10 @@ export default function Dashboard({
           </div>
 
           <div ref={paidRef} className="flex flex-col gap-4">
-            <h2 className="font-display text-xl font-semibold text-success">Paid Rent</h2>
+            <h2 className="flex items-center gap-2.5 font-display text-2xl font-semibold text-success">
+              <span aria-hidden="true" className="h-3 w-3 rounded-full bg-mark-on-time" />
+              Paid Rent
+            </h2>
 
             {paid.length === 0 ? (
               <p className="text-sm text-muted">No payments recorded yet this month.</p>
