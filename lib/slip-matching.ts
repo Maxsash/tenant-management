@@ -1,3 +1,4 @@
+import { daysBetween, isValidDate } from "@/lib/date";
 import { normalizeMeasure, unitsAgree } from "@/lib/units";
 import type { ExpenseCategory, ExpenseItem } from "@/types/expense";
 import type {
@@ -194,7 +195,8 @@ function buildLine(
   index: number,
   items: ExpenseItem[],
   categories: ExpenseCategory[],
-  expense_date: string
+  expense_date: string,
+  dateSuspect: boolean
 ): SlipDraftLine {
   const reviewReasons: SlipReviewReason[] = [];
   const match = matchCatalogueItem(line.item_name, items);
@@ -228,6 +230,7 @@ function buildLine(
       : 0;
 
   if (amount === 0) reviewReasons.push("no-amount");
+  if (dateSuspect) reviewReasons.push("date-check");
 
   return {
     id: `slip-line-${index}`,
@@ -248,8 +251,46 @@ function buildLine(
 export interface BuildSlipDraftOptions {
   items: ExpenseItem[];
   categories: ExpenseCategory[];
-  /** Used when the slip carries no legible date of its own. */
-  fallbackDate: string;
+  /** Today's date: what an undated slip falls back to, and the latest date a
+   *  real slip can carry. */
+  today: string;
+}
+
+/**
+ * Tuning for spotting a misread date. Exported for the same reason as
+ * MATCH_TUNING: these are judgement calls about how a household writes a
+ * running page, not facts.
+ */
+export const DATE_TUNING = {
+  /** A running page moves forward a few days at a time. A bigger jump than
+   *  this between neighbouring lines is likelier a misread than a gap. */
+  maxForwardJumpDays: 14,
+  /** Slack past the server's UTC today, since India's today is often UTC's
+   *  tomorrow. */
+  futureGraceDays: 1,
+} as const;
+
+/**
+ * Which of a slip's line dates are worth a second look: any in the future,
+ * and any where the page goes back in time or leaps forward from the line
+ * above. The classic case is a day-first date read month-first — 1.9.26 as
+ * 9 January — which lands between two September lines and stands out here
+ * even though it is a perfectly valid date.
+ *
+ * Only the line where the date changes is flagged, not the lines that carry it
+ * down, since correcting that one date in the sheet moves the whole run.
+ */
+export function findSuspectDates(dates: string[], today: string): boolean[] {
+  return dates.map((date, index) => {
+    if (daysBetween(today, date) > DATE_TUNING.futureGraceDays) return true;
+
+    const previous = dates[index - 1];
+    if (previous === undefined || previous === date) return false;
+
+    const step = daysBetween(previous, date);
+
+    return step < 0 || step > DATE_TUNING.maxForwardJumpDays;
+  });
 }
 
 /** Rupee slack when comparing a slip's own total against its lines. */
@@ -274,22 +315,29 @@ export function totalsAgree(stated: number | null, actual: number): boolean | nu
  */
 export function buildSlipDraft(
   extraction: SlipExtraction,
-  { items, categories, fallbackDate }: BuildSlipDraftOptions
+  { items, categories, today }: BuildSlipDraftOptions
 ): SlipDraft {
-  const slipDate = isIsoDate(extraction.slip_date) ? extraction.slip_date! : null;
+  const slipDate = isValidDate(extraction.slip_date) ? extraction.slip_date : null;
+  const slipLines = extraction.lines ?? [];
 
   // A running page writes a date once and dittos it down the lines beneath.
   // The model is asked to carry it down itself, but a line it could not read a
   // date for inherits the last one we did see rather than silently landing on
   // today — which, on a page straddling a month end, would move real spending
   // into the wrong month.
-  let carried = slipDate ?? fallbackDate;
+  let carried = slipDate ?? today;
 
-  const lines = (extraction.lines ?? []).map((line, index) => {
-    if (isIsoDate(line.line_date)) carried = line.line_date!;
+  const dates = slipLines.map((line) => {
+    if (isValidDate(line.line_date)) carried = line.line_date;
 
-    return buildLine(line, index, items, categories, carried);
+    return carried;
   });
+
+  const suspect = findSuspectDates(dates, today);
+
+  const lines = slipLines.map((line, index) =>
+    buildLine(line, index, items, categories, dates[index], suspect[index])
+  );
 
   const linesTotal = Math.round(
     lines.reduce((sum, line) => sum + line.amount, 0)
@@ -301,13 +349,11 @@ export function buildSlipDraft(
       ? extraction.stated_total
       : null;
 
-  const dates = new Set(lines.map((line) => line.expense_date));
-
   return {
     // The header opens on whichever date most of the lines share, so the
     // common case of a single-day slip still needs no thought.
-    expense_date: commonestDate(lines) ?? slipDate ?? fallbackDate,
-    spansMultipleDates: dates.size > 1,
+    expense_date: commonestDate(lines) ?? slipDate ?? today,
+    spansMultipleDates: new Set(dates).size > 1,
     lines,
     linesTotal,
     statedTotal,
@@ -331,12 +377,4 @@ function commonestDate(lines: SlipDraftLine[]): string | null {
   }
 
   return best?.date ?? null;
-}
-
-function isIsoDate(value: string | null | undefined): boolean {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-
-  const parsed = new Date(`${value}T00:00:00Z`);
-
-  return !Number.isNaN(parsed.getTime());
 }

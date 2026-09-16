@@ -257,14 +257,17 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
 - `lib/entry-lines.ts` — the editable line behind the entry sheet, and every
   derivation over it: `slipDraftToEntryLines`, `expenseToEntryLine` (mode is
   re-derived, it is not a column), `entryLineToPayload`, `entryLinesTotal`,
-  `validateEntryLines`. Amounts and quantities are held as **strings**, since
-  they bind straight to text inputs and a half-typed "1." is a legitimate
-  state a number would round away under the user's fingers.
+  `validateEntryLines`, and the date handling (`withLineDate`,
+  `groupLinesByDate`, `entryLinesDateRange`). Amounts and quantities are held
+  as **strings**, since they bind straight to text inputs and a half-typed
+  "1." is a legitimate state a number would round away under the user's
+  fingers.
 - `lib/expense-items.ts` — `rankItemsByUsage`/`suggestItems`: recency-weighted
   purchase counts, so the item picker opens on what the household actually
   buys instead of an empty search box. Only rows linked by `item_id` count.
-- `lib/slip-prompt.ts`, `lib/slip-matching.ts`, `lib/slip-vision.ts` — the
-  slip camera flow; see "Reading handwritten slips" below.
+- `lib/slip-prompt.ts`, `lib/slip-matching.ts`, `lib/slip-image.ts`,
+  `lib/slip-reader/` — the slip camera flow; see "Reading handwritten slips"
+  below.
 
 ### Recording when rent was paid
 
@@ -331,11 +334,11 @@ amount off-screen.
 The shape now follows the paper. **A slip is one date, one payment method and
 many lines**, so:
 
-- `EntrySheet.tsx` — the two facts that hold for the whole trip sit in a
-  header bar, set once. Lines stack under them, with the running total and
-  Save pinned in the footer. A single expense is a basket of one, and editing
-  an existing expense is the same sheet with one line, so there is one layout
-  to learn rather than two.
+- `EntrySheet.tsx` — the facts that hold for the whole trip sit in a header
+  bar, set once. Lines stack under them, with the running total and Save
+  pinned in the footer. A single expense is a basket of one, and editing an
+  existing expense is the same sheet with one line, so there is one layout to
+  learn rather than two. The date is the exception, see below.
 - `ItemPickerPanel.tsx` — slides **over** the sheet rather than sitting inside
   it, which is what stops picking an item from scrolling the amount away. It
   opens on the household's most-bought items (`lib/expense-items.ts`) instead
@@ -345,8 +348,21 @@ many lines**, so:
   on top, then quantity, unit and amount side by side. Choosing an item moves
   the caret straight to the amount, so pick-then-price is one motion. Note
   that `autoFocus` cannot do this — the row already exists by then — hence the
-  ref-and-effect. A date field appears on the row only when the basket spans
-  several days, where the date is news rather than noise.
+  ref-and-effect. Every row carries its own date as a small `DateChip` under
+  the fields.
+- `DateChip.tsx` — a date that reads as a label and opens the phone's own
+  picker: a real `<input type="date">` sits invisibly over it.
+- `SlipPhotos.tsx` — the tray photos wait in before they are read, and the
+  full-screen viewer for checking a read against the paper.
+
+**Dates in the sheet.** While every line shares a day, the header date edits
+all of them. Once lines span several days the header only shows the range,
+lines group under a heading per day (in the order the page first reaches that
+day), and tapping a heading moves that day's lines while a line's own date
+moves just that line. The row date used to appear only once a basket *already*
+spanned several days. That left no way to type a running page in by hand, or
+to split a scan that had put the whole page on one day, so the household
+ended up saving slips one day at a time.
 
 Two entry points into scanning, because the app is opened from a home-screen
 icon and a slip photo is the usual way expenses arrive: a camera button beside
@@ -361,9 +377,15 @@ Two traps worth knowing before editing `EntrySheet`:
   arrive from a fetch that lands *after* the sheet opens, and a new array
   identity would re-run the reset and wipe whatever had just been typed or
   scanned. The catalogue is read through `itemsRef` for that reason.
-- **A scan replaces the basket, it does not append to it** — mixing a
+- **A read replaces the basket, it does not append to it** — mixing a
   half-typed line into a freshly read slip makes its totals check lie. The
-  sheet confirms first when there is anything to lose.
+  sheet confirms first when there is anything to lose, including corrections
+  to an earlier read that is being redone with another photo added.
+- **Taking a photo does not start a read.** Photos wait in the tray until
+  "Read" is pressed, because a page is often written on both sides. The tray
+  knows whether the lines on screen came from exactly the photos in it
+  (`readPhotoKey`), which is what brings the Read button back when one is
+  added or removed.
 
 ## Reading handwritten slips
 
@@ -387,17 +409,26 @@ variables and nothing else in the app is affected.
   spending handed to Google on those terms. It also decodes HEIC/HEIF, which
   the Anthropic reader does not — hence `imageTypes` being per-provider.
   There is a *list* of models rather than one because the free tier really
-  does run out: the newest Flash returns `503 UNAVAILABLE` under load often
-  enough to hit on an ordinary evening. A capacity or rate-limit failure moves
-  down the list (a different model usually has room when one does not);
-  anything else fails immediately, since a bad key would fail the same way on
-  every model.
+  does run out, and **the list is ordered by what answers, not by what is
+  newest.** On 16 September 2026 the newest, `gemini-3.8-flash`, took 100 and
+  149 seconds just to return `503 UNAVAILABLE`. With it first, every scan
+  outlived the phone's patience and showed Safari's "Load failed". So the
+  models are raced by `lib/slip-reader/race.ts#staggeredRace`: each gets a
+  head start (`GEMINI_TIMING.staggerMs`), then the next starts alongside it
+  and the first answer wins. A busy or rate-limited failure starts the next at
+  once. Anything else fails immediately, since a bad key would fail the same
+  way on every model. The whole read has a hard deadline
+  (`GEMINI_TIMING.deadlineMs`) that keeps it well under a minute. A healthy
+  read took ~10 s for a 7-line page and 29–34 s for 25 lines over two photos,
+  so a very long slip can run into the deadline; the message then says to read
+  it a page at a time. Re-measure (see `test/manual/`) before reordering.
 - `lib/slip-reader/anthropic.ts` — `claude-opus-5` via `ANTHROPIC_API_KEY`.
   Reads this handwriting better and does not train on inputs, but bills per
   call; **a Claude Pro subscription does not include API credits**, which is
   why it is not the default. Preferred automatically if a key ever appears.
 - `lib/slip-reader/schema.ts` — the answer shape both providers return, and
-  the prompt they share, so switching provider changes only transport. The
+  the request they share (`buildSlipUserPrompt`, which names the photo
+  count), so switching provider changes only transport. The
   model's answer is re-validated with zod even when the provider claims to
   have constrained it — a caller about to write rows should never be handed a
   half-parsed slip.
@@ -440,30 +471,58 @@ per-line `expense_date` on `/api/expenses/bulk` all exist for that reason.
 undated, and the top-level `expense_date` is only the header's opening value —
 never the authority. Do not collapse these back into one date.
 
+A misread date is a valid date, so it is caught by position instead:
+`findSuspectDates` flags a line whose date is in the future, goes backwards,
+or leaps further forward than `DATE_TUNING.maxForwardJumpDays` from the line
+above. The classic case is 1.9.26 read month-first as 9 January, sitting
+between two September lines. Only the line where the date *changes* is
+flagged ("date-check"); the fix is one tap on that day's heading, which moves
+the whole run and clears the flag.
+
+**Several photos are one slip, read in one request.** A page written on both
+sides is the everyday case, and the lines at the top of the back usually
+carry the date written on the front. Read separately, those lines would fall
+back to today. So `/api/slip-scan` takes up to `MAX_SLIP_PHOTOS` repeated
+`image` fields in order, the reader sends every image with a request that
+says how many there are, and the prompt tells the model to carry a date
+across photos, report an overlapping line once, and not double a total
+carried forward. Verified against a synthetic two-sided page straddling a
+month end: back-of-page lines landed on the front's last date, and the
+combined total matched.
+
 The catalogue is rendered as `- Name | unit`, not `- Name (unit)`. That is
 also from a real slip: with parentheses the model copied the unit into the
 item name and answered "Paav (packet)", matching nothing and starting a
 duplicate beside the real "Paav".
 
-`MATCH_TUNING` and the unit alias table are exported rather than inlined, on
-the same principle as the analytics constants — they are judgement calls about
+`MATCH_TUNING`, `DATE_TUNING` and the unit alias table are exported rather
+than inlined, on the same principle as the analytics constants — they are judgement calls about
 handwriting, not facts.
 
 ### Phone-first, and what that forces
 
 The app is used mostly from an iPhone, added to the home screen so it runs as
-a standalone PWA. Three things in this flow exist only because of that:
+a standalone PWA. These things in this flow exist only because of that:
 
 - `lib/slip-image.ts` downscales and re-encodes every photo to JPEG **on the
   device** before upload. iPhones shoot HEIC, Safari's file input has not been
   consistent across iOS versions about converting it, and a full-resolution
   photo is far past the upload ceiling anyway. A slip reads fine from a 2000px
   long edge. If the browser cannot decode the file, the original is sent and
-  the server decides — never drop a photo silently on the device.
+  the server decides — never drop a photo silently on the device. Each photo
+  is squeezed through `ENCODE_STEPS` until it fits `PHOTO_BYTE_BUDGET`, so a
+  full set of `MAX_SLIP_PHOTOS` travels in one upload under `MAX_UPLOAD_BYTES`
+  — which is itself under Vercel's 4.5 MB request limit, refused before the
+  route runs. A test pins that arithmetic.
 - The file input carries **no `capture` attribute**, on purpose. With it, iOS
   jumps straight to the camera; without it, iOS offers Photo Library / Take
   Photo / Choose File, and slips are as often photographed earlier and logged
-  later.
+  later. It does carry `multiple`, so both sides can be picked from the
+  library at once; the camera takes one at a time, hence "Other side" in the
+  tray.
+- A fetch that never gets an answer surfaces in Safari as a bare "Load
+  failed". `services/slips.ts` rewords it, and a host-level `413`/`504` that
+  arrives without the route's JSON, into something the person can act on.
 - Amount and quantity inputs are `type="text"` with `inputMode="decimal"`,
   not `type="number"` — it brings up the numeric keypad without the spinner
   and scroll-to-change behaviour that makes a number field hazardous on a

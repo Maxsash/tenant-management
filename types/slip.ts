@@ -35,7 +35,9 @@ export type SlipReviewReason =
   | "fuzzy-match"
   | "ambiguous-match"
   | "unit-differs"
-  | "no-amount";
+  | "no-amount"
+  /** In the future, or out of step with the lines around it — likely misread. */
+  | "date-check";
 
 export interface SlipDraftLine {
   /** Stable key for the review list; not persisted. */

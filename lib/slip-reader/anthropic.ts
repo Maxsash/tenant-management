@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 import { buildSlipSystemPrompt } from "@/lib/slip-prompt";
-import { SLIP_USER_PROMPT, SlipExtractionSchema } from "./schema";
+import { buildSlipUserPrompt, SlipExtractionSchema } from "./schema";
 import type { ReadSlipOptions, SlipReader } from "./types";
 import type { SlipExtraction } from "@/types/slip";
 
@@ -33,8 +33,7 @@ export const anthropicReader: SlipReader = {
 };
 
 async function readWithAnthropic({
-  base64Image,
-  mediaType,
+  images,
   categories,
   items,
   today,
@@ -58,15 +57,19 @@ async function readWithAnthropic({
       {
         role: "user",
         content: [
-          {
-            type: "image",
+          ...images.map((image) => ({
+            type: "image" as const,
             source: {
-              type: "base64",
-              media_type: mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
-              data: base64Image,
+              type: "base64" as const,
+              media_type: image.mediaType as
+                | "image/jpeg"
+                | "image/png"
+                | "image/webp"
+                | "image/gif",
+              data: image.base64,
             },
-          },
-          { type: "text", text: SLIP_USER_PROMPT },
+          })),
+          { type: "text", text: buildSlipUserPrompt(images.length) },
         ],
       },
     ],

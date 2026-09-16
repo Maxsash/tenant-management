@@ -18,6 +18,12 @@ GEMINI_API_KEY=... SLIP_PATH=/path/to/slip.jpg npx vitest run lib/__e2e
 rm lib/__e2e.test.ts
 ```
 
+For both sides of a page, give the paths comma-separated, in order:
+`SLIP_PATH=/path/front.jpg,/path/back.jpg`. The run prints how long the read
+took — anything approaching a minute is a read the phone will give up on.
+Vitest may not echo `console.log` from inside the test; the full draft is
+written to `/tmp/e2e.json` either way.
+
 The copy step is because the config's `include` does not reach this directory.
 Extract a page from a scanned PDF with:
 

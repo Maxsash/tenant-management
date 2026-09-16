@@ -14,7 +14,7 @@ export const SlipLineSchema = z.object({
     .string()
     .nullable()
     .describe(
-      "This line's own date as YYYY-MM-DD, read day-first. A slip is often a running page covering several days: carry the last date written down to the lines under it, including lines marked with ditto marks. Null only if no date has appeared yet."
+      "This line's own date as YYYY-MM-DD, read day-first. A slip is often a running page covering several days: carry the last date written down to the lines under it, including lines marked with ditto marks, and on from one photo to the next. Null only if no date has appeared yet."
     ),
   item_name: z
     .string()
@@ -39,12 +39,14 @@ export const SlipExtractionSchema = z.object({
     .string()
     .nullable()
     .describe(
-      "The single date covering the whole slip, as YYYY-MM-DD. Null when the slip is undated, and null when it is a running page covering several days — in that case put each line's date on the line itself."
+      "The single date covering the whole slip, as YYYY-MM-DD. Null when the slip is undated, and null when it is a running page covering several days, or when several photos between them do — in that case put each line's date on the line itself."
     ),
   stated_total: z
     .number()
     .nullable()
-    .describe("The total the slip writes down. Null if it writes none."),
+    .describe(
+      "The total the slip writes down, across every photo. Null if it writes none."
+    ),
   lines: z.array(SlipLineSchema),
   unreadable: z
     .string()
@@ -68,6 +70,15 @@ export function slipJsonSchema(): Record<string, unknown> {
   return schema;
 }
 
-/** The one prompt every reader is given, so switching provider changes only the transport. */
-export const SLIP_USER_PROMPT =
-  "Read this slip. Report every line item on it, its stated total if it has one, and its date.";
+/**
+ * The one request every reader is given alongside the photos, so switching
+ * provider changes only the transport. It names the photo count because
+ * "these are one slip" is exactly what a model would otherwise have to guess.
+ */
+export function buildSlipUserPrompt(photoCount: number): string {
+  if (photoCount <= 1) {
+    return "Read this slip. Report every line item on it, its stated total if it has one, and its date.";
+  }
+
+  return `These ${photoCount} photos are one slip, in the order they were taken. Read them together as one continuous page: report every line item across all of them exactly once, the slip's stated total if it has one, and each line's date.`;
+}

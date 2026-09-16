@@ -3,9 +3,14 @@ import { geminiReader } from "./gemini";
 import type { ReadSlipOptions, SlipReader } from "./types";
 import type { SlipExtraction } from "@/types/slip";
 
-export type { ReadSlipOptions, SlipReader } from "./types";
-export { SlipExtractionSchema, slipJsonSchema } from "./schema";
-export { GEMINI_MODELS, GEMINI_IMAGE_TYPES, isTransientGeminiError } from "./gemini";
+export type { ReadSlipOptions, SlipImage, SlipReader } from "./types";
+export { buildSlipUserPrompt, SlipExtractionSchema, slipJsonSchema } from "./schema";
+export {
+  GEMINI_MODELS,
+  GEMINI_IMAGE_TYPES,
+  GEMINI_TIMING,
+  isTransientGeminiError,
+} from "./gemini";
 export { ANTHROPIC_MODEL, ANTHROPIC_IMAGE_TYPES } from "./anthropic";
 
 /**
@@ -17,8 +22,13 @@ export { ANTHROPIC_MODEL, ANTHROPIC_IMAGE_TYPES } from "./anthropic";
  */
 export const SLIP_READERS: SlipReader[] = [anthropicReader, geminiReader];
 
-/** Comfortably under both providers' inline-image limits. */
-export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+/**
+ * Every photo of one slip together, in one upload. The tighter ceiling is not
+ * either provider's inline-image limit but the host's: Vercel refuses a
+ * request body over 4.5 MB before the route ever sees it. lib/slip-image.ts
+ * sizes each photo on the phone so a full set fits under this.
+ */
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 export function getSlipReader(): SlipReader | null {
   return SLIP_READERS.find((reader) => reader.isConfigured()) ?? null;
@@ -48,9 +58,7 @@ export function missingKeyMessage(): string {
   return SLIP_READERS.map((reader) => reader.missingKeyMessage).join(" Or: ");
 }
 
-export async function readSlipImage(
-  options: ReadSlipOptions
-): Promise<SlipExtraction> {
+export async function readSlip(options: ReadSlipOptions): Promise<SlipExtraction> {
   const reader = getSlipReader();
 
   if (!reader) throw new Error(missingKeyMessage());

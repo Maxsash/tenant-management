@@ -89,9 +89,18 @@ On a phone, tap the camera button beside the `+` on the Expenses screen. If you
 use this from a home-screen icon, you can also save `/expense?scan=1` as its
 own icon, which opens straight to the camera.
 
+Taking a photo does not read it straight away. If the page is written on both
+sides, tap **Other side** and photograph the back too (up to four photos), then
+**Read**. All the photos are read together as one slip, so a date written on
+the front carries onto the back.
+
 A photographed page is often a running list covering several days. Each line
 keeps its own date, and the sheet groups them by day so a page spanning the end
-of a month lands in both months rather than being flattened into one.
+of a month lands in both months rather than being flattened into one. If a date
+comes out wrong, tap that day's heading to move all its lines, or the date under
+a single line to move just that one. Typing a slip in by hand works the same way.
+
+A read usually takes 10–30 seconds. Keep the app open while it runs.
 
 **Two things to know before turning it on:**
 

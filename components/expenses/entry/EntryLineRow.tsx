@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ChevronRight, StickyNote, X } from "lucide-react";
 
+import DateChip from "./DateChip";
 import { describeReviewReasons, type EntryLine } from "@/lib/entry-lines";
 import { getCategoryIcon } from "@/lib/expense-categories";
 import { cn } from "@/utils/cn";
@@ -14,11 +15,12 @@ type Props = {
   /** Set when this line failed the pre-save check. */
   problem?: string | null;
   onChange: (patch: Partial<EntryLine>) => void;
+  /** Kept apart from onChange because moving a line to another day also
+   *  settles a scan's doubt about its date. */
+  onChangeDate: (date: string) => void;
   onChooseItem: () => void;
   onRemove?: () => void;
   autoFocusAmount?: boolean;
-  /** Shown only on a basket spanning several days, where the date is news. */
-  showDate?: boolean;
 };
 
 const fieldClass =
@@ -29,16 +31,21 @@ const fieldClass =
  * scrolling: what it was on top, then quantity, unit and amount side by side
  * underneath. The amount is the last field and the widest, because it is the
  * one field every line must have.
+ *
+ * Every line carries its own date as a small label under the fields. It used
+ * to appear only once a basket already spanned several days, which left no way
+ * to type a running page in by hand, or to split a scan that had put the whole
+ * page on one day — so both got saved one day at a time instead.
  */
 export default function EntryLineRow({
   line,
   categories,
   problem,
   onChange,
+  onChangeDate,
   onChooseItem,
   onRemove,
   autoFocusAmount,
-  showDate,
 }: Props) {
   const warnings = describeReviewReasons(line);
   const isLump = line.mode === "lump";
@@ -124,16 +131,6 @@ export default function EntryLineRow({
       </div>
 
       <div className="mt-2 flex items-center gap-2">
-        {showDate && (
-          <input
-            type="date"
-            value={line.date}
-            onChange={(e) => onChange({ date: e.target.value })}
-            aria-label={`Date for ${line.item_name || "this line"}`}
-            className={cn(fieldClass, "w-[7.5rem] shrink-0 px-2 text-sm")}
-          />
-        )}
-
         {!isLump && (
           <>
             <input
@@ -173,7 +170,7 @@ export default function EntryLineRow({
         </div>
       </div>
 
-      {showNote ? (
+      {showNote && (
         <input
           type="text"
           value={line.notes ?? ""}
@@ -184,16 +181,27 @@ export default function EntryLineRow({
           aria-label={`Note for ${line.item_name || "this line"}`}
           className={cn(fieldClass, "mt-2 w-full text-sm")}
         />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setShowNote(true)}
-          className="mt-1.5 flex items-center gap-1.5 px-1 py-1 text-xs font-medium text-muted transition-colors hover:text-accent"
-        >
-          <StickyNote className="h-3.5 w-3.5" aria-hidden="true" />
-          Add a note
-        </button>
       )}
+
+      <div className="mt-1 flex items-center gap-4">
+        <DateChip
+          value={line.date}
+          onChange={onChangeDate}
+          label={`Date for ${line.item_name || "this line"}`}
+          className={cn(line.reviewReasons.includes("date-check") && "text-warning")}
+        />
+
+        {!showNote && (
+          <button
+            type="button"
+            onClick={() => setShowNote(true)}
+            className="flex min-h-8 items-center gap-1.5 px-1 text-xs font-medium text-muted transition-colors hover:text-accent"
+          >
+            <StickyNote className="h-3.5 w-3.5" aria-hidden="true" />
+            Add a note
+          </button>
+        )}
+      </div>
 
       {(problem || warnings.length > 0) && (
         <p

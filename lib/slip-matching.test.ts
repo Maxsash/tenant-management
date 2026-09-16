@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSlipDraft,
+  DATE_TUNING,
+  findSuspectDates,
   foldName,
   matchCatalogueItem,
   resolveCategory,
@@ -138,7 +140,7 @@ describe("matchCatalogueItem", () => {
       makeExtraction({
         lines: [makeSlipLine({ item_name: "Mirch powder", quantity: null, unit: null })],
       }),
-      { items: variants, categories, fallbackDate: "2026-09-09" }
+      { items: variants, categories, today: "2026-09-09" }
     );
 
     expect(draft.lines[0].reviewReasons).toContain("ambiguous-match");
@@ -174,7 +176,7 @@ describe("resolveCategory", () => {
 });
 
 describe("buildSlipDraft", () => {
-  const options = { items, categories, fallbackDate: "2026-09-09" };
+  const options = { items, categories, today: "2026-09-09" };
 
   it("links a matched line to the catalogue item and its category", () => {
     const draft = buildSlipDraft(makeExtraction(), options);
@@ -327,7 +329,7 @@ describe("buildSlipDraft", () => {
 });
 
 describe("buildSlipDraft dates on a running page", () => {
-  const options = { items, categories, fallbackDate: "2026-09-09" };
+  const options = { items, categories, today: "2026-09-09" };
 
   function datedLine(line_date: string | null, amount: number) {
     return makeSlipLine({ line_date, amount, item_name: "Aaloo" });
@@ -435,6 +437,83 @@ describe("buildSlipDraft dates on a running page", () => {
     );
 
     expect(draft.lines[1].expense_date).toBe("2026-09-02");
+  });
+
+  it("ignores a date the calendar does not have, which new Date() would roll over", () => {
+    const draft = buildSlipDraft(
+      makeExtraction({
+        slip_date: null,
+        lines: [datedLine("2026-08-28", 10), datedLine("2026-02-30", 20)],
+      }),
+      options
+    );
+
+    expect(draft.lines[1].expense_date).toBe("2026-08-28");
+  });
+
+  it("flags where a day-first date was read month-first", () => {
+    // 1.9.26 read as 9 January, between two September lines.
+    const draft = buildSlipDraft(
+      makeExtraction({
+        slip_date: null,
+        lines: [
+          datedLine("2026-08-31", 950),
+          datedLine("2026-01-09", 395),
+          datedLine("2026-09-02", 110),
+        ],
+      }),
+      options
+    );
+
+    expect(draft.lines[0].reviewReasons).not.toContain("date-check");
+    expect(draft.lines[1].reviewReasons).toContain("date-check");
+  });
+
+  it("leaves an ordinary running page unflagged", () => {
+    const draft = buildSlipDraft(
+      makeExtraction({
+        slip_date: null,
+        lines: [
+          datedLine("2026-08-31", 950),
+          datedLine(null, 10),
+          datedLine("2026-09-01", 395),
+          datedLine("2026-09-03", 110),
+        ],
+      }),
+      options
+    );
+
+    expect(draft.lines.flatMap((l) => l.reviewReasons)).not.toContain("date-check");
+  });
+});
+
+describe("findSuspectDates", () => {
+  const today = "2026-09-16";
+
+  it("flags a date in the future, which no slip can carry", () => {
+    expect(findSuspectDates(["2026-10-07"], today)).toEqual([true]);
+  });
+
+  it("allows a day past the server's UTC today, which is often India's today", () => {
+    expect(findSuspectDates(["2026-09-17"], today)).toEqual([false]);
+  });
+
+  it("flags only the line where a date goes backwards, not the lines carrying it", () => {
+    expect(
+      findSuspectDates(["2026-09-07", "2026-09-05", "2026-09-05"], today)
+    ).toEqual([false, true, false]);
+  });
+
+  it("flags a forward leap too large to be the next entry on a running page", () => {
+    const leap = DATE_TUNING.maxForwardJumpDays + 1;
+    const later = `2026-08-${String(1 + leap).padStart(2, "0")}`;
+
+    expect(findSuspectDates(["2026-08-01", later], today)).toEqual([false, true]);
+    expect(findSuspectDates(["2026-08-01", "2026-08-04"], today)).toEqual([false, false]);
+  });
+
+  it("handles a slip with no lines", () => {
+    expect(findSuspectDates([], today)).toEqual([]);
   });
 });
 

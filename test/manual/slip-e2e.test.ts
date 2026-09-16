@@ -4,7 +4,8 @@ import { geminiReader } from "@/lib/slip-reader/gemini";
 import { buildSlipDraft } from "@/lib/slip-matching";
 import { makeExpenseCategory, makeExpenseItem } from "@/test/fixtures/expenses";
 
-const SLIP = process.env.SLIP_PATH!;
+// One path, or several comma-separated for the sides of one page, in order.
+const SLIPS = process.env.SLIP_PATH!.split(",");
 
 describe("real slip", () => {
   it("reads", async () => {
@@ -23,13 +24,18 @@ describe("real slip", () => {
       makeExpenseItem({ id: `i${i}`, name: name as string, category: category as string, default_unit: unit as string | null })
     );
 
+    const started = Date.now();
     const extraction = await geminiReader.read({
-      base64Image: fs.readFileSync(SLIP).toString("base64"),
-      mediaType: "image/jpeg",
+      images: SLIPS.map((path) => ({
+        base64: fs.readFileSync(path).toString("base64"),
+        mediaType: "image/jpeg",
+      })),
       categories, items, today: "2026-09-09",
     });
+    // Worth watching: past about a minute the phone gives up ("Load failed").
+    console.log(`read in ${((Date.now() - started) / 1000).toFixed(1)}s`);
 
-    const draft = buildSlipDraft(extraction, { items, categories, fallbackDate: "2026-09-09" });
+    const draft = buildSlipDraft(extraction, { items, categories, today: "2026-09-09" });
 
     fs.writeFileSync("/tmp/e2e.json", JSON.stringify({ extraction, draft }, null, 2));
     expect(extraction.lines.length).toBeGreaterThan(0);

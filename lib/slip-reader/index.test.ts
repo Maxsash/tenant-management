@@ -5,10 +5,11 @@ import {
   getSlipReader,
   isSlipReadingConfigured,
   isSupportedImageType,
-  MAX_IMAGE_BYTES,
+  MAX_UPLOAD_BYTES,
   missingKeyMessage,
   supportedImageTypes,
 } from "./index";
+import { MAX_SLIP_PHOTOS, PHOTO_BYTE_BUDGET } from "@/lib/slip-image";
 
 const ORIGINAL = {
   anthropic: process.env.ANTHROPIC_API_KEY,
@@ -97,8 +98,13 @@ describe("missingKeyMessage", () => {
   });
 });
 
-describe("MAX_IMAGE_BYTES", () => {
-  it("stays under the smaller of the two providers' inline limits", () => {
-    expect(MAX_IMAGE_BYTES).toBeLessThanOrEqual(5 * 1024 * 1024);
+describe("MAX_UPLOAD_BYTES", () => {
+  it("stays under Vercel's 4.5 MB request body limit, which is refused before the route runs", () => {
+    expect(MAX_UPLOAD_BYTES).toBeLessThan(4.5 * 1024 * 1024);
+  });
+
+  it("fits a full set of photos, each at the size the phone shrinks it to", () => {
+    // Otherwise the tray could accept a photo that makes the read fail.
+    expect(MAX_SLIP_PHOTOS * PHOTO_BYTE_BUDGET).toBeLessThanOrEqual(MAX_UPLOAD_BYTES);
   });
 });

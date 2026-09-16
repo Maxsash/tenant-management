@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
-import { SLIP_USER_PROMPT, SlipExtractionSchema, slipJsonSchema } from "./schema";
+import { buildSlipUserPrompt, SlipExtractionSchema, slipJsonSchema } from "./schema";
 
 /**
  * Neither provider's live call can be exercised without a key, so these cover
@@ -76,9 +76,17 @@ describe("SlipExtractionSchema", () => {
   });
 });
 
-describe("SLIP_USER_PROMPT", () => {
-  it("is shared, so switching provider changes only the transport", () => {
-    expect(SLIP_USER_PROMPT).toContain("Read this slip");
+describe("buildSlipUserPrompt", () => {
+  it("asks for one slip from one photo", () => {
+    expect(buildSlipUserPrompt(1)).toContain("Read this slip");
+  });
+
+  it("says several photos are one slip, in order, with each line reported once", () => {
+    const prompt = buildSlipUserPrompt(2);
+
+    expect(prompt).toContain("These 2 photos are one slip");
+    expect(prompt).toContain("in the order they were taken");
+    expect(prompt).toContain("exactly once");
   });
 });
 

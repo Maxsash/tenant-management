@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   applyItemToLine,
   createEntryLine,
+  describeReviewReasons,
+  entryLinesDateRange,
   entryLinesTotal,
   entryLineToPayload,
   expenseToEntryLine,
@@ -11,6 +13,7 @@ import {
   slipDraftToEntryLines,
   spansMultipleDates,
   validateEntryLines,
+  withLineDate,
 } from "@/lib/entry-lines";
 import { makeExpense, makeExpenseItem } from "@/test/fixtures/expenses";
 import type { SlipDraft } from "@/types/slip";
@@ -389,6 +392,20 @@ describe("groupLinesByDate", () => {
     expect(groups.map((g) => g.date)).toEqual(["2026-09-03", "2026-08-31"]);
   });
 
+  it("puts a line moved to a day that already has a heading under that heading", () => {
+    // Moving one misdated line should not leave the same day headed twice.
+    const groups = groupLinesByDate([
+      dated("a", "2026-09-07"),
+      dated("b", "2026-09-08"),
+      dated("c", "2026-09-07"),
+    ]);
+
+    expect(groups.map((g) => [g.date, g.lines.map((l) => l.id)])).toEqual([
+      ["2026-09-07", ["a", "c"]],
+      ["2026-09-08", ["b"]],
+    ]);
+  });
+
   it("returns one group for an ordinary single-day basket", () => {
     expect(groupLinesByDate([dated("a", "2026-09-01"), dated("b", "2026-09-01")])).toHaveLength(1);
   });
@@ -406,6 +423,64 @@ describe("spansMultipleDates", () => {
   it("is false for a single day and true for a running page", () => {
     expect(spansMultipleDates([dated("a", "2026-09-01"), dated("b", "2026-09-01")])).toBe(false);
     expect(spansMultipleDates([dated("a", "2026-08-31"), dated("b", "2026-09-01")])).toBe(true);
+  });
+});
+
+describe("entryLinesDateRange", () => {
+  function dated(id: string, date: string) {
+    return createEntryLine({ id, date, mode: "pick", item_id: "i", amount: "10" });
+  }
+
+  it("spans the earliest to the latest day, whatever order the lines are in", () => {
+    expect(
+      entryLinesDateRange([
+        dated("a", "2026-09-03"),
+        dated("b", "2026-08-31"),
+        dated("c", "2026-09-01"),
+      ])
+    ).toEqual({ from: "2026-08-31", to: "2026-09-03" });
+  });
+
+  it("is a single day for a single-day basket, and nothing for an empty one", () => {
+    expect(entryLinesDateRange([dated("a", "2026-09-01")])).toEqual({
+      from: "2026-09-01",
+      to: "2026-09-01",
+    });
+    expect(entryLinesDateRange([])).toBeNull();
+  });
+});
+
+describe("withLineDate", () => {
+  it("moves a line to another day", () => {
+    const line = createEntryLine({ id: "a", date: "2026-09-07" });
+
+    expect(withLineDate(line, "2026-09-08").date).toBe("2026-09-08");
+  });
+
+  it("settles a scan's doubt about the date, and only that", () => {
+    const line = createEntryLine({
+      id: "a",
+      date: "2026-01-09",
+      reviewReasons: ["fuzzy-match", "date-check"],
+    });
+
+    expect(withLineDate(line, "2026-09-01").reviewReasons).toEqual(["fuzzy-match"]);
+  });
+
+  it("does not change the line it was given", () => {
+    const line = createEntryLine({ id: "a", date: "2026-09-07", reviewReasons: ["date-check"] });
+
+    withLineDate(line, "2026-09-08");
+
+    expect(line).toMatchObject({ date: "2026-09-07", reviewReasons: ["date-check"] });
+  });
+});
+
+describe("describeReviewReasons for dates", () => {
+  it("tells the person to check a doubtful date against the slip", () => {
+    const line = createEntryLine({ id: "a", date: "2026-01-09", reviewReasons: ["date-check"] });
+
+    expect(describeReviewReasons(line)[0]).toContain("check it against the slip");
   });
 });
 

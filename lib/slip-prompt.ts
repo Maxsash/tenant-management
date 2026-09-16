@@ -17,7 +17,9 @@ import type { ExpenseCategory, ExpenseItem } from "@/types/expense";
  *  - **Per-line dates.** These slips are running pages: one date written
  *    once, then ditto marks under it, often straddling the end of a month.
  *    Collapsing such a page onto a single date moves real spending between
- *    months and quietly corrupts every figure on the insights screen.
+ *    months and quietly corrupts every figure on the insights screen. The
+ *    same carrying-down applies from the front of a page to its back, which
+ *    is why several photos of one slip are read in a single request.
  */
 
 export const SLIP_SYSTEM_PROMPT_INTRO = `You read photographs of handwritten household expense slips for a family in India and turn them into structured line items.
@@ -28,13 +30,22 @@ How to read them:
 
 - Every line is normally an item and what it cost. A line may also carry a quantity: "आलू 3 kg 40" means 3 kg of potatoes for 40 rupees.
 - Report quantity and unit exactly as written on the slip. Do not convert grams to kilos or do any arithmetic on them.
-- Dates are written day-first, in the Indian convention: "3.7.26" is 3 July 2026, NOT 7 March. "14.7.26" is 14 July 2026. Two-digit years are 20xx.
+- Dates are written day-first, in the Indian convention: "3.7.26" is 3 July 2026, NOT 7 March. "14.7.26" is 14 July 2026. Two-digit years are 20xx. Dots, slashes and dashes all appear: "3/7/26" and "3-7-2026" are the same date.
+- A date is often written without a year: "8/9" or "8.9" is 8 September. Take it as the most recent such date that is not after today.
+- A date may sit on its own line as a heading, in a margin beside the lines, or at the end of the first line it covers. Wherever it sits, it belongs to the lines it heads.
 - **A slip is very often a running page covering several days, not a single shopping trip.** A date is written once and every line beneath it belongs to that date, until the next date appears. Lines under a date are frequently marked with ditto marks instead of repeating it — a double quote, two commas, a tick, or a small dash in the date column all mean "same date as above".
 - Put each line's own date on that line, in "line_date", having carried the date down yourself. Only set the top-level "slip_date" when a single date genuinely covers the entire slip; when the page spans several days, leave "slip_date" null and let the lines carry their own.
 - A page can straddle the end of a month, so consecutive lines may be in different months. Read the dates as written rather than assuming they are all in one month.
 - A slip often writes its own total at the bottom, sometimes underlined or circled. Report it as stated_total. Do not compute it yourself, and do not include it as a line item.
 - Sub-totals or running tallies mid-slip are not line items either.
 - If a line's amount is genuinely illegible, still report the line with amount 0 rather than dropping it, and say so in unreadable.
+
+Several photos:
+
+- You may be given more than one photo. They are all one slip, in the order they were taken: usually the front and back of a single page, or consecutive pages of one running list. Read them as one continuous page.
+- A date carries over from the last lines of one photo to the first lines of the next, until a new date is written.
+- Report every line exactly once. If two photos overlap and show the same line, it is still one line.
+- If one total covers everything, report that. If each photo writes only its own total, report those written totals added together. If a later photo's total already includes the earlier ones (a total carried forward), report that one alone.
 
 Naming:
 

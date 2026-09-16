@@ -4,14 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as RadixDialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
-import { Camera, Loader2, Plus, ShoppingBasket, X } from "lucide-react";
+import { CalendarRange, Camera, Loader2, Plus, ShoppingBasket, X } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import SegmentedControl from "@/components/ui/SegmentedControl";
-import WaveBand from "@/components/ui/sea/WaveBand";
+import DateChip from "./DateChip";
 import EntryLineRow from "./EntryLineRow";
 import ItemPickerPanel from "./ItemPickerPanel";
+import { SlipPhotoTray, SlipPhotoViewer, type SlipPhotoTrayState } from "./SlipPhotos";
 import { PAYMENT_METHODS } from "@/lib/expense-categories";
 import { totalsAgree } from "@/lib/slip-matching";
 import { currentDate } from "@/lib/date";
@@ -19,6 +20,7 @@ import { newId } from "@/lib/ids";
 import {
   applyItemToLine,
   createEntryLine,
+  entryLinesDateRange,
   entryLinesTotal,
   entryLineToPayload,
   expenseToEntryLine,
@@ -27,9 +29,14 @@ import {
   slipDraftToEntryLines,
   spansMultipleDates,
   validateEntryLines,
+  withLineDate,
   type EntryLine,
 } from "@/lib/entry-lines";
-import { prepareSlipPhoto } from "@/lib/slip-image";
+import {
+  MAX_SLIP_PHOTOS,
+  prepareSlipPhoto,
+  type SlipPhoto,
+} from "@/lib/slip-image";
 import { scanSlip } from "@/services/slips";
 import { formatCurrency } from "@/utils/currency";
 import { formatShortDate } from "@/utils/date";
@@ -62,6 +69,11 @@ type Props = {
  *
  * Editing an existing expense is the same sheet with a single line, so there
  * is one layout to learn rather than two.
+ *
+ * Dates are the exception to "set once": a slip is often a running page
+ * covering several days, so every line carries its own. While the lines share
+ * a day the header edits it for all of them; once they span several, the
+ * header only summarises, and each day's heading moves its lines.
  */
 export default function EntrySheet({
   open,
@@ -87,14 +99,27 @@ export default function EntrySheet({
   const [error, setError] = useState<string | null>(null);
   const [statedTotal, setStatedTotal] = useState<number | null>(null);
   const [unreadable, setUnreadable] = useState<string | null>(null);
-  const [pendingScan, setPendingScan] = useState<File | null>(null);
+  const [confirmingReplace, setConfirmingReplace] = useState(false);
   // Kept so the slip stays on screen while its lines are being checked —
-  // reviewing a reading against the paper is the whole job, and the photo is
-  // already on the device. Revoked whenever it is replaced or the sheet shuts.
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [photoOpen, setPhotoOpen] = useState(false);
+  // reviewing a reading against the paper is the whole job, and the photos
+  // are already on the device. Each preview URL is revoked when its photo is
+  // removed or the sheet resets.
+  const [photos, setPhotos] = useState<SlipPhoto[]>([]);
+  const [preparingPhotos, setPreparingPhotos] = useState(false);
+  // Which photos the lines on screen were read from, so adding or removing
+  // one shows that a fresh read is due.
+  const [readPhotoKey, setReadPhotoKey] = useState<string | null>(null);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photosRef = useRef(photos);
+
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+
+  // Revokes whatever previews are still live when the sheet goes away.
+  useEffect(() => () => releasePhotos(photosRef.current), []);
   const isEditing = Boolean(editingExpense);
 
   // The catalogue arrives from a fetch that lands *after* the sheet opens, so
@@ -120,9 +145,11 @@ export default function EntrySheet({
       setFocusLineId(null);
       setStatedTotal(null);
       setUnreadable(null);
-      setPendingScan(null);
-      setPhotoOpen(false);
-      setPhotoUrl(null);
+      setConfirmingReplace(false);
+      setViewerIndex(null);
+      releasePhotos(photosRef.current);
+      setPhotos([]);
+      setReadPhotoKey(null);
 
       if (editingExpense) {
         setExpenseDate(editingExpense.expense_date.slice(0, 10));
@@ -143,12 +170,6 @@ export default function EntrySheet({
       }
     });
   }, [open, editingExpense, scanIntent]);
-
-  useEffect(() => {
-    return () => {
-      if (photoUrl) URL.revokeObjectURL(photoUrl);
-    };
-  }, [photoUrl]);
 
   const patchLine = useCallback((id: string, patch: Partial<EntryLine>) => {
     setLines((current) =>
@@ -186,17 +207,25 @@ export default function EntrySheet({
   }
 
   /**
-   * The header date is the basket's date, so changing it moves every line
-   * that was on the old one. Lines a scan put on a different day stay put —
-   * otherwise correcting the header would silently flatten a running page
-   * back onto one date, which is the bug this whole per-line dance avoids.
+   * Moves some lines to another day. Used by a single line's date, by a day's
+   * heading (every line under it), and by the header while all lines share a
+   * day. The header is never offered once lines span several days — changing
+   * it then would either flatten a running page back onto one date, the bug
+   * this whole per-line design exists to avoid, or quietly move only some.
    */
-  function changeHeaderDate(next: string) {
-    const previous = expenseDate;
+  function moveLinesToDate(ids: string[], next: string) {
+    const moving = new Set(ids);
 
-    setExpenseDate(next);
     setLines((current) =>
-      current.map((line) => (line.date === previous ? { ...line, date: next } : line))
+      current.map((line) => (moving.has(line.id) ? withLineDate(line, next) : line))
+    );
+  }
+
+  function changeBasketDate(next: string) {
+    setExpenseDate(next);
+    moveLinesToDate(
+      lines.map((line) => line.id),
+      next
     );
   }
 
@@ -225,44 +254,80 @@ export default function EntrySheet({
     setPickerLineId(null);
   }
 
-  function requestScan(file: File) {
-    // A scan replaces the basket rather than appending to it, because mixing a
-    // half-typed line into a freshly read slip makes its totals check lie. So
-    // ask before throwing away work.
-    if (lines.some((line) => !isBlankLine(line))) {
-      setPendingScan(file);
+  async function addPhotos(files: File[]) {
+    const room = MAX_SLIP_PHOTOS - photos.length;
+
+    if (room <= 0) {
+      toast.error(`One slip can have up to ${MAX_SLIP_PHOTOS} photos`);
       return;
     }
 
-    handleScan(file);
-  }
+    if (files.length > room) {
+      toast.error(`Only the first ${room} added — one slip can have up to ${MAX_SLIP_PHOTOS} photos`);
+    }
 
-  async function handleScan(file: File) {
-    setPendingScan(null);
-
-    // Reading a slip needs a PIN, so ask up front rather than after the
-    // shutter and a failed upload.
-    if (!(await promptForUnlock("user"))) return;
-
-    setScanning(true);
+    setPreparingPhotos(true);
     setError(null);
 
     try {
       // Downscaled and re-encoded on the device first: an iPhone shoots HEIC
       // at a resolution far past the upload ceiling, and a slip reads fine
       // from a fraction of it. See lib/slip-image.ts.
-      const photo = await prepareSlipPhoto(file);
+      const prepared = await Promise.all(files.slice(0, room).map(prepareSlipPhoto));
 
-      setPhotoUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
-        return URL.createObjectURL(photo);
-      });
+      setPhotos((current) => [
+        ...current,
+        ...prepared.map((file) => ({ id: newId(), file, url: URL.createObjectURL(file) })),
+      ]);
+    } finally {
+      setPreparingPhotos(false);
+    }
+  }
 
-      const draft = await scanSlip(photo);
+  function removePhoto(id: string) {
+    const photo = photos.find((p) => p.id === id);
+
+    if (photo) releasePhotos([photo]);
+    setPhotos((current) => current.filter((p) => p.id !== id));
+  }
+
+  function requestRead() {
+    // A read replaces the basket rather than appending to it, because mixing
+    // a half-typed line into a freshly read slip makes its totals check lie.
+    // So ask before throwing away work — including corrections to an earlier
+    // read, which is what re-reading with the back of the page added costs.
+    if (lines.some((line) => !isBlankLine(line))) {
+      setConfirmingReplace(true);
+      return;
+    }
+
+    readPhotos();
+  }
+
+  async function readPhotos() {
+    setConfirmingReplace(false);
+
+    if (photos.length === 0) return;
+
+    // Reading a slip needs a PIN, so ask before the upload rather than after
+    // a failed one.
+    if (!(await promptForUnlock("user"))) return;
+
+    const reading = photos;
+
+    setScanning(true);
+    setError(null);
+
+    try {
+      const draft = await scanSlip(reading.map((photo) => photo.file));
       const scanned = slipDraftToEntryLines(draft);
 
       if (scanned.length === 0) {
-        toast.error("No lines could be read off that photo");
+        toast.error(
+          reading.length > 1
+            ? "No lines could be read off those photos"
+            : "No lines could be read off that photo"
+        );
         return;
       }
 
@@ -271,6 +336,7 @@ export default function EntrySheet({
       setUnreadable(draft.unreadable);
       setLines(scanned);
       setProblems({});
+      setReadPhotoKey(photoKey(reading));
       toast.success(`Read ${scanned.length} lines — check them before saving`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read that slip");
@@ -310,9 +376,10 @@ export default function EntrySheet({
         ? await fetch(`/api/expenses/${editingExpense!.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
+            // The line's own date, which the header and the line's date
+            // label both edit.
             body: JSON.stringify({
               ...entryLineToPayload(filled[0]),
-              expense_date: expenseDate,
               payment_method: paymentMethod,
             }),
           })
@@ -374,9 +441,22 @@ export default function EntrySheet({
 
   const basketEmpty = lines.every(isBlankLine);
   const needsCheck = lines.filter((line) => line.reviewReasons.length > 0).length;
-  const showCameraCard = Boolean(scanIntent) && !scanning && basketEmpty;
+  const trayState: SlipPhotoTrayState = scanning
+    ? "reading"
+    : readPhotoKey !== null && readPhotoKey === photoKey(photos)
+      ? "read"
+      : "staged";
+  const showCameraCard =
+    Boolean(scanIntent) && basketEmpty && photos.length === 0 && !preparingPhotos;
+  // With photos waiting and nothing typed, the photos are the whole screen:
+  // there is no date or payment to set yet, and a lone empty line under them
+  // would only invite typing what is about to be read.
+  const hideBasket =
+    basketEmpty && (showCameraCard || (photos.length > 0 && trayState !== "read"));
   const dateGroups = groupLinesByDate(lines);
   const multiDay = spansMultipleDates(lines);
+  const dateRange = entryLinesDateRange(lines);
+  const basketDate = lines[0]?.date ?? expenseDate;
   const total = entryLinesTotal(lines);
   const agreement = totalsAgree(statedTotal, total);
   const savableCount = lines.filter((line) => line.amount.trim()).length;
@@ -413,7 +493,11 @@ export default function EntrySheet({
                             <button
                               type="button"
                               onClick={() => fileInputRef.current?.click()}
-                              disabled={scanning}
+                              disabled={
+                                scanning ||
+                                preparingPhotos ||
+                                photos.length >= MAX_SLIP_PHOTOS
+                              }
                               aria-label="Read a slip from a photo"
                               className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-2 text-sm font-semibold text-accent shadow-card transition-colors hover:bg-accent-soft disabled:opacity-50"
                             >
@@ -435,23 +519,31 @@ export default function EntrySheet({
                         </div>
                       </header>
 
-                      {/* The two facts that hold for the whole trip, set once.
-                          Dropped entirely while the camera card is up, where
-                          there is nothing yet to date and the scan sets it
-                          anyway. Rendered conditionally rather than with the
-                          `hidden` attribute, which Tailwind's `flex` would
+                      {/* The facts that hold for the whole trip, set once.
+                          Dropped entirely while photos are waiting to be read,
+                          where there is nothing yet to date and the read sets
+                          it anyway. Rendered conditionally rather than with
+                          the `hidden` attribute, which Tailwind's `flex` would
                           override. */}
-                      {!showCameraCard && (
+                      {!hideBasket && (
                       <div className="flex shrink-0 flex-col gap-2.5 border-b border-border bg-surface-sunk/70 px-5 py-3 sm:flex-row sm:items-center sm:px-6">
-                        <label className="flex items-center gap-2">
-                          <span className="sr-only">Date</span>
-                          <input
-                            type="date"
-                            value={expenseDate}
-                            onChange={(e) => changeHeaderDate(e.target.value)}
-                            className="h-11 w-full rounded-full border border-border bg-surface px-4 text-[15px] text-foreground outline-none focus:border-accent sm:w-44"
-                          />
-                        </label>
+                        {multiDay && dateRange ? (
+                          <p className="flex h-11 items-center gap-2 px-1 text-[15px] font-medium text-foreground">
+                            <CalendarRange className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+                            <span className="sr-only">Dates</span>
+                            {formatShortDate(dateRange.from)} – {formatShortDate(dateRange.to)}
+                          </p>
+                        ) : (
+                          <label className="flex items-center gap-2">
+                            <span className="sr-only">Date</span>
+                            <input
+                              type="date"
+                              value={basketDate}
+                              onChange={(e) => e.target.value && changeBasketDate(e.target.value)}
+                              className="h-11 w-full rounded-full border border-border bg-surface px-4 text-[15px] text-foreground outline-none focus:border-accent sm:w-44"
+                            />
+                          </label>
+                        )}
 
                         <SegmentedControl
                           ariaLabel="Paid via"
@@ -468,39 +560,6 @@ export default function EntrySheet({
 
                       <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6">
                         <div className="mx-auto flex max-w-xl flex-col gap-3">
-                          {scanning && (
-                            <div className="relative isolate flex flex-col items-center gap-3 overflow-hidden rounded-2xl bg-accent-soft px-4 pt-8 pb-14 text-center">
-                              {photoUrl && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={photoUrl}
-                                  alt=""
-                                  className="h-32 w-auto rounded-lg border border-border object-cover opacity-70"
-                                />
-                              )}
-                              <p className="flex items-center gap-2 text-sm font-medium text-accent">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Reading the slip…
-                              </p>
-                              {/* Honest about the wait: the read takes tens of
-                                  seconds, and an unexplained spinner that long
-                                  reads as broken on a phone. */}
-                              <p className="text-xs text-muted">
-                                This takes up to half a minute. Keep the app open.
-                              </p>
-                              <WaveBand
-                                band="near"
-                                water="color-mix(in oklab, var(--color-accent) 22%, transparent)"
-                                crest="color-mix(in oklab, var(--color-accent) 12%, transparent)"
-                                drift="10s"
-                                heave="4s"
-                                lift="3px"
-                                fillBelow
-                                className="-bottom-4 -z-10"
-                              />
-                            </div>
-                          )}
-
                           {/* Opened from the camera button, with nothing typed
                               yet: the photo is the whole point, so it gets a
                               target you cannot miss. A file picker needs a real
@@ -518,43 +577,29 @@ export default function EntrySheet({
                                 Take a photo of the slip
                               </span>
                               <span className="max-w-xs text-sm text-muted">
-                                Or pick one you already took. You will get a chance to
-                                check every line before it saves.
+                                Or pick ones you already took. Written on both sides? Add
+                                both before reading. You will check every line before it
+                                saves.
                               </span>
                             </button>
                           )}
 
-                          {photoUrl && !scanning && (
-                            <div className="flex items-center gap-3 rounded-2xl border border-border bg-background p-2">
-                              <button
-                                type="button"
-                                onClick={() => setPhotoOpen(true)}
-                                className="shrink-0"
-                                aria-label="View the slip photo"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={photoUrl}
-                                  alt="The slip being checked"
-                                  className="h-14 w-14 rounded-lg border border-border object-cover"
-                                />
-                              </button>
-
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-foreground">
-                                  {needsCheck > 0
-                                    ? `${needsCheck} of ${lines.length} lines need a look`
-                                    : `${lines.length} lines read, none flagged`}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => setPhotoOpen(true)}
-                                  className="text-xs font-medium text-accent underline-offset-2 hover:underline"
-                                >
-                                  Tap the photo to check against the slip
-                                </button>
-                              </div>
-                            </div>
+                          {photos.length > 0 && (
+                            <SlipPhotoTray
+                              photos={photos}
+                              state={trayState}
+                              full={photos.length >= MAX_SLIP_PHOTOS}
+                              preparing={preparingPhotos}
+                              readSummary={
+                                needsCheck > 0
+                                  ? `${needsCheck} of ${lines.length} lines need a look`
+                                  : `${lines.length} lines read, none flagged`
+                              }
+                              onAdd={() => fileInputRef.current?.click()}
+                              onRemove={removePhoto}
+                              onRead={requestRead}
+                              onView={setViewerIndex}
+                            />
                           )}
 
                           {unreadable && (
@@ -563,20 +608,31 @@ export default function EntrySheet({
                             </p>
                           )}
 
-                          {multiDay && (
+                          {multiDay && !hideBasket && (
                             <p className="rounded-2xl bg-accent-soft px-4 py-3 text-sm text-accent">
-                              This page covers {dateGroups.length} days. Each line keeps
-                              its own date.
+                              This slip covers {dateGroups.length} days. Tap a day to move
+                              all of its lines, or the date on one line to move just that
+                              line.
                             </p>
                           )}
 
-                          {!showCameraCard &&
+                          {!hideBasket &&
                             dateGroups.map((group) => (
                             <section key={group.date} className="flex flex-col gap-2.5">
                               {multiDay && (
                                 <div className="flex items-center gap-2 pt-1">
-                                  <h3 className="font-mono text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">
-                                    {formatShortDate(group.date)}
+                                  <h3>
+                                    <DateChip
+                                      value={group.date}
+                                      onChange={(next) =>
+                                        moveLinesToDate(
+                                          group.lines.map((line) => line.id),
+                                          next
+                                        )
+                                      }
+                                      label={`Change the date of all ${group.lines.length} lines on ${formatShortDate(group.date)}`}
+                                      className="font-mono text-[11px] font-semibold tracking-[0.14em] uppercase"
+                                    />
                                   </h3>
                                   <span className="h-px flex-1 border-t border-dashed border-border" />
                                   <span className="font-mono text-xs font-medium text-muted tabular-nums">
@@ -593,8 +649,8 @@ export default function EntrySheet({
                                     categories={categories}
                                     problem={problems[line.id]}
                                     autoFocusAmount={focusLineId === line.id}
-                                    showDate={multiDay}
                                     onChange={(patch) => patchLine(line.id, patch)}
+                                    onChangeDate={(next) => moveLinesToDate([line.id], next)}
                                     onChooseItem={() => setPickerLineId(line.id)}
                                     onRemove={
                                       isEditing || lines.length === 1
@@ -607,7 +663,9 @@ export default function EntrySheet({
                             </section>
                             ))}
 
-                          {!isEditing && (
+                          {/* Hidden while a read is in flight: a line typed now
+                              would be replaced without asking when it lands. */}
+                          {!isEditing && !scanning && (
                             <div className="flex gap-2.5">
                               <Button
                                 variant="outline"
@@ -689,23 +747,12 @@ export default function EntrySheet({
                       </footer>
 
                       <AnimatePresence>
-                        {photoOpen && photoUrl && (
-                          <motion.button
-                            type="button"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setPhotoOpen(false)}
-                            aria-label="Close the photo"
-                            className="absolute inset-0 z-20 flex items-center justify-center bg-sea-abyss/95 p-3"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={photoUrl}
-                              alt="The slip being checked"
-                              className="max-h-full max-w-full object-contain"
-                            />
-                          </motion.button>
+                        {viewerIndex !== null && photos.length > 0 && (
+                          <SlipPhotoViewer
+                            photos={photos}
+                            startIndex={Math.min(viewerIndex, photos.length - 1)}
+                            onClose={() => setViewerIndex(null)}
+                          />
                         )}
                       </AnimatePresence>
 
@@ -733,26 +780,29 @@ export default function EntrySheet({
       {/* No `capture` attribute on purpose: with it, iOS jumps straight to the
           camera, and slips are as often photographed earlier and logged later.
           Without it iOS offers Photo Library / Take Photo / Choose File, and a
-          laptop still shows its ordinary file chooser. */}
+          laptop still shows its ordinary file chooser. `multiple` lets both
+          sides of a page be picked from the library in one go; the camera
+          still takes one at a time, which the tray's "Other side" covers. */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
+          const files = Array.from(e.target.files ?? []);
           e.target.value = "";
-          if (file) requestScan(file);
+          if (files.length > 0) addPhotos(files);
         }}
       />
 
       <ConfirmDialog
-        open={pendingScan !== null}
-        onOpenChange={(next) => !next && setPendingScan(null)}
+        open={confirmingReplace}
+        onOpenChange={setConfirmingReplace}
         title="Replace what you've added?"
-        description="Reading a slip starts the list over, so the lines already here would be lost."
-        confirmLabel="Read the slip"
-        onConfirm={() => pendingScan && handleScan(pendingScan)}
+        description="Reading the photos starts the list over, so the lines already here — and any corrections made to them — would be lost."
+        confirmLabel={photos.length > 1 ? "Read the photos" : "Read the slip"}
+        onConfirm={readPhotos}
       />
 
       <ConfirmDialog
@@ -767,4 +817,13 @@ export default function EntrySheet({
       />
     </>
   );
+}
+
+/** Identifies a set of photos, in order, so a read can be matched to them. */
+function photoKey(photos: SlipPhoto[]): string {
+  return photos.map((photo) => photo.id).join(",");
+}
+
+function releasePhotos(photos: SlipPhoto[]) {
+  for (const photo of photos) URL.revokeObjectURL(photo.url);
 }

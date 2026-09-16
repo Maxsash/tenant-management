@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { fitWithin, MAX_PHOTO_EDGE, PHOTO_QUALITY } from "@/lib/slip-image";
+import {
+  ENCODE_STEPS,
+  fitWithin,
+  MAX_PHOTO_EDGE,
+  MAX_SLIP_PHOTOS,
+} from "@/lib/slip-image";
 
 describe("fitWithin", () => {
   it("shrinks a phone photo to the long edge, keeping its shape", () => {
@@ -44,7 +49,29 @@ describe("fitWithin", () => {
 });
 
 describe("photo settings", () => {
-  it("keeps quality high enough for thin pen strokes", () => {
-    expect(PHOTO_QUALITY).toBeGreaterThanOrEqual(0.8);
+  it("tries the photo at full quality first, so thin pen strokes survive", () => {
+    expect(ENCODE_STEPS[0]).toEqual({ maxEdge: MAX_PHOTO_EDGE, quality: 0.85 });
+  });
+
+  it("only ever gets smaller from one step to the next", () => {
+    for (let i = 1; i < ENCODE_STEPS.length; i++) {
+      const previous = ENCODE_STEPS[i - 1];
+      const step = ENCODE_STEPS[i];
+
+      expect(step.maxEdge).toBeLessThanOrEqual(previous.maxEdge);
+      expect(step.quality).toBeLessThanOrEqual(previous.quality);
+      expect(step.maxEdge < previous.maxEdge || step.quality < previous.quality).toBe(true);
+    }
+  });
+
+  it("never shrinks a slip past what handwriting can be read from", () => {
+    const last = ENCODE_STEPS[ENCODE_STEPS.length - 1];
+
+    expect(last.maxEdge).toBeGreaterThanOrEqual(1600);
+    expect(last.quality).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it("allows at least both sides of a page", () => {
+    expect(MAX_SLIP_PHOTOS).toBeGreaterThanOrEqual(2);
   });
 });

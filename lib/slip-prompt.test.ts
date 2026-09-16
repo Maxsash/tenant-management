@@ -103,4 +103,26 @@ describe("naming rules", () => {
     expect(prompt).toContain("ditto marks");
     expect(prompt).toContain("line_date");
   });
+
+  it("explains how to date a slip that writes no year", () => {
+    expect(prompt).toContain("without a year");
+    expect(prompt).toContain("not after today");
+  });
+});
+
+describe("several photos", () => {
+  const prompt = buildSlipSystemPrompt(categories, items, "2026-09-09");
+
+  it("reads them as one slip, carrying a date from one photo to the next", () => {
+    expect(prompt).toContain("They are all one slip");
+    expect(prompt).toContain("carries over from the last lines of one photo");
+  });
+
+  it("does not let an overlap between photos count a line twice", () => {
+    expect(prompt).toContain("Report every line exactly once");
+  });
+
+  it("does not double a total carried forward onto the back of the page", () => {
+    expect(prompt).toContain("carried forward");
+  });
 });

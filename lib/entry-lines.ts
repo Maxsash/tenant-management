@@ -79,6 +79,18 @@ export function applyItemToLine(line: EntryLine, item: ExpenseItem): EntryLine {
   };
 }
 
+/**
+ * Moves a line to another day. Correcting the date settles a scan's doubt
+ * about it, the same way picking an item settles a doubtful match.
+ */
+export function withLineDate(line: EntryLine, date: string): EntryLine {
+  return {
+    ...line,
+    date,
+    reviewReasons: line.reviewReasons.filter((reason) => reason !== "date-check"),
+  };
+}
+
 /** Turns a scanned slip into the sheet's lines, review flags and all. */
 export function slipDraftToEntryLines(draft: SlipDraft): EntryLine[] {
   return draft.lines.map((line) =>
@@ -194,6 +206,7 @@ export const REVIEW_REASON_LABELS: Record<SlipReviewReason, string> = {
   "ambiguous-match": "Two items fit this — check which",
   "unit-differs": "Unusual unit for this item",
   "no-amount": "Could not read the amount",
+  "date-check": "Date looks out of place — check it against the slip",
 };
 
 /** This line's flags as sentences, in the order the scan raised them. */
@@ -207,27 +220,42 @@ export interface EntryLineDateGroup {
 }
 
 /**
- * Splits the basket into runs of consecutive lines sharing a date, so the
- * sheet can head each run the way the paper does. Order is preserved rather
- * than sorted: a photographed page should read back in the order it was
- * written.
+ * Splits the basket into one group per day, so the sheet can head each day
+ * the way the paper does. Days appear in the order the page first reaches
+ * them rather than sorted, so a photographed page reads back in the order it
+ * was written.
+ *
+ * A line moved to a day that already has a group joins that group rather
+ * than starting a second heading for the same day — which is what moving a
+ * single misdated line is for.
  */
 export function groupLinesByDate(lines: EntryLine[]): EntryLineDateGroup[] {
-  const groups: EntryLineDateGroup[] = [];
+  const groups = new Map<string, EntryLineDateGroup>();
 
   for (const line of lines) {
-    const last = groups[groups.length - 1];
+    const group = groups.get(line.date);
 
-    if (last && last.date === line.date) last.lines.push(line);
-    else groups.push({ date: line.date, lines: [line] });
+    if (group) group.lines.push(line);
+    else groups.set(line.date, { date: line.date, lines: [line] });
   }
 
-  return groups;
+  return [...groups.values()];
 }
 
 /** True when the basket covers more than one day, i.e. a running page. */
 export function spansMultipleDates(lines: EntryLine[]): boolean {
   return new Set(lines.map((line) => line.date)).size > 1;
+}
+
+/** The first and last day the basket covers, for a summary of a running page. */
+export function entryLinesDateRange(
+  lines: EntryLine[]
+): { from: string; to: string } | null {
+  const dates = lines.map((line) => line.date).filter(Boolean).sort();
+
+  if (dates.length === 0) return null;
+
+  return { from: dates[0], to: dates[dates.length - 1] };
 }
 
 export interface EntryLineProblem {
