@@ -119,7 +119,7 @@ Two independent, unrelated gates exist — don't conflate them:
   top-level `unlocked: boolean` so the client knows which it got.
 
   **ADMIN-level** gates (hard `401` via `hasAdminSession(req)` below admin
-  tier): `POST /api/mark-paid`, `PATCH`/`DELETE` on `/api/expenses/[id]`
+  tier): `POST`/`PATCH` on `/api/mark-paid`, `PATCH`/`DELETE` on `/api/expenses/[id]`
   (not `POST` — creating an expense stays open to everyone), `POST` on
   `/api/expense-items` and `/api/expense-categories` (not their `GET`s —
   reading the catalog stays open), `PATCH`/`DELETE` on their `/[id]` routes,
@@ -176,7 +176,12 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   increases), `getIncreaseDisplay` (formats an increase for display).
 - `lib/payment-status.ts` — `evaluatePaymentStatus` (single source of truth
   for paid/late/pending; on-time cutoff is day 7 of the payment month by
-  default), `buildPaymentHistory`.
+  default), `buildPaymentHistory`, `getOnTimeDeadline` (that cutoff as a
+  date, for display — a test pins it to agree with `evaluatePaymentStatus`).
+- `lib/payments.ts` — `getPaidOnError` (what a payment date may be: a real
+  date, any day in the past, at most one day past the server's UTC "today"
+  because India's today is often UTC's tomorrow) and `findRentPayment`
+  (looks a payment up by tenant and **rent** month).
 - `lib/tenant.ts` — `getActiveTenants` (filters to tenants active in a given
   month; wraps the not-exported `isActiveTenant`).
 - `lib/db.ts` — all Supabase reads/writes. Every DB access in the app goes
@@ -238,6 +243,23 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   buys instead of an empty search box. Only rows linked by `item_id` count.
 - `lib/slip-prompt.ts`, `lib/slip-matching.ts`, `lib/slip-vision.ts` — the
   slip camera flow; see "Reading handwritten slips" below.
+
+### Recording when rent was paid
+
+"Mark as Paid" on the dashboard opens `components/tenants/PaidDateDialog.tsx`
+rather than saving at once. It asks for the date the rent was actually paid,
+defaulting to today, because marking often happens days after the money
+arrived, and `paid_on` is what decides on time vs late. Paid cards carry
+"Change date", which opens the same dialog to correct a recorded date. The
+dialog shows the month's on-time deadline (`on_time_by` on
+`/api/dashboard`) so back-dating is an informed choice.
+
+Server side, `POST /api/mark-paid` takes an optional `paid_on` (omitted means
+today) and `PATCH /api/mark-paid` changes the date on an existing payment,
+both keyed by tenant and **rent** month and both checked through
+`lib/payments.ts#getPaidOnError`. A payment row with no `paid_on` reads as
+pending, so `POST` fills that row in instead of refusing or duplicating it.
+There is deliberately no way to delete a payment from the app yet.
 
 ### Domain concepts worth knowing before touching rent/payment code
 

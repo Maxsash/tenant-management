@@ -25,6 +25,7 @@ import {
   updateExpense,
   updateExpenseCategory,
   updateExpenseItem,
+  updatePaymentPaidOn,
 } from "./db";
 
 type Row = Record<string, unknown>;
@@ -92,6 +93,25 @@ describe("insertPayment", () => {
     await expect(
       insertPayment({ tenant_id: "t1", month: "2026-07", paid_on: "2026-07-03" })
     ).rejects.toThrow("Failed to insert payment: boom");
+  });
+});
+
+describe("updatePaymentPaidOn", () => {
+  it("updates only paid_on, on the row with that id", async () => {
+    const builder = mockSupabaseFromOnce(fromMock, { error: null });
+
+    await expect(updatePaymentPaidOn(42, "2026-09-03")).resolves.toBeUndefined();
+
+    expect(fromMock).toHaveBeenCalledWith("payments");
+    expect(builder.update).toHaveBeenCalledWith({ paid_on: "2026-09-03" });
+    expect(builder.eq).toHaveBeenCalledWith("id", 42);
+  });
+
+  it("throws with a diagnostic prefix on error", async () => {
+    mockSupabaseFrom(fromMock, { error: { message: "boom" } });
+    await expect(updatePaymentPaidOn(42, "2026-09-03")).rejects.toThrow(
+      "Failed to update payment: boom"
+    );
   });
 });
 

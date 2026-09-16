@@ -2,7 +2,7 @@ import { getTenants, getPayments } from "@/lib/db";
 import { calculateRent } from "@/lib/rent";
 import { NextResponse } from "next/server";
 import { getActiveTenants } from "@/lib/tenant";
-import { evaluatePaymentStatus } from "@/lib/payment-status";
+import { evaluatePaymentStatus, getOnTimeDeadline } from "@/lib/payment-status";
 import { currentMonth } from "@/lib/date";
 import { hasUserSession } from "@/lib/admin-auth";
 import { Tenant } from "@/types/tenant";
@@ -65,6 +65,8 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     rent_month: rentMonth,
+    // Shown when choosing a payment date, so back-dating is an informed choice.
+    on_time_by: getOnTimeDeadline(rentMonth),
     tenants: result,
     unlocked,
   });

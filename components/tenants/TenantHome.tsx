@@ -12,6 +12,7 @@ import type { TenantDashboardItem } from "@/types/tenant";
 
 type DashboardData = {
   rent_month: string;
+  on_time_by: string | null;
   tenants: TenantDashboardItem[];
   unlocked: boolean;
 };

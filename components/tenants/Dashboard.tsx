@@ -11,6 +11,7 @@ import Skeleton from "@/components/ui/Skeleton";
 import PageContainer from "@/components/ui/PageContainer";
 import TenantCard from "@/components/tenants/TenantCard";
 import WhatsAppSendSheet from "@/components/tenants/WhatsAppSendSheet";
+import PaidDateDialog, { type PaidDateMode } from "@/components/tenants/PaidDateDialog";
 
 import { sendBroadcast } from "@/services/broadcast";
 import { sendMonthlyGreeting } from "@/services/monthly-greeting";
@@ -21,6 +22,7 @@ import type { AdminLevel } from "@/types/admin";
 
 type DashboardData = {
   rent_month: string;
+  on_time_by: string | null;
   tenants: TenantDashboardItem[];
   unlocked: boolean;
 };
@@ -52,7 +54,13 @@ export default function Dashboard({
 
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [sendingGreeting, setSendingGreeting] = useState(false);
-  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  // Kept apart from the open flag so the dialog still has its tenant while it
+  // animates closed.
+  const [paidDateTarget, setPaidDateTarget] = useState<{
+    tenant: TenantDashboardItem;
+    mode: PaidDateMode;
+  } | null>(null);
+  const [paidDateOpen, setPaidDateOpen] = useState(false);
   const [whatsAppSheetOpen, setWhatsAppSheetOpen] = useState(false);
 
   const adminEnabled = isAdminActionsEnabled();
@@ -62,7 +70,7 @@ export default function Dashboard({
     ref.current?.scrollIntoView({ behavior: "smooth" });
   }
 
-  // Marking rent paid and sending WhatsApp messages need the admin PIN
+  // Recording rent payments and sending WhatsApp messages need the admin PIN
   // specifically — promptForUnlock() checks the live session itself, so
   // this only shows a dialog when actually needed.
   async function ensureUnlocked() {
@@ -124,27 +132,13 @@ export default function Dashboard({
     setWhatsAppSheetOpen(true);
   }
 
-  async function handleMarkPaid(tenant: TenantDashboardItem) {
+  // Both marking paid and correcting the date go through a dialog asking
+  // when the rent was actually paid — see PaidDateDialog.
+  async function openPaidDateDialog(tenant: TenantDashboardItem, mode: PaidDateMode) {
     if (!(await ensureUnlocked())) return;
 
-    setMarkingPaidId(tenant.id);
-
-    try {
-      const res = await fetch("/api/mark-paid", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenant_id: tenant.id, month }),
-      });
-
-      if (!res.ok) throw new Error("Failed to mark as paid");
-
-      toast.success(`Marked ${tenant.name}'s rent as paid`);
-      onRefetch();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setMarkingPaidId(null);
-    }
+    setPaidDateTarget({ tenant, mode });
+    setPaidDateOpen(true);
   }
 
   return (
@@ -230,8 +224,7 @@ export default function Dashboard({
                     key={tenant.id}
                     tenant={tenant}
                     onClick={() => onTenantClick(tenant)}
-                    onMarkPaid={() => handleMarkPaid(tenant)}
-                    markingPaid={markingPaidId === tenant.id}
+                    onMarkPaid={() => openPaidDateDialog(tenant, "mark")}
                   />
                 ))}
               </div>
@@ -246,7 +239,12 @@ export default function Dashboard({
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {paid.map((tenant) => (
-                  <TenantCard key={tenant.id} tenant={tenant} onClick={() => onTenantClick(tenant)} />
+                  <TenantCard
+                    key={tenant.id}
+                    tenant={tenant}
+                    onClick={() => onTenantClick(tenant)}
+                    onChangePaidDate={() => openPaidDateDialog(tenant, "edit")}
+                  />
                 ))}
               </div>
             )}
@@ -258,6 +256,16 @@ export default function Dashboard({
         open={whatsAppSheetOpen}
         onOpenChange={setWhatsAppSheetOpen}
         month={month}
+      />
+
+      <PaidDateDialog
+        open={paidDateOpen}
+        onOpenChange={setPaidDateOpen}
+        mode={paidDateTarget?.mode ?? "mark"}
+        tenant={paidDateTarget?.tenant ?? null}
+        month={month}
+        onTimeBy={data?.on_time_by ?? null}
+        onSaved={onRefetch}
       />
     </PageContainer>
   );

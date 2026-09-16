@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPaymentHistory, evaluatePaymentStatus } from "./payment-status";
+import { buildPaymentHistory, evaluatePaymentStatus, getOnTimeDeadline } from "./payment-status";
 import { makeTenant } from "@/test/fixtures/tenants";
 import { makePayment } from "@/test/fixtures/payments";
 
@@ -221,5 +221,42 @@ describe("buildPaymentHistory", () => {
     });
 
     expect(history[0].status).toBe("paid");
+  });
+});
+
+describe("getOnTimeDeadline", () => {
+  it("is day 7 of the following month by default", () => {
+    expect(getOnTimeDeadline("2026-08")).toBe("2026-09-07");
+  });
+
+  it("rolls December's rent over into January of the next year", () => {
+    expect(getOnTimeDeadline("2026-12")).toBe("2027-01-07");
+  });
+
+  it("honours a custom day limit", () => {
+    expect(getOnTimeDeadline("2026-08", 10)).toBe("2026-09-10");
+  });
+
+  it.each(["", "2026", "2026-13", "2026-8", "August"])("returns null for malformed %j", (month) => {
+    expect(getOnTimeDeadline(month)).toBeNull();
+  });
+
+  it("agrees with evaluatePaymentStatus: the deadline itself is on time, the next day is late", () => {
+    const tenant = makeTenant({ id: "t1" });
+    const deadline = getOnTimeDeadline("2026-08")!;
+
+    const onDeadline = evaluatePaymentStatus({
+      tenant,
+      payments: [makePayment({ tenant_id: "t1", month: "2026-09", paid_on: deadline })],
+      rentMonth: "2026-08",
+    });
+    const dayAfter = evaluatePaymentStatus({
+      tenant,
+      payments: [makePayment({ tenant_id: "t1", month: "2026-09", paid_on: "2026-09-08" })],
+      rentMonth: "2026-08",
+    });
+
+    expect(onDeadline.status).toBe("paid");
+    expect(dayAfter.status).toBe("late");
   });
 });

@@ -80,6 +80,26 @@ function getDueDate(rentMonth: string, onTimeDayLimit: number): Date | null {
 }
 
 /**
+ * The last date rent for `rentMonth` still counts as on time, as "YYYY-MM-DD":
+ * day `onTimeDayLimit` of the following month. Matches the cutoff
+ * evaluatePaymentStatus applies — paid on this date is "paid", the day after
+ * is "late". Null for a malformed month.
+ */
+export function getOnTimeDeadline(rentMonth: string, onTimeDayLimit = 7): string | null {
+  const parsed = parseMonth(rentMonth);
+
+  if (!parsed) {
+    return null;
+  }
+
+  // parsed.month is 1-based, so as a 0-based month index it is already the
+  // following month; Date.UTC rolls December over into January.
+  return new Date(Date.UTC(parsed.year, parsed.month, onTimeDayLimit))
+    .toISOString()
+    .slice(0, 10);
+}
+
+/**
  * Evaluate payment status for a tenant's rent for a specific month.
  *
  * Business rule: Rent for June is due in July, classified as late if paid after July 7.

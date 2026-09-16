@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock3 } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { formatShortDate } from "@/utils/date";
@@ -11,10 +11,10 @@ type Props = {
   tenant: TenantDashboardItem;
   onClick: () => void;
   onMarkPaid?: () => void;
-  markingPaid?: boolean;
+  onChangePaidDate?: () => void;
 };
 
-export default function TenantCard({ tenant, onClick, onMarkPaid, markingPaid }: Props) {
+export default function TenantCard({ tenant, onClick, onMarkPaid, onChangePaidDate }: Props) {
   const isPaid = tenant.paid;
 
   return (
@@ -40,10 +40,26 @@ export default function TenantCard({ tenant, onClick, onMarkPaid, markingPaid }:
 
           <div className="mt-4 flex flex-col gap-3">
             {isPaid ? (
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-success-soft px-3 py-1.5 text-sm font-semibold text-success">
-                <CheckCircle2 className="h-4 w-4" />
-                Paid on {tenant.paid_on ? formatShortDate(tenant.paid_on) : "—"}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-success-soft px-3 py-1.5 text-sm font-semibold text-success">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Paid on {tenant.paid_on ? formatShortDate(tenant.paid_on) : "—"}
+                </span>
+
+                {onChangePaidDate && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChangePaidDate();
+                    }}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-accent transition-colors hover:bg-accent-soft"
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    Change date
+                  </button>
+                )}
+              </div>
             ) : (
               <>
                 <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-danger-soft px-3 py-1.5 text-sm font-semibold text-danger">
@@ -53,7 +69,6 @@ export default function TenantCard({ tenant, onClick, onMarkPaid, markingPaid }:
 
                 {onMarkPaid && (
                   <Button
-                    loading={markingPaid}
                     onClick={(e) => {
                       e.stopPropagation();
                       onMarkPaid();

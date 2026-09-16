@@ -44,6 +44,17 @@ describe("GET /api/dashboard", () => {
     expect(body.rent_month).toBe("2026-07");
   });
 
+  it("reports the on-time deadline for the rent month, even to a locked caller", async () => {
+    vi.mocked(getTenants).mockResolvedValue([]);
+    vi.mocked(getPayments).mockResolvedValue([]);
+
+    const res = await GET(makeGetRequest("?month=2026-08"));
+    const body = await res.json();
+
+    expect(body.unlocked).toBe(false);
+    expect(body.on_time_by).toBe("2026-09-07");
+  });
+
   it("defaults to the current month when no query param is given", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-15T12:00:00Z"));

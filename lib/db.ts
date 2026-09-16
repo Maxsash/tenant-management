@@ -44,6 +44,14 @@ export async function insertPayment(payment: {
   }
 }
 
+export async function updatePaymentPaidOn(id: string | number, paid_on: string) {
+  const { error } = await supabase.from("payments").update({ paid_on }).eq("id", id);
+
+  if (error) {
+    throw new Error(`Failed to update payment: ${error.message}`);
+  }
+}
+
 export async function getExpenses<T>(): Promise<T[]> {
   const { data, error } = await supabase
     .from("expenses")

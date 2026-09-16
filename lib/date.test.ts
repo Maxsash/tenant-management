@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { currentDate, currentMonth, isValidMonth } from "./date";
+import { currentDate, currentMonth, isValidDate, isValidMonth } from "./date";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -34,4 +34,28 @@ describe("isValidMonth", () => {
       expect(isValidMonth(value)).toBe(false);
     }
   );
+});
+
+describe("isValidDate", () => {
+  it.each(["2026-01-01", "2026-12-31", "2028-02-29"])("accepts %j", (value) => {
+    expect(isValidDate(value)).toBe(true);
+  });
+
+  it.each([
+    undefined,
+    null,
+    20260701,
+    "",
+    "2026-07",
+    "2026-7-01",
+    "01-07-2026",
+    "2026-07-01T00:00:00Z",
+    "2026-13-01",
+    "2026-02-30",
+    "2027-02-29",
+    "2026-06-31",
+    "2026-07-00",
+  ])("rejects %j", (value) => {
+    expect(isValidDate(value)).toBe(false);
+  });
 });
