@@ -1,7 +1,7 @@
 {
   "name": "Expenses — Shrivastava Hub",
   "short_name": "Expenses",
-  "description": "Household expense logging and monthly summaries",
+  "description": "Household rhythms, spending insights, and expense logging",
   "start_url": "/expense",
   "scope": "/expense",
   "display": "standalone",
@@ -20,7 +20,7 @@
       "name": "Scan a slip",
       "short_name": "Scan slip",
       "description": "Photograph a handwritten slip and check the lines it reads",
-      "url": "/expense?scan=1",
+      "url": "/expense/log?scan=1",
       "icons": [
         {
           "src": "/manifest-icon/expense",

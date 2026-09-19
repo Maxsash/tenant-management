@@ -13,33 +13,36 @@ import PinPromptDialog from "@/components/ui/PinPromptDialog";
 import ManageItemsTab from "./ManageItemsTab";
 import ManageCategoriesTab from "./ManageCategoriesTab";
 import { useAdminUnlock } from "@/hooks/useAdminUnlock";
-import { getAdminSessionStatus } from "@/services/adminSession";
 import type { ExpenseCategory } from "@/types/expense";
 
 export default function ExpenseSettings() {
   const [activeTab, setActiveTab] = useState("items");
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
-  const [unlocked, setUnlocked] = useState<boolean | null>(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-  const { promptForUnlock, pinDialogProps } = useAdminUnlock();
+  const { promptForUnlock, sessionLevel, pinDialogProps } = useAdminUnlock();
+  const unlocked = sessionLevel === undefined ? null : sessionLevel === "admin";
 
-  function fetchCategories() {
-    fetch("/api/expense-categories?all=true")
-      .then((r) => r.json())
-      .then((d) => setCategories(d.categories ?? []))
-      .catch((err) => console.error("Failed to fetch categories:", err));
+  async function fetchCategories() {
+    setCategoriesLoading(true);
+
+    try {
+      const response = await fetch("/api/expense-categories?all=true");
+      const result = await response.json();
+      setCategories(result.categories ?? []);
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+    } finally {
+      setCategoriesLoading(false);
+    }
   }
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
-    getAdminSessionStatus().then((level) => setUnlocked(level === "admin"));
+    queueMicrotask(() => void fetchCategories());
   }, []);
 
   async function handleUnlock() {
-    if (await promptForUnlock("admin")) setUnlocked(true);
+    await promptForUnlock("admin");
   }
 
   if (unlocked === null) {
@@ -65,7 +68,7 @@ export default function ExpenseSettings() {
         title="Settings"
         leading={
           <Link
-            href="/expense"
+            href="/expense/log"
             aria-label="Back to Expenses"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted shadow-card transition-colors hover:bg-accent-soft hover:text-accent"
           >
@@ -86,7 +89,11 @@ export default function ExpenseSettings() {
           <ManageItemsTab categories={categories} />
         </TabsContent>
         <TabsContent value="categories" className="pt-4">
-          <ManageCategoriesTab categories={categories} onChanged={fetchCategories} />
+          <ManageCategoriesTab
+            categories={categories}
+            loading={categoriesLoading}
+            onChanged={fetchCategories}
+          />
         </TabsContent>
       </Tabs>
     </PageContainer>

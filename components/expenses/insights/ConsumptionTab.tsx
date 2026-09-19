@@ -72,7 +72,7 @@ export default function ConsumptionTab({
   }
 
   // The headline cards answer "what came in this month"; a staple that is
-  // missing is a data question and belongs on the Checks tab.
+  // missing is a data-quality question and appears below the Spending tab.
   const groups = consumption
     .filter((c) => (c.quantities[monthIndex] ?? 0) > 0)
     .slice(0, VISIBLE_GROUPS);

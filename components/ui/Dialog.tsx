@@ -11,11 +11,19 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
+  description?: string;
   children: ReactNode;
   footer?: ReactNode;
 };
 
-export default function Dialog({ open, onOpenChange, title, children, footer }: Props) {
+export default function Dialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+  footer,
+}: Props) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <AnimatePresence>
@@ -58,6 +66,11 @@ export default function Dialog({ open, onOpenChange, title, children, footer }: 
                       <RadixDialog.Title className="font-display text-xl font-semibold text-foreground">
                         {title}
                       </RadixDialog.Title>
+                      {description && (
+                        <RadixDialog.Description className="mt-1 text-sm text-muted">
+                          {description}
+                        </RadixDialog.Description>
+                      )}
                       <div aria-hidden="true" className="squiggle mt-1 w-14 text-accent/60" />
                     </div>
                     <RadixDialog.Close

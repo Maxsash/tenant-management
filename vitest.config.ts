@@ -10,7 +10,11 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./test/setup.ts"],
-    include: ["lib/**/*.test.ts", "app/api/**/*.test.ts"],
+    include: [
+      "lib/**/*.test.ts",
+      "services/**/*.test.ts",
+      "app/api/**/*.test.ts",
+    ],
     env: {
       SUPABASE_URL: "https://test.supabase.local",
       SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",

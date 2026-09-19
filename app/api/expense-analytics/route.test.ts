@@ -107,19 +107,25 @@ describe("GET /api/expense-analytics", () => {
     expect(body.unlocked).toBe(false);
     expect(body.items).toEqual([]);
     expect(body.consumption).toEqual([]);
+    expect(body.rhythms).toEqual([]);
+    expect(body.learningItems).toEqual([]);
     // Headline totals stay readable, as on GET /api/expenses.
     expect(body.months.at(-1).total).toBe(250);
   });
 
   it("includes line-item detail for a user-level session", async () => {
     vi.mocked(getExpenses).mockResolvedValue([
-      makeExpense({ expense_date: "2026-09-01", amount: 250 }),
+      makeExpense({ id: "milk-1", expense_date: "2026-09-01", amount: 250 }),
+      makeExpense({ id: "milk-2", expense_date: "2026-09-05", amount: 260 }),
     ]);
 
     const body = await (await GET(makeRequest("", { authed: true }))).json();
 
     expect(body.unlocked).toBe(true);
     expect(body.items).toHaveLength(1);
+    expect(body.rhythms).toHaveLength(1);
+    expect(body.rhythms[0].history).toHaveLength(2);
+    expect(body.learningItems).toEqual([]);
   });
 
   it("returns a controlled 500 when the database fails", async () => {

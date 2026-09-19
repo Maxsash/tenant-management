@@ -86,7 +86,7 @@ parallel histories. Nothing is written to the database from the photo — only
 what you confirm on the review screen is saved.
 
 On a phone, tap the camera button beside the `+` on the Expenses screen. If you
-use this from a home-screen icon, you can also save `/expense?scan=1` as its
+use this from a home-screen icon, you can also save `/expense/log?scan=1` as its
 own icon, which opens straight to the camera.
 
 Taking a photo does not read it straight away. If the page is written on both

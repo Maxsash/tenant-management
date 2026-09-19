@@ -67,6 +67,64 @@ export interface TopItem {
   amount: number;
 }
 
+export type PurchaseTiming = "now" | "soon" | "later";
+
+export interface PurchaseRhythmEvent {
+  date: string;
+  /** All rows for this item on this purchase day, added together. */
+  amount: number;
+  quantity: number | null;
+  unit: string | null;
+  /** Null only for the item's first recorded purchase. */
+  daysSincePrevious: number | null;
+  /** Other things logged on the same day, biggest-spend first. */
+  otherItems: string[];
+}
+
+export interface PurchaseLearningItem {
+  key: string;
+  name: string;
+  category: string;
+  lastBoughtOn: string;
+  daysSinceLast: number;
+  purchaseCount: 1;
+  history: PurchaseRhythmEvent[];
+  historyTruncated: false;
+}
+
+/**
+ * A household item's observed buy-again rhythm. This is deliberately based
+ * on purchase dates rather than spend: the useful question is when the next
+ * potato bag or gas cylinder may be needed, not whether it cost more.
+ */
+export interface PurchaseRhythm {
+  key: string;
+  name: string;
+  category: string;
+  /** Median of the most recent gaps between distinct purchase days. */
+  typicalDays: number;
+  /** The most recent observed gap, useful beside the longer-term typical. */
+  lastGapDays: number;
+  /** Smallest and largest gaps among the recent intervals used for the estimate. */
+  recentMinDays: number;
+  recentMaxDays: number;
+  lastBoughtOn: string;
+  daysSinceLast: number;
+  /** Negative means the usual interval has already passed. */
+  dueInDays: number;
+  timing: PurchaseTiming;
+  /** Progress through the usual interval, capped at 100 for display. */
+  cycleProgressPct: number;
+  purchaseCount: number;
+  intervalCount: number;
+  /** Median amount bought on a purchase day, when quantities use one unit. */
+  typicalQuantity: number | null;
+  unit: string | null;
+  /** Newest first, capped for a useful mobile detail sheet. */
+  history: PurchaseRhythmEvent[];
+  historyTruncated: boolean;
+}
+
 export interface MonthInsight {
   month: string;
   total: number;
@@ -169,6 +227,10 @@ export interface ExpenseAnalytics {
   /** Empty below a user-level session, like `ExpenseMonthData.expenses`. */
   items: ItemSeries[];
   consumption: ConsumptionSeries[];
+  /** Empty below a user-level session because names and dates are sensitive. */
+  rhythms: PurchaseRhythm[];
+  /** Recent measured items with only one buy, so no interval exists yet. */
+  learningItems: PurchaseLearningItem[];
   unlocked: boolean;
 }
 

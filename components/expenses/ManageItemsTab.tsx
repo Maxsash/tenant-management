@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -33,6 +33,7 @@ export default function ManageItemsTab({ categories }: Props) {
   const [saving, setSaving] = useState(false);
   const [deletingItem, setDeletingItem] = useState<ExpenseItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const formId = useId();
   const ids = {
@@ -41,26 +42,22 @@ export default function ManageItemsTab({ categories }: Props) {
     defaultUnit: `${formId}-default-unit`,
   };
 
-  function fetchItems() {
-    // Deferred to a microtask so calling this from the mount effect below
-    // doesn't set state synchronously within the effect body
-    // (react-hooks/set-state-in-effect).
-    queueMicrotask(() => setLoading(true));
+  async function fetchItems() {
+    setLoading(true);
 
-    fetch("/api/expense-items?all=true")
-      .then((r) => r.json())
-      .then((d) => {
-        setItems(d.items ?? []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch items:", err);
-        setLoading(false);
-      });
+    try {
+      const response = await fetch("/api/expense-items?all=true");
+      const result = await response.json();
+      setItems(result.items ?? []);
+    } catch (err) {
+      console.error("Failed to fetch items:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
-    fetchItems();
+    queueMicrotask(() => void fetchItems());
   }, []);
 
   function openAdd() {
@@ -106,9 +103,9 @@ export default function ManageItemsTab({ categories }: Props) {
 
       if (!res.ok) throw new Error("Failed to save item");
 
+      await fetchItems();
       setDialogOpen(false);
       toast.success(editingItem ? "Item updated" : "Item added");
-      fetchItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -117,13 +114,28 @@ export default function ManageItemsTab({ categories }: Props) {
   }
 
   async function toggleActive(item: ExpenseItem) {
-    await fetch(`/api/expense-items/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !item.active }),
-    });
+    setTogglingId(item.id);
 
-    fetchItems();
+    try {
+      const response = await fetch(`/api/expense-items/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !item.active }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update item");
+
+      const result = await response.json();
+      setItems((current) =>
+        current.map((candidate) =>
+          candidate.id === item.id ? result.item : candidate
+        )
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   async function handleDeleteItem() {
@@ -145,8 +157,8 @@ export default function ManageItemsTab({ categories }: Props) {
       }
 
       toast.success("Item deleted");
+      await fetchItems();
       setDeletingItem(null);
-      fetchItems();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -189,12 +201,21 @@ export default function ManageItemsTab({ categories }: Props) {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleActive(item)}
+                    disabled={togglingId === item.id}
+                    aria-busy={togglingId === item.id}
                     className={cn(
-                      "rounded-full px-2.5 py-1 text-xs font-semibold",
+                      "inline-flex min-w-16 items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold disabled:opacity-70",
                       item.active ? "bg-success-soft text-success" : "bg-surface-sunk text-muted"
                     )}
                   >
-                    {item.active ? "Active" : "Inactive"}
+                    {togglingId === item.id && (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    )}
+                    {togglingId === item.id
+                      ? "Saving"
+                      : item.active
+                        ? "Active"
+                        : "Inactive"}
                   </button>
 
                   <button

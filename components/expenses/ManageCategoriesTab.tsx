@@ -2,26 +2,32 @@
 
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Dialog from "@/components/ui/Dialog";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
+import Skeleton from "@/components/ui/Skeleton";
 import { cn } from "@/utils/cn";
 import type { ExpenseCategory } from "@/types/expense";
 
 type Props = {
   categories: ExpenseCategory[];
-  onChanged: () => void;
+  loading: boolean;
+  onChanged: () => Promise<void>;
 };
 
 const inputClass =
   "h-12 w-full rounded-xl border border-border bg-background px-3.5 text-[15px] text-foreground outline-none focus:border-accent";
 const labelClass = "mb-1.5 block text-sm font-medium text-muted";
 
-export default function ManageCategoriesTab({ categories, onChanged }: Props) {
+export default function ManageCategoriesTab({
+  categories,
+  loading,
+  onChanged,
+}: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(null);
   const [name, setName] = useState("");
@@ -30,6 +36,7 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
   const [saving, setSaving] = useState(false);
   const [deletingCategory, setDeletingCategory] = useState<ExpenseCategory | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const formId = useId();
   const ids = { name: `${formId}-name`, icon: `${formId}-icon` };
@@ -76,9 +83,9 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
 
       if (!res.ok) throw new Error("Failed to save category");
 
+      await onChanged();
       setDialogOpen(false);
       toast.success(editingCategory ? "Category updated" : "Category added");
-      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -87,13 +94,23 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
   }
 
   async function toggleActive(category: ExpenseCategory) {
-    await fetch(`/api/expense-categories/${category.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !category.active }),
-    });
+    setTogglingId(category.id);
 
-    onChanged();
+    try {
+      const response = await fetch(`/api/expense-categories/${category.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !category.active }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update category");
+
+      await onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setTogglingId(null);
+    }
   }
 
   async function handleDeleteCategory() {
@@ -115,8 +132,8 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
       }
 
       toast.success("Category deleted");
+      await onChanged();
       setDeletingCategory(null);
-      onChanged();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -126,7 +143,11 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
 
   return (
     <div className="flex flex-col gap-2.5 pb-6">
-      {categories.length === 0 ? (
+      {loading ? (
+        Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-14 w-full" />
+        ))
+      ) : categories.length === 0 ? (
         <EmptyState title="No categories yet" />
       ) : (
         categories.map((category) => (
@@ -144,12 +165,21 @@ export default function ManageCategoriesTab({ categories, onChanged }: Props) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => toggleActive(category)}
+                disabled={togglingId === category.id}
+                aria-busy={togglingId === category.id}
                 className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-semibold",
+                  "inline-flex min-w-16 items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold disabled:opacity-70",
                   category.active ? "bg-success-soft text-success" : "bg-surface-sunk text-muted"
                 )}
               >
-                {category.active ? "Active" : "Inactive"}
+                {togglingId === category.id && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                )}
+                {togglingId === category.id
+                  ? "Saving"
+                  : category.active
+                    ? "Active"
+                    : "Inactive"}
               </button>
 
               <button

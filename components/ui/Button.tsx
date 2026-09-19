@@ -41,6 +41,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       ref={ref}
       whileTap={{ scale: 0.97 }}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50",
         variantClasses[variant],

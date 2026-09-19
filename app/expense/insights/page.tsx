@@ -1,10 +1,5 @@
-import ExpenseInsights from "@/components/expenses/ExpenseInsights";
-
-export const metadata = {
-  title: "Expense Insights - Shrivastava Hub",
-  description: "Month-by-month household spending and consumption trends",
-};
+import { permanentRedirect } from "next/navigation";
 
 export default function Page() {
-  return <ExpenseInsights />;
+  permanentRedirect("/expense");
 }

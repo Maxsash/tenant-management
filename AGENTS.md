@@ -100,10 +100,15 @@ Two independent, unrelated gates exist — don't conflate them:
   reusable prompt-and-unlock flow — one `useAdminUnlock()` instance per
   top-level page, and every call site passes the `AdminLevel` *that specific
   action* needs: `promptForUnlock("user")` or `promptForUnlock("admin")`.
-  `promptForUnlock` checks the live session via `GET /api/admin-session`
-  first and only opens the dialog if the current session doesn't already
-  meet the bar — so a page with several admin-gated buttons only prompts
-  once per session, not per click. If someone submits a PIN that's valid
+  `promptForUnlock` preloads the live session via `GET /api/admin-session`
+  while the page becomes usable, then opens the dialog immediately when an
+  action needs a higher tier. No action-specific request starts before the
+  PIN succeeds. `services/adminSession.ts` keeps that verified level in a
+  client-module cache and shares any in-flight status request, so client-side
+  navigation does not recheck it; a full reload verifies the HttpOnly cookie
+  once. A valid cached session skips the prompt, so several gated buttons and
+  pages only prompt once per session, not per click.
+  If someone submits a PIN that's valid
   but the wrong tier for what triggered the prompt (e.g. the family PIN on
   an admin-only action), the dialog stays open with an explicit "needs the
   admin PIN" error rather than silently failing later.
@@ -149,7 +154,8 @@ Two independent, unrelated gates exist — don't conflate them:
 app/api/**/route.ts        Route handlers — the only place allowed to talk
                             to lib/db.ts / Supabase directly from a request.
 app/{tenant,expense}/       Page shells, just render the top-level component.
-                            `/expense/insights` is the analytics screen.
+                            `/expense` is the default analytics screen;
+                            `/expense/log` is the logging screen.
 components/tenants/**       Rent/tenant UI (fetch-and-render only).
                             `insights/` holds the rent analytics screen.
 components/expenses/**      Expense UI (fetch-and-render only).
@@ -212,16 +218,27 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
   classification logic).
 - `lib/expense-summary.ts`, `lib/expense-categories.ts` — expense aggregation
   and category/item grouping helpers.
-- `lib/expense-analytics.ts` — everything behind `/expense/insights`:
+- `lib/expense-analytics.ts` — everything behind `/expense`:
   `buildExpenseAnalytics` turns the raw rows into month/category/item series
   plus the per-month narrative (deltas, run rate, coverage, price moves,
-  recurring gaps). Series are built across every month that has data and only
+  recurring gaps). `buildPurchaseRhythms` answers the default, practical view:
+  how many days usually pass between buys or refills, what may be needed next,
+  and how much is normally bought at once. It uses recent median gaps, merges
+  repeat lines from the same day, and drops items absent for several of their
+  own cycles so an abandoned routine is not eternally "due." Each rhythm also
+  carries a capped, newest-first purchase log with the actual gaps, quantities,
+  spend and biggest same-day companion items; the clickable cards render that
+  in a detail sheet without doing any new derivation client-side. A recent,
+  measured first purchase (notably the first recorded LPG cylinder) appears as
+  "Still learning" with its log; it only becomes an estimate after the second
+  purchase supplies a real interval. Series are built across every month that
+  has data and only
   sliced to the requested window at the end, so a delta at the left edge still
   compares against the real previous month. Quantities are only summed when an
   item has been logged in a single unit — see `dominantUnit`. The tuning
   constants for the "usually logged, missing here" check are exported rather
   than inlined, since the heuristic is a judgement call worth seeing.
-- `lib/consumption-table.ts` — the month-by-month grid on the consumption tab.
+- `lib/consumption-table.ts` — the month-by-month grid on the Quantities tab.
   A table only ever covers ONE unit, because kilos and pieces cannot share a
   column of numbers; anything else in the category is named in a footnote
   rather than dropped. `listMeasurableCategories` picks the default by
@@ -366,7 +383,7 @@ ended up saving slips one day at a time.
 
 Two entry points into scanning, because the app is opened from a home-screen
 icon and a slip photo is the usual way expenses arrive: a camera button beside
-the `+` on the dashboard, and `/expense?scan=1`, which opens the sheet leading
+the `+` on the dashboard, and `/expense/log?scan=1`, which opens the sheet leading
 with the camera so that URL can be saved as its own icon. A file picker cannot
 be opened without a real tap, so neither can skip the one deliberate press —
 that is a browser rule, not a missing feature.
@@ -530,8 +547,8 @@ a standalone PWA. These things in this flow exist only because of that:
 
 ## Rent insights
 
-`/tenant/insights` mirrors `/expense/insights`: one filter row (6 months,
-1 year, 2 years), a card with a tappable column per month, and tabs below
+`/tenant/insights` uses one filter row (6 months, 1 year, 2 years), a card with
+a tappable column per month, and tabs below
 (Overview, Month, Tenants, Deposits). `GET /api/rent-analytics?months=`
 returns the whole window already derived.
 

@@ -5,11 +5,14 @@ import type {
   ItemSeries,
   MonthInsight,
   PriceMove,
+  PurchaseLearningItem,
+  PurchaseRhythm,
+  PurchaseRhythmEvent,
   RecurringGap,
   TopItem,
 } from "@/types/expense";
 import type { Expense } from "@/types/expense";
-import { monthRange } from "@/lib/date";
+import { daysBetween, isValidDate as isValidCalendarDate, monthRange } from "@/lib/date";
 import { median, round, sum } from "@/lib/numbers";
 
 /**
@@ -40,6 +43,19 @@ export const MAX_TOP_ITEMS = 6;
  *  money behind them. The screen narrows this further to the ones that
  *  actually moved in the month being looked at. */
 export const MAX_CONSUMPTION_GROUPS = 8;
+
+/** Recent gaps describe the household's current rhythm better than its whole
+ * history. Six still smooths over one unusually early or late purchase. */
+export const RHYTHM_MAX_GAPS = 6;
+/** Stop presenting an abandoned item as eternally due. Slow items such as an
+ * LPG cylinder get a wider absolute window than fast groceries. */
+export const RHYTHM_MIN_ACTIVE_DAYS = 30;
+export const RHYTHM_ACTIVE_CYCLES = 2.5;
+export const MAX_PURCHASE_RHYTHMS = 12;
+export const MAX_RHYTHM_HISTORY = 12;
+export const MAX_RHYTHM_COMPANIONS = 4;
+export const RHYTHM_LEARNING_ACTIVE_DAYS = 90;
+export const MAX_RHYTHM_LEARNING_ITEMS = 6;
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -173,7 +189,15 @@ export function buildExpenseAnalytics(
   const nowMonth = isValidDate(today) ? monthOf(today) : "";
 
   if (rows.length === 0 || !nowMonth) {
-    return { months: [], categories: [], items: [], consumption: [], unlocked };
+    return {
+      months: [],
+      categories: [],
+      items: [],
+      consumption: [],
+      rhythms: [],
+      learningItems: [],
+      unlocked,
+    };
   }
 
   const dataMonths = rows.map((e) => monthOf(e.expense_date));
@@ -391,13 +415,282 @@ export function buildExpenseAnalytics(
     };
   });
 
+  const purchasePatterns = unlocked
+    ? buildPurchasePatterns(rows, today)
+    : { rhythms: [], learningItems: [] };
+
   return {
     months: monthInsights,
     categories,
     items: unlocked ? itemSeries : [],
     consumption: unlocked ? consumption : [],
+    rhythms: purchasePatterns.rhythms,
+    learningItems: purchasePatterns.learningItems,
     unlocked,
   };
+}
+
+interface RhythmDraft {
+  key: string;
+  name: string;
+  category: string;
+  latestDate: string;
+  dates: Set<string>;
+  units: Set<string>;
+  unitlessQuantityDates: Set<string>;
+  unitsByDate: Map<string, Set<string>>;
+  quantitiesByDate: Map<string, number>;
+  amountsByDate: Map<string, number>;
+}
+
+interface PurchasePatterns {
+  rhythms: PurchaseRhythm[];
+  learningItems: PurchaseLearningItem[];
+}
+
+function buildRhythmHistory(
+  draft: RhythmDraft,
+  dates: string[],
+  basketItemsByDate: Map<string, Map<string, { name: string; amount: number }>>
+): PurchaseRhythmEvent[] {
+  return dates.map((date, index) => {
+    const dateUnits = draft.unitsByDate.get(date);
+    const mixesUnitlessAndNamed =
+      (dateUnits?.size ?? 0) > 0 && draft.unitlessQuantityDates.has(date);
+    const hasMixedUnits = (dateUnits?.size ?? 0) > 1 || mixesUnitlessAndNamed;
+    const eventUnit =
+      !hasMixedUnits && dateUnits?.size === 1 ? [...dateUnits][0] : null;
+
+    return {
+      date,
+      amount: round(draft.amountsByDate.get(date) ?? 0, 2),
+      quantity:
+        draft.quantitiesByDate.has(date) && !hasMixedUnits
+          ? round(draft.quantitiesByDate.get(date) ?? 0, 2) || null
+          : null,
+      unit: eventUnit,
+      daysSincePrevious:
+        index === 0 ? null : daysBetween(dates[index - 1], date),
+      otherItems: [...(basketItemsByDate.get(date)?.entries() ?? [])]
+        .filter(([basketKey]) => basketKey !== draft.key)
+        .sort(
+          ([, a], [, b]) =>
+            b.amount - a.amount || a.name.localeCompare(b.name)
+        )
+        .slice(0, MAX_RHYTHM_COMPANIONS)
+        .map(([, item]) => item.name),
+    };
+  });
+}
+
+/**
+ * Finds repeat-purchase rhythms such as potatoes every few days or a gas
+ * cylinder every few weeks. Multiple lines for the same item on one day are
+ * one purchase event, and the median of recent intervals keeps a single odd
+ * trip from distorting the answer.
+ */
+export function buildPurchasePatterns(
+  expenses: Expense[],
+  today: string
+): PurchasePatterns {
+  if (!isValidCalendarDate(today)) return { rhythms: [], learningItems: [] };
+
+  const drafts = new Map<string, RhythmDraft>();
+  const basketItemsByDate = new Map<
+    string,
+    Map<string, { name: string; amount: number }>
+  >();
+
+  for (const row of expenses) {
+    if (!isValidCalendarDate(row.expense_date) || row.expense_date > today) {
+      continue;
+    }
+
+    const key = itemKey(row);
+    let basket = basketItemsByDate.get(row.expense_date);
+    if (!basket) {
+      basket = new Map();
+      basketItemsByDate.set(row.expense_date, basket);
+    }
+    const basketItem = basket.get(key);
+    basket.set(key, {
+      name: row.item_name,
+      amount: (basketItem?.amount ?? 0) + (Number(row.amount) || 0),
+    });
+
+    if (row.is_itemized === false) continue;
+
+    let draft = drafts.get(key);
+    if (!draft) {
+      draft = {
+        key,
+        name: row.item_name,
+        category: row.category,
+        latestDate: row.expense_date,
+        dates: new Set(),
+        units: new Set(),
+        unitlessQuantityDates: new Set(),
+        unitsByDate: new Map(),
+        quantitiesByDate: new Map(),
+        amountsByDate: new Map(),
+      };
+      drafts.set(key, draft);
+    }
+
+    if (row.expense_date >= draft.latestDate) {
+      draft.name = row.item_name;
+      draft.category = row.category;
+      draft.latestDate = row.expense_date;
+    }
+    draft.dates.add(row.expense_date);
+    draft.amountsByDate.set(
+      row.expense_date,
+      (draft.amountsByDate.get(row.expense_date) ?? 0) +
+        (Number(row.amount) || 0)
+    );
+
+    const quantity = Number(row.quantity);
+    if (Number.isFinite(quantity) && quantity > 0) {
+      if (row.unit) {
+        draft.units.add(row.unit);
+        let dateUnits = draft.unitsByDate.get(row.expense_date);
+        if (!dateUnits) {
+          dateUnits = new Set();
+          draft.unitsByDate.set(row.expense_date, dateUnits);
+        }
+        dateUnits.add(row.unit);
+      } else {
+        draft.unitlessQuantityDates.add(row.expense_date);
+      }
+      draft.quantitiesByDate.set(
+        row.expense_date,
+        (draft.quantitiesByDate.get(row.expense_date) ?? 0) + quantity
+      );
+    }
+  }
+
+  const rhythms: PurchaseRhythm[] = [];
+  const learningItems: PurchaseLearningItem[] = [];
+
+  for (const draft of drafts.values()) {
+    const dates = [...draft.dates].sort();
+    const fullHistory = buildRhythmHistory(draft, dates, basketItemsByDate);
+
+    if (dates.length === 1) {
+      const lastBoughtOn = dates[0];
+      const daysSinceLast = daysBetween(lastBoughtOn, today);
+      const firstEvent = fullHistory[0];
+
+      // A measured item has a plausible repeat-use story (including a
+      // unitless "1" for an LPG cylinder). Unmeasured one-off bills and help
+      // payments stay out of a household replenishment screen.
+      if (
+        daysSinceLast <= RHYTHM_LEARNING_ACTIVE_DAYS &&
+        firstEvent.quantity !== null
+      ) {
+        learningItems.push({
+          key: draft.key,
+          name: draft.name,
+          category: draft.category,
+          lastBoughtOn,
+          daysSinceLast,
+          purchaseCount: 1,
+          history: fullHistory,
+          historyTruncated: false,
+        });
+      }
+      continue;
+    }
+
+    const gaps = dates
+      .slice(1)
+      .map((date, index) => daysBetween(dates[index], date))
+      .filter((days) => days > 0);
+    if (gaps.length === 0) continue;
+
+    const recentGaps = gaps.slice(-RHYTHM_MAX_GAPS);
+    const typicalDays = Math.max(1, Math.round(median(recentGaps)));
+    const lastBoughtOn = dates.at(-1) as string;
+    const daysSinceLast = daysBetween(lastBoughtOn, today);
+
+    // An item absent for several of its own cycles is more likely no longer
+    // part of the household routine than genuinely waiting to be bought.
+    const activeForDays = Math.max(
+      RHYTHM_MIN_ACTIVE_DAYS,
+      Math.ceil(typicalDays * RHYTHM_ACTIVE_CYCLES)
+    );
+    if (daysSinceLast > activeForDays) continue;
+
+    const dueInDays = typicalDays - daysSinceLast;
+    const soonWithinDays = Math.max(2, Math.ceil(typicalDays * 0.2));
+    const timing = dueInDays <= 0 ? "now" : dueInDays <= soonWithinDays ? "soon" : "later";
+    const hasUnitlessQuantities = draft.unitlessQuantityDates.size > 0;
+    const quantitiesAgree =
+      (draft.units.size === 1 && !hasUnitlessQuantities) ||
+      draft.units.size === 0;
+    const unit =
+      draft.units.size === 1 && !hasUnitlessQuantities
+        ? [...draft.units][0]
+        : null;
+    const quantities = quantitiesAgree
+      ? [...draft.quantitiesByDate.values()]
+      : [];
+
+    rhythms.push({
+      key: draft.key,
+      name: draft.name,
+      category: draft.category,
+      typicalDays,
+      lastGapDays: gaps.at(-1) as number,
+      recentMinDays: Math.min(...recentGaps),
+      recentMaxDays: Math.max(...recentGaps),
+      lastBoughtOn,
+      daysSinceLast,
+      dueInDays,
+      timing,
+      cycleProgressPct: Math.min(
+        100,
+        Math.max(0, Math.round((daysSinceLast / typicalDays) * 100))
+      ),
+      purchaseCount: dates.length,
+      intervalCount: gaps.length,
+      typicalQuantity:
+        quantities.length > 0 ? round(median(quantities), 2) : null,
+      unit,
+      history: fullHistory.slice(-MAX_RHYTHM_HISTORY).reverse(),
+      historyTruncated: fullHistory.length > MAX_RHYTHM_HISTORY,
+    });
+  }
+
+  const timingRank = { now: 0, soon: 1, later: 2 } as const;
+
+  const rankedRhythms = rhythms
+    .sort(
+      (a, b) =>
+        timingRank[a.timing] - timingRank[b.timing] ||
+        a.dueInDays - b.dueInDays ||
+        b.purchaseCount - a.purchaseCount ||
+        a.name.localeCompare(b.name)
+    )
+    .slice(0, MAX_PURCHASE_RHYTHMS);
+
+  const rankedLearningItems = learningItems
+    .sort(
+      (a, b) =>
+        (b.history[0]?.amount ?? 0) - (a.history[0]?.amount ?? 0) ||
+        b.lastBoughtOn.localeCompare(a.lastBoughtOn) ||
+        a.name.localeCompare(b.name)
+    )
+    .slice(0, MAX_RHYTHM_LEARNING_ITEMS);
+
+  return { rhythms: rankedRhythms, learningItems: rankedLearningItems };
+}
+
+export function buildPurchaseRhythms(
+  expenses: Expense[],
+  today: string
+): PurchaseRhythm[] {
+  return buildPurchasePatterns(expenses, today).rhythms;
 }
 
 /**

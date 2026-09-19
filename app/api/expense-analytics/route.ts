@@ -16,8 +16,8 @@ export const MAX_WINDOW_MONTHS = 24;
  * component, which stays fetch-and-render.
  *
  * Like GET /api/expenses, headline totals are open and the line-item detail
- * (items, consumption, price moves, recurring gaps) needs a user-level
- * session; `unlocked` tells the client which it got.
+ * (items, buy-again rhythms, consumption, price moves, recurring gaps) needs
+ * a user-level session; `unlocked` tells the client which it got.
  */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

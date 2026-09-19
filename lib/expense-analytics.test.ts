@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { makeExpense } from "@/test/fixtures/expenses";
 import {
   buildExpenseAnalytics,
+  buildPurchasePatterns,
+  buildPurchaseRhythms,
   daysInMonth,
   deltaSeries,
   dominantUnit,
   longestGap,
+  MAX_RHYTHM_HISTORY,
 } from "./expense-analytics";
 
 function build(
@@ -85,6 +88,8 @@ describe("buildExpenseAnalytics", () => {
     expect(result.months).toEqual([]);
     expect(result.categories).toEqual([]);
     expect(result.items).toEqual([]);
+    expect(result.rhythms).toEqual([]);
+    expect(result.learningItems).toEqual([]);
   });
 
   it("fills in months that have no expenses so the trend does not lie", () => {
@@ -246,6 +251,16 @@ describe("buildExpenseAnalytics", () => {
     expect(onion.quantities).toEqual([null]);
     // Spend is still trustworthy, so it is still reported.
     expect(onion.amounts).toEqual([125]);
+    // The overall typical quantity is withheld, but each dated log entry can
+    // still show the unit that was actually recorded that day.
+    expect(result.rhythms[0]).toMatchObject({
+      unit: null,
+      typicalQuantity: null,
+      history: [
+        expect.objectContaining({ date: "2026-09-02", quantity: 500, unit: "g" }),
+        expect.objectContaining({ date: "2026-09-01", quantity: 2, unit: "kg" }),
+      ],
+    });
   });
 
   it("groups an item by id so a rename keeps its history together", () => {
@@ -303,6 +318,8 @@ describe("buildExpenseAnalytics", () => {
     expect(result.unlocked).toBe(false);
     expect(result.items).toEqual([]);
     expect(result.consumption).toEqual([]);
+    expect(result.rhythms).toEqual([]);
+    expect(result.learningItems).toEqual([]);
     expect(result.months[0].missingRecurring).toEqual([]);
     expect(result.months[0].priceMoves).toEqual([]);
     // Headline totals stay open, matching GET /api/expenses.
@@ -317,6 +334,228 @@ describe("buildExpenseAnalytics", () => {
     ]);
 
     expect(result.months[0].total).toBe(100);
+  });
+});
+
+describe("purchase rhythms", () => {
+  it("keeps a recent first cylinder purchase visible without inventing a duration", () => {
+    const patterns = buildPurchasePatterns(
+      [
+        makeExpense({
+          id: "gas-1",
+          expense_date: "2026-09-02",
+          item_id: "item-gas",
+          item_name: "LPG Cylinder",
+          category: "Utilities",
+          quantity: 1,
+          unit: null,
+          amount: 1025,
+        }),
+      ],
+      "2026-09-17"
+    );
+
+    expect(patterns.rhythms).toEqual([]);
+    expect(patterns.learningItems).toEqual([
+      expect.objectContaining({
+        name: "LPG Cylinder",
+        lastBoughtOn: "2026-09-02",
+        daysSinceLast: 15,
+        purchaseCount: 1,
+        history: [
+          expect.objectContaining({
+            amount: 1025,
+            quantity: 1,
+            unit: null,
+          }),
+        ],
+      }),
+    ]);
+  });
+
+  it("does not present an unmeasured one-off expense as a replenishment item", () => {
+    const patterns = buildPurchasePatterns(
+      [
+        makeExpense({
+          expense_date: "2026-09-02",
+          item_name: "Electricity bill",
+          category: "Utilities",
+          quantity: null,
+          unit: null,
+          amount: 2500,
+        }),
+      ],
+      "2026-09-17"
+    );
+
+    expect(patterns.learningItems).toEqual([]);
+  });
+
+  it("turns repeat purchases into a useful buy-again estimate", () => {
+    const rhythms = buildPurchaseRhythms(
+      [
+        veg("2026-09-01", "Aaloo", 2, 40),
+        veg("2026-09-07", "Aaloo", 3, 60),
+        veg("2026-09-12", "Aaloo", 2, 45),
+      ],
+      "2026-09-17"
+    );
+
+    expect(rhythms).toEqual([
+      expect.objectContaining({
+        name: "Aaloo",
+        typicalDays: 6,
+        lastGapDays: 5,
+        recentMinDays: 5,
+        recentMaxDays: 6,
+        lastBoughtOn: "2026-09-12",
+        daysSinceLast: 5,
+        dueInDays: 1,
+        timing: "soon",
+        cycleProgressPct: 83,
+        purchaseCount: 3,
+        intervalCount: 2,
+        typicalQuantity: 2,
+        unit: "kg",
+        history: [
+          {
+            date: "2026-09-12",
+            amount: 45,
+            quantity: 2,
+            unit: "kg",
+            daysSincePrevious: 5,
+            otherItems: [],
+          },
+          {
+            date: "2026-09-07",
+            amount: 60,
+            quantity: 3,
+            unit: "kg",
+            daysSincePrevious: 6,
+            otherItems: [],
+          },
+          {
+            date: "2026-09-01",
+            amount: 40,
+            quantity: 2,
+            unit: "kg",
+            daysSincePrevious: null,
+            otherItems: [],
+          },
+        ],
+        historyTruncated: false,
+      }),
+    ]);
+  });
+
+  it("describes a refill by the days between cylinder purchases", () => {
+    const cylinder = (date: string) =>
+      makeExpense({
+        id: `gas-${date}`,
+        expense_date: date,
+        item_id: "item-gas",
+        item_name: "LPG Cylinder",
+        category: "Utilities",
+        quantity: 1,
+        unit: "cylinder",
+        amount: 1025,
+      });
+
+    const rhythms = buildPurchaseRhythms(
+      [cylinder("2026-07-01"), cylinder("2026-08-03"), cylinder("2026-09-05")],
+      "2026-09-17"
+    );
+
+    expect(rhythms[0]).toMatchObject({
+      name: "LPG Cylinder",
+      typicalDays: 33,
+      lastGapDays: 33,
+      dueInDays: 21,
+      timing: "later",
+    });
+  });
+
+  it("counts several lines on one day as one purchase", () => {
+    const rhythms = buildPurchaseRhythms(
+      [
+        veg("2026-09-01", "Aaloo", 1, 20),
+        veg("2026-09-01", "Aaloo", 2, 40),
+        veg("2026-09-01", "Pyaaz", 1, 30),
+        veg("2026-09-08", "Aaloo", 3, 60),
+        veg("2026-09-08", "Tamatar", 2, 80),
+      ],
+      "2026-09-10"
+    );
+
+    expect(rhythms[0]).toMatchObject({
+      purchaseCount: 2,
+      intervalCount: 1,
+      typicalDays: 7,
+      typicalQuantity: 3,
+      history: [
+        {
+          date: "2026-09-08",
+          amount: 60,
+          quantity: 3,
+          unit: "kg",
+          daysSincePrevious: 7,
+          otherItems: ["Tamatar"],
+        },
+        {
+          date: "2026-09-01",
+          amount: 60,
+          quantity: 3,
+          unit: "kg",
+          daysSincePrevious: null,
+          otherItems: ["Pyaaz"],
+        },
+      ],
+    });
+  });
+
+  it("keeps the detail log useful without returning an unbounded history", () => {
+    const rows = Array.from({ length: MAX_RHYTHM_HISTORY + 2 }, (_, index) =>
+      veg(`2026-09-${String(index + 1).padStart(2, "0")}`, "Aaloo", 2, 40)
+    );
+
+    const rhythm = buildPurchaseRhythms(rows, "2026-09-16")[0];
+
+    expect(rhythm.history).toHaveLength(MAX_RHYTHM_HISTORY);
+    expect(rhythm.history[0].date).toBe("2026-09-14");
+    expect(rhythm.history.at(-1)?.date).toBe("2026-09-03");
+    expect(rhythm.historyTruncated).toBe(true);
+  });
+
+  it("uses recent gaps and drops routines that appear abandoned", () => {
+    const dates = [
+      "2026-01-01",
+      "2026-02-10",
+      "2026-03-22",
+      "2026-05-01",
+      "2026-05-08",
+      "2026-05-15",
+      "2026-05-22",
+      "2026-05-29",
+    ];
+    const rows = dates.map((date) => veg(date, "Aaloo", 2, 40));
+
+    // The last six gaps are four weekly gaps plus two older 40-day gaps, so
+    // the median reflects the newer weekly habit.
+    expect(buildPurchaseRhythms(rows, "2026-06-01")[0].typicalDays).toBe(7);
+    // Months later it no longer crowds the screen as eternally overdue.
+    expect(buildPurchaseRhythms(rows, "2026-09-17")).toEqual([]);
+  });
+
+  it("ignores future purchases and items only bought once", () => {
+    expect(
+      buildPurchaseRhythms(
+        [
+          veg("2026-09-01", "Aaloo", 2, 40),
+          veg("2026-09-20", "Aaloo", 2, 40),
+        ],
+        "2026-09-17"
+      )
+    ).toEqual([]);
   });
 });
 

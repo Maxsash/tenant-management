@@ -85,7 +85,7 @@ export default function ExpenseHome() {
     setFormOpen(true);
   }
 
-  // `/expense?scan=1` opens straight into scanning, so the page can be saved
+  // `/expense/log?scan=1` opens straight into scanning, so the page can be saved
   // to an iPhone home screen as its own icon that lands one tap from the
   // camera. Read off the URL rather than through useSearchParams, which would
   // need a Suspense boundary around this client-only tree.

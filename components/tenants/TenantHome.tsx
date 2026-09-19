@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { toast } from "sonner";
 
 import Dashboard from "./Dashboard";
 import TenantDetails from "./TenantDetails";
@@ -65,12 +66,17 @@ export default function TenantHome() {
       return;
     }
 
+    setLoading(true);
+
     try {
       const fresh = await loadDashboard(month);
       setData(fresh);
       setSelectedTenant(fresh.tenants.find((t) => t.id === tenant.id) ?? tenant);
     } catch (err) {
       console.error("Dashboard refetch failed:", err);
+      toast.error("Couldn't load the tenant details. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
