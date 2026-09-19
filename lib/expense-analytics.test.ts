@@ -7,6 +7,7 @@ import {
   daysInMonth,
   deltaSeries,
   dominantUnit,
+  EMPTY_NEEDS,
   longestGap,
   MAX_RHYTHM_HISTORY,
 } from "./expense-analytics";
@@ -88,8 +89,7 @@ describe("buildExpenseAnalytics", () => {
     expect(result.months).toEqual([]);
     expect(result.categories).toEqual([]);
     expect(result.items).toEqual([]);
-    expect(result.rhythms).toEqual([]);
-    expect(result.learningItems).toEqual([]);
+    expect(result.needs).toEqual(EMPTY_NEEDS);
   });
 
   it("fills in months that have no expenses so the trend does not lie", () => {
@@ -253,7 +253,7 @@ describe("buildExpenseAnalytics", () => {
     expect(onion.amounts).toEqual([125]);
     // The overall typical quantity is withheld, but each dated log entry can
     // still show the unit that was actually recorded that day.
-    expect(result.rhythms[0]).toMatchObject({
+    expect(result.needs.lasting[0].rhythms[0]).toMatchObject({
       unit: null,
       typicalQuantity: null,
       history: [
@@ -318,8 +318,7 @@ describe("buildExpenseAnalytics", () => {
     expect(result.unlocked).toBe(false);
     expect(result.items).toEqual([]);
     expect(result.consumption).toEqual([]);
-    expect(result.rhythms).toEqual([]);
-    expect(result.learningItems).toEqual([]);
+    expect(result.needs).toEqual(EMPTY_NEEDS);
     expect(result.months[0].missingRecurring).toEqual([]);
     expect(result.months[0].priceMoves).toEqual([]);
     // Headline totals stay open, matching GET /api/expenses.
@@ -355,8 +354,10 @@ describe("purchase rhythms", () => {
       "2026-09-17"
     );
 
-    expect(patterns.rhythms).toEqual([]);
-    expect(patterns.learningItems).toEqual([
+    expect(patterns.shopping).toEqual([]);
+    expect(patterns.lasting).toHaveLength(1);
+    expect(patterns.lasting[0].rhythms).toEqual([]);
+    expect(patterns.lasting[0].learningItems).toEqual([
       expect.objectContaining({
         name: "LPG Cylinder",
         lastBoughtOn: "2026-09-02",
@@ -388,7 +389,7 @@ describe("purchase rhythms", () => {
       "2026-09-17"
     );
 
-    expect(patterns.learningItems).toEqual([]);
+    expect(patterns).toEqual(EMPTY_NEEDS);
   });
 
   it("turns repeat purchases into a useful buy-again estimate", () => {
@@ -404,6 +405,7 @@ describe("purchase rhythms", () => {
     expect(rhythms).toEqual([
       expect.objectContaining({
         name: "Aaloo",
+        kind: "stock",
         typicalDays: 6,
         lastGapDays: 5,
         recentMinDays: 5,
@@ -411,12 +413,14 @@ describe("purchase rhythms", () => {
         lastBoughtOn: "2026-09-12",
         daysSinceLast: 5,
         dueInDays: 1,
+        nextDueOn: "2026-09-18",
         timing: "soon",
         cycleProgressPct: 83,
         purchaseCount: 3,
         intervalCount: 2,
         typicalQuantity: 2,
         unit: "kg",
+        typicalAmount: 45,
         history: [
           {
             date: "2026-09-12",
@@ -823,5 +827,283 @@ describe("priced subtotals", () => {
     expect(mango.pricedAmounts).toEqual([120]);
     expect(mango.pricedQuantities).toEqual([2]);
     expect(mango.rates).toEqual([60]);
+  });
+});
+
+describe("the Need again tab", () => {
+  const TODAY = "2026-09-19";
+
+  function row(
+    date: string,
+    name: string,
+    category: string,
+    extra: Partial<ReturnType<typeof makeExpense>> = {}
+  ) {
+    return makeExpense({
+      id: `${name}-${date}`,
+      expense_date: date,
+      item_id: `item-${name}`,
+      item_name: name,
+      category,
+      quantity: null,
+      unit: null,
+      amount: 100,
+      ...extra,
+    });
+  }
+
+  function cylinder(date: string) {
+    return row(date, "LPG Cylinder", "Utilities", { quantity: 1, amount: 1025 });
+  }
+
+  function salary(date: string, name: string, amount: number) {
+    return row(date, name, "Household Help", { amount });
+  }
+
+  it("leaves out a repeat that is neither a thing used up nor a bill", () => {
+    const needs = buildPurchasePatterns(
+      [
+        // Twice in a fortnight by coincidence, never measured, and "Other".
+        row("2026-08-12", "Photocopy", "Other", { amount: 30 }),
+        row("2026-08-21", "Photocopy", "Other", { amount: 25 }),
+        // A service every couple of days: a habit, not a bill to plan for.
+        ...["2026-09-11", "2026-09-12", "2026-09-14", "2026-09-15"].map((date) =>
+          row(date, "Malish", "Personal Care", { amount: 120 })
+        ),
+        // Measured, but bought for occasions rather than running out.
+        row("2026-07-07", "Peda", "Religious", { quantity: 0.25, unit: "kg" }),
+        row("2026-07-20", "Peda", "Religious", { quantity: 0.25, unit: "kg" }),
+        row("2026-09-04", "Peda", "Religious", { quantity: 0.25, unit: "kg" }),
+      ],
+      TODAY
+    );
+
+    expect(needs).toEqual(EMPTY_NEEDS);
+  });
+
+  it("does not let a pile of overdue vegetables hide the gas cylinder", () => {
+    const vegetables = Array.from({ length: 15 }, (_, i) => [
+      veg("2026-08-30", `Sabzi ${i}`, 1, 20),
+      veg("2026-09-06", `Sabzi ${i}`, 1, 20),
+    ]).flat();
+
+    const needs = buildPurchasePatterns(
+      [...vegetables, cylinder("2026-07-09"), cylinder("2026-08-04"), cylinder("2026-09-01")],
+      TODAY,
+      ["Vegetables & Fruits", "Utilities"]
+    );
+
+    // 27 days usually, 18 gone: nine days left is inside a third of the
+    // cycle, which is when a cylinder is worth booking.
+    const gas = needs.shopping.find((group) => group.category === "Utilities");
+    expect(gas?.items[0]).toMatchObject({
+      name: "LPG Cylinder",
+      typicalDays: 27,
+      dueInDays: 9,
+      nextDueOn: "2026-09-28",
+      // A cylinder runs out when it is used up, whatever the date.
+      monthly: false,
+      timing: "soon",
+    });
+    // The costliest trip leads, however many small things are due.
+    expect(needs.shopping.map((group) => group.category)).toEqual([
+      "Utilities",
+      "Vegetables & Fruits",
+    ]);
+    expect(needs.shopping[0].estimatedAmount).toBe(1025);
+    expect(needs.shopping[1].items).toHaveLength(15);
+    // And nothing is capped away from the full list.
+    expect(needs.lasting.map((group) => group.category)).toEqual([
+      "Vegetables & Fruits",
+      "Utilities",
+    ]);
+    expect(needs.lasting[0].rhythms).toHaveLength(15);
+  });
+
+  it("counts fuel logged with a unit but no litres as a thing that runs out", () => {
+    const needs = buildPurchasePatterns(
+      [
+        row("2026-08-20", "Scooty Fuel", "Transport", { unit: "L", amount: 330 }),
+        row("2026-09-10", "Scooty Fuel", "Transport", { unit: "L", amount: 330 }),
+      ],
+      TODAY
+    );
+
+    expect(needs.paymentRounds).toEqual([]);
+    expect(needs.lasting[0].rhythms[0]).toMatchObject({
+      name: "Scooty Fuel",
+      kind: "stock",
+      typicalDays: 21,
+    });
+  });
+
+  it("lists monthly unmeasured payments apart, with one round's total", () => {
+    const needs = buildPurchasePatterns(
+      [
+        salary("2026-07-01", "Rahib Yadav", 8500),
+        salary("2026-08-01", "Rahib Yadav", 8500),
+        salary("2026-09-02", "Rahib Yadav", 8500),
+        salary("2026-08-01", "Heera Raikwar", 1000),
+        salary("2026-09-02", "Heera Raikwar", 1000),
+        row("2026-08-01", "Medicines", "Medical", { amount: 2000 }),
+        row("2026-08-29", "Medicines", "Medical", { amount: 1500 }),
+      ],
+      TODAY
+    );
+
+    expect(needs.shopping).toEqual([]);
+    expect(needs.lasting).toEqual([]);
+    // One round per due date, soonest first: the medicines come round
+    // before the salaries, which are paid together at the start of the month.
+    expect(
+      needs.paymentRounds.map((round) => [
+        round.dueOn,
+        round.total,
+        round.payments.map((payment) => payment.name),
+      ])
+    ).toEqual([
+      ["2026-09-29", 1750, ["Medicines"]],
+      ["2026-10-02", 9500, ["Rahib Yadav", "Heera Raikwar"]],
+    ]);
+    expect(needs.paymentRounds[1].payments[0]).toMatchObject({
+      kind: "payment",
+      typicalAmount: 8500,
+      timing: "later",
+      // Monthly, so the same date next month rather than 32 days on.
+      monthly: true,
+      nextDueOn: "2026-10-02",
+      dueInDays: 13,
+    });
+    expect(needs.paymentsTotal).toBe(8500 + 1000 + 1750);
+  });
+
+  it("sets a payment that has stopped apart, outside the total", () => {
+    const needs = buildPurchasePatterns(
+      [
+        salary("2026-06-01", "Kallu Yadav", 2000),
+        salary("2026-07-01", "Kallu Yadav", 2000),
+        salary("2026-08-01", "Rahib Yadav", 8500),
+        salary("2026-09-01", "Rahib Yadav", 8500),
+      ],
+      "2026-09-05"
+    );
+
+    // 66 days since a 30-day payment: two cycles missed, not yet 2.5.
+    expect(needs.paymentRounds.map((round) => round.dueOn)).toEqual([
+      "2026-10-01",
+      null,
+    ]);
+    expect(needs.paymentRounds[1]).toMatchObject({
+      timing: "lapsed",
+      payments: [expect.objectContaining({ name: "Kallu Yadav" })],
+    });
+    expect(needs.paymentsTotal).toBe(8500);
+  });
+
+  it("keeps a lapsed item listed but off the shopping list and out of the total", () => {
+    const needs = buildPurchasePatterns(
+      [
+        // Weekly, then nothing for 17 days: more than two cycles.
+        veg("2026-08-19", "Karela", 0.5, 20),
+        veg("2026-08-26", "Karela", 0.5, 20),
+        veg("2026-09-02", "Karela", 0.5, 20),
+        veg("2026-09-05", "Aaloo", 3, 40),
+        veg("2026-09-12", "Aaloo", 3, 40),
+        salary("2026-06-01", "Pappi Raikwar", 900),
+        salary("2026-07-01", "Pappi Raikwar", 900),
+      ],
+      "2026-09-19"
+    );
+
+    const karela = needs.lasting[0].rhythms.find((r) => r.name === "Karela");
+    expect(karela?.timing).toBe("lapsed");
+    // Lapsed rows sink below the ones still in use.
+    expect(needs.lasting[0].rhythms.at(-1)?.name).toBe("Karela");
+    expect(needs.shopping[0].items.map((r) => r.name)).toEqual(["Aaloo"]);
+
+    // 80 days since a 30-day payment is past 2.5 cycles: gone altogether.
+    expect(needs.paymentRounds).toEqual([]);
+  });
+
+  it("puts what is due now ahead of what is due soon, costliest first", () => {
+    const needs = buildPurchasePatterns(
+      [
+        veg("2026-09-05", "Tamatar", 1, 30),
+        veg("2026-09-12", "Tamatar", 1, 30),
+        veg("2026-09-06", "Pyaaz", 2, 70),
+        veg("2026-09-13", "Pyaaz", 2, 70),
+        veg("2026-09-04", "Lauki", 1, 20),
+        veg("2026-09-11", "Lauki", 1, 20),
+      ],
+      "2026-09-19"
+    );
+
+    // Tamatar and Lauki are a day or two past a 7-day cycle, Pyaaz one short.
+    expect(needs.shopping[0].items.map((r) => [r.name, r.timing])).toEqual([
+      ["Tamatar", "now"],
+      ["Lauki", "now"],
+      ["Pyaaz", "soon"],
+    ]);
+    expect(needs.shopping[0].estimatedAmount).toBe(120);
+  });
+
+  it("names the next thing due when nothing is due yet", () => {
+    const needs = buildPurchasePatterns(
+      [
+        cylinder("2026-08-04"),
+        cylinder("2026-09-01"),
+        veg("2026-09-01", "Aaloo", 3, 40),
+        veg("2026-09-17", "Aaloo", 3, 40),
+      ],
+      "2026-09-18"
+    );
+
+    // Gas in 11 days beats potatoes in 15.
+    expect(needs.shopping).toEqual([]);
+    expect(needs.nextUp).toMatchObject({
+      name: "LPG Cylinder",
+      nextDueOn: "2026-09-29",
+    });
+  });
+
+  it("orders categories as the catalogue does, unknown ones last", () => {
+    const needs = buildPurchasePatterns(
+      [
+        veg("2026-09-01", "Aaloo", 3, 40),
+        veg("2026-09-08", "Aaloo", 3, 40),
+        cylinder("2026-08-04"),
+        cylinder("2026-09-01"),
+        row("2026-09-10", "Poha", "Groceries", { quantity: 1, unit: "kg" }),
+        row("2026-09-10", "Chalk", "Stationery", { quantity: 1, unit: "pcs" }),
+      ],
+      TODAY,
+      ["Dairy", "Groceries", "Vegetables & Fruits", "Utilities"]
+    );
+
+    expect(needs.lasting.map((group) => group.category)).toEqual([
+      "Groceries",
+      "Vegetables & Fruits",
+      "Utilities",
+      "Stationery",
+    ]);
+    // A category with only first purchases still appears, so a first
+    // cylinder or a bulk sack of daal is visible straight away.
+    expect(needs.lasting[0]).toMatchObject({
+      rhythms: [],
+      learningItems: [expect.objectContaining({ name: "Poha" })],
+    });
+  });
+
+  it("prices a purchase from the days that had a price written", () => {
+    const [oil] = buildPurchaseRhythms(
+      [
+        row("2026-07-03", "Oil", "Groceries", { quantity: 1, unit: "L", amount: 150 }),
+        row("2026-07-20", "Oil", "Groceries", { quantity: 1, unit: "L", amount: 0 }),
+        row("2026-08-03", "Oil", "Groceries", { quantity: 1, unit: "L", amount: 170 }),
+      ],
+      "2026-08-10"
+    );
+
+    expect(oil.typicalAmount).toBe(160);
   });
 });

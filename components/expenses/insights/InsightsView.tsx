@@ -83,8 +83,7 @@ export default function InsightsView({
           <Tabs items={TABS} value={tab} onValueChange={setTab}>
             <TabsContent value="needs" className="pt-6 outline-none">
               <NeedsTab
-                rhythms={data?.rhythms ?? []}
-                learningItems={data?.learningItems ?? []}
+                needs={data?.needs ?? null}
                 categories={categories}
                 unlocked={unlocked}
                 onRequestUnlock={onRequestUnlock}

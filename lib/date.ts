@@ -65,3 +65,20 @@ export function daysBetween(from: string, to: string): number {
       86_400_000
   );
 }
+
+/** "YYYY-MM-DD" moved by whole days, either way. In UTC, like daysBetween,
+ *  so the two always agree: daysBetween(d, addDays(d, n)) === n. */
+export function addDays(date: string, days: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/** "YYYY-MM-DD" on the same day some whole months later, held to the last day
+ *  of a shorter month: 31 January plus one month is 28 (or 29) February. */
+export function addCalendarMonths(date: string, months: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, month - 1 + months + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month - 1 + months, Math.min(day, lastDay)))
+    .toISOString()
+    .slice(0, 10);
+}

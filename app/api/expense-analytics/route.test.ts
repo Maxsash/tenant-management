@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { makeExpense } from "@/test/fixtures/expenses";
+import { makeExpense, makeExpenseCategory } from "@/test/fixtures/expenses";
 import { ADMIN_SESSION_COOKIE, createSessionToken } from "@/lib/admin-auth";
 
-vi.mock("@/lib/db", () => ({ getExpenses: vi.fn() }));
+vi.mock("@/lib/db", () => ({
+  getExpenses: vi.fn(),
+  getExpenseCategories: vi.fn(),
+}));
 
-import { getExpenses } from "@/lib/db";
+import { getExpenseCategories, getExpenses } from "@/lib/db";
 import { DEFAULT_WINDOW_MONTHS, GET, MAX_WINDOW_MONTHS } from "./route";
 
 const ORIGINAL_PIN = process.env.ADMIN_PIN;
@@ -32,6 +35,7 @@ function monthlyRows(count: number) {
 beforeEach(() => {
   process.env.ADMIN_PIN = "1234";
   vi.mocked(getExpenses).mockReset();
+  vi.mocked(getExpenseCategories).mockReset().mockResolvedValue([]);
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-09-09T10:00:00Z"));
 });
@@ -107,8 +111,7 @@ describe("GET /api/expense-analytics", () => {
     expect(body.unlocked).toBe(false);
     expect(body.items).toEqual([]);
     expect(body.consumption).toEqual([]);
-    expect(body.rhythms).toEqual([]);
-    expect(body.learningItems).toEqual([]);
+    expect(body.needs).toMatchObject({ shopping: [], paymentRounds: [], lasting: [] });
     // Headline totals stay readable, as on GET /api/expenses.
     expect(body.months.at(-1).total).toBe(250);
   });
@@ -123,9 +126,52 @@ describe("GET /api/expense-analytics", () => {
 
     expect(body.unlocked).toBe(true);
     expect(body.items).toHaveLength(1);
-    expect(body.rhythms).toHaveLength(1);
-    expect(body.rhythms[0].history).toHaveLength(2);
-    expect(body.learningItems).toEqual([]);
+    expect(body.needs.lasting).toHaveLength(1);
+    expect(body.needs.lasting[0].rhythms[0].history).toHaveLength(2);
+    expect(body.needs.lasting[0].learningItems).toEqual([]);
+  });
+
+  it("groups the Need again tab in the catalogue's category order", async () => {
+    const pair = (name: string, category: string) =>
+      [1, 5].map((day) =>
+        makeExpense({
+          id: `${name}-${day}`,
+          expense_date: `2026-09-0${day}`,
+          item_id: `item-${name}`,
+          item_name: name,
+          category,
+        })
+      );
+    vi.mocked(getExpenses).mockResolvedValue([
+      ...pair("Milk", "Dairy"),
+      ...pair("Suji", "Groceries"),
+    ]);
+    vi.mocked(getExpenseCategories).mockResolvedValue([
+      makeExpenseCategory({ name: "Groceries", sort_order: 0 }),
+      makeExpenseCategory({ name: "Dairy", sort_order: 1 }),
+    ]);
+
+    const body = await (await GET(makeRequest("", { authed: true }))).json();
+
+    expect(body.needs.lasting.map((g: { category: string }) => g.category)).toEqual([
+      "Groceries",
+      "Dairy",
+    ]);
+  });
+
+  it("still answers when the category catalogue cannot be read", async () => {
+    vi.mocked(getExpenses).mockResolvedValue([
+      makeExpense({ id: "milk-1", expense_date: "2026-09-01" }),
+      makeExpense({ id: "milk-2", expense_date: "2026-09-05" }),
+    ]);
+    vi.mocked(getExpenseCategories).mockRejectedValue(new Error("supabase down"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await GET(makeRequest("", { authed: true }));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).needs.lasting).toHaveLength(1);
+    consoleError.mockRestore();
   });
 
   it("returns a controlled 500 when the database fails", async () => {

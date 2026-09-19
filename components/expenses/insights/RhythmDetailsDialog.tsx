@@ -14,6 +14,7 @@ import type {
 import { formatCurrency, formatQuantity } from "@/utils/currency";
 import { formatFullDate } from "@/utils/date";
 import {
+  cycleLabel,
   dayLabel,
   lastBoughtLabel,
   recentRangeLabel,
@@ -28,6 +29,8 @@ type Props = {
 
 export default function RhythmDetailsDialog({ item, categories, onClose }: Props) {
   const rhythm = item && "typicalDays" in item ? item : null;
+  const isPayment = rhythm?.kind === "payment";
+  const noun = isPayment ? "payment" : "buy";
 
   return (
     <Dialog
@@ -56,30 +59,41 @@ export default function RhythmDetailsDialog({ item, categories, onClose }: Props
                 <ProgressBar percent={rhythm.cycleProgressPct} className="mt-4" />
                 <p className="mt-3 text-sm leading-relaxed text-muted">
                   {recentRangeLabel(rhythm)} The estimate uses the middle of the recent
-                  gaps, so one unusually early or late shop does not take over.
+                  gaps, so one unusually early or late {noun} does not take over.
                 </p>
               </section>
 
               <section className="grid grid-cols-2 gap-3">
                 <StatTile
-                  label="Usually lasts"
-                  value={dayLabel(rhythm.typicalDays)}
-                  helper={`${rhythm.purchaseCount} buys recorded`}
+                  label={cycleLabel(rhythm)}
+                  value={rhythm.monthly ? "Every month" : dayLabel(rhythm.typicalDays)}
+                  helper={`${rhythm.purchaseCount} ${noun}s recorded`}
                 />
                 <StatTile
                   label="Last time"
                   value={dayLabel(rhythm.lastGapDays)}
-                  helper="between the last two buys"
+                  helper={`between the last two ${noun}s`}
                 />
+                {!isPayment && (
+                  <StatTile
+                    label="Usually bought"
+                    value={
+                      rhythm.typicalQuantity !== null
+                        ? formatQuantity(rhythm.typicalQuantity, rhythm.unit)
+                        : "Not noted"
+                    }
+                    helper="at a time"
+                  />
+                )}
                 <StatTile
-                  label="Usually bought"
+                  label={isPayment ? "Usually paid" : "Usually costs"}
                   value={
-                    rhythm.typicalQuantity !== null
-                      ? formatQuantity(rhythm.typicalQuantity, rhythm.unit)
+                    rhythm.typicalAmount > 0
+                      ? formatCurrency(rhythm.typicalAmount)
                       : "Not noted"
                   }
-                  helper="typical amount at a time"
-                  className="col-span-2"
+                  helper={isPayment ? "each time" : "per purchase"}
+                  className={isPayment ? "col-span-2" : undefined}
                 />
               </section>
             </>
@@ -99,7 +113,7 @@ export default function RhythmDetailsDialog({ item, categories, onClose }: Props
             <div className="flex items-end justify-between gap-4">
               <div>
                 <h3 className="font-display text-xl font-semibold text-foreground">
-                  Purchase log
+                  {isPayment ? "Payment log" : "Purchase log"}
                 </h3>
                 <p className="mt-1 text-sm text-muted">
                   Newest first · {item.history.length} shown
@@ -134,8 +148,8 @@ export default function RhythmDetailsDialog({ item, categories, onClose }: Props
                           </span>
                           <span className="mt-0.5 block text-[13px] text-muted">
                             {event.daysSincePrevious === null
-                              ? "First recorded buy"
-                              : `${dayLabel(event.daysSincePrevious)} after the previous buy`}
+                              ? `First recorded ${noun}`
+                              : `${dayLabel(event.daysSincePrevious)} after the previous ${noun}`}
                           </span>
                         </span>
                       </span>
@@ -166,8 +180,8 @@ export default function RhythmDetailsDialog({ item, categories, onClose }: Props
 
             {item.historyTruncated && (
               <p className="mt-4 text-center text-[13px] text-muted">
-                Showing the latest {item.history.length} of {item.purchaseCount} recorded
-                buys.
+                Showing the latest {item.history.length} of {item.purchaseCount} recorded{" "}
+                {noun}s.
               </p>
             )}
           </section>

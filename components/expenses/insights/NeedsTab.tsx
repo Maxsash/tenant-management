@@ -1,45 +1,49 @@
 "use client";
 
 import { useState } from "react";
-import {
-  CalendarClock,
-  CheckCircle2,
-  ChevronRight,
-  ShoppingBasket,
-  TimerReset,
-} from "lucide-react";
+import { CalendarClock, CheckCircle2, ChevronRight } from "lucide-react";
 
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import LockedCard from "@/components/ui/LockedCard";
-import ProgressBar from "@/components/ui/ProgressBar";
 import { getCategoryIcon } from "@/lib/expense-categories";
 import type {
   ExpenseCategory,
+  HouseholdNeeds,
   PurchaseLearningItem,
   PurchaseRhythm,
+  ShoppingGroup,
 } from "@/types/expense";
-import { formatCurrency, formatQuantity } from "@/utils/currency";
+import { cn } from "@/utils/cn";
+import { formatCurrency } from "@/utils/currency";
 import { formatShortDate } from "@/utils/date";
+import LastingGroups from "./LastingGroups";
 import RhythmDetailsDialog from "./RhythmDetailsDialog";
-import {
-  dayLabel,
-  evidenceLabel,
-  lastBoughtLabel,
-  timingLabel,
-} from "./rhythm-copy";
+import { dueLabel, roundDetail, roundTitle, usualQuantityLabel } from "./rhythm-copy";
 
 type Props = {
-  rhythms: PurchaseRhythm[];
-  learningItems: PurchaseLearningItem[];
+  needs: HouseholdNeeds | null;
   categories: ExpenseCategory[];
   unlocked: boolean;
   onRequestUnlock: () => void;
 };
 
+/** Every item the tab can open, so the detail sheet finds it by key. */
+function findItem(
+  needs: HouseholdNeeds,
+  key: string | null
+): PurchaseRhythm | PurchaseLearningItem | null {
+  if (key === null) return null;
+
+  const all: (PurchaseRhythm | PurchaseLearningItem)[] = [
+    ...needs.paymentRounds.flatMap((round) => round.payments),
+    ...needs.lasting.flatMap((group) => [...group.rhythms, ...group.learningItems]),
+  ];
+  return all.find((item) => item.key === key) ?? null;
+}
+
 export default function NeedsTab({
-  rhythms,
-  learningItems,
+  needs,
   categories,
   unlocked,
   onRequestUnlock,
@@ -55,7 +59,7 @@ export default function NeedsTab({
     );
   }
 
-  if (rhythms.length === 0 && learningItems.length === 0) {
+  if (!needs || (needs.lasting.length === 0 && needs.paymentRounds.length === 0)) {
     return (
       <EmptyState
         icon={CalendarClock}
@@ -65,233 +69,207 @@ export default function NeedsTab({
     );
   }
 
-  const next = rhythms.slice(0, 3);
-  const selectedItem =
-    rhythms.find((rhythm) => rhythm.key === selectedKey) ??
-    learningItems.find((item) => item.key === selectedKey) ??
-    null;
-
   return (
     <>
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-10">
         <section className="flex flex-col gap-3">
           <div>
             <h2 className="font-display text-2xl font-semibold text-foreground">
               What may be needed next
             </h2>
             <p className="mt-1 text-[15px] leading-relaxed text-muted">
-              A gentle estimate from the gaps between earlier purchases.
+              A gentle estimate from the gaps between earlier purchases, one list
+              per category.
             </p>
           </div>
 
-          {next.length > 0 ? (
+          {needs.shopping.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {next.map((rhythm, index) => (
-                <Card
-                  key={rhythm.key}
-                  onClick={() => setSelectedKey(rhythm.key)}
-                  aria-label={`View purchase history for ${rhythm.name}`}
-                  className={
-                    index === 0
-                      ? "relative cursor-pointer overflow-hidden border-accent/35 bg-linear-to-br from-accent-soft via-surface to-surface p-5 transition-colors hover:border-accent/60 sm:col-span-2"
-                      : "cursor-pointer p-5 transition-colors hover:border-accent/60"
-                  }
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-muted">
-                        {getCategoryIcon(categories, rhythm.category)}{" "}
-                        {rhythm.category}
-                      </p>
-                      <h3
-                        className={
-                          index === 0
-                            ? "mt-1 font-display text-[30px] leading-tight font-semibold text-foreground"
-                            : "mt-1 font-display text-xl font-semibold text-foreground"
-                        }
-                      >
-                        {rhythm.name}
-                      </h3>
-                    </div>
-                    <span className="porthole flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface text-accent shadow-card">
-                      <ShoppingBasket className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                  </div>
-
-                  <p className="mt-5 text-lg font-semibold leading-snug text-accent-strong">
-                    {timingLabel(rhythm)}
-                  </p>
-                  <p className="mt-1 text-sm text-muted">
-                    Usually about {dayLabel(rhythm.typicalDays)} between buys
-                  </p>
-                  <ProgressBar percent={rhythm.cycleProgressPct} className="mt-4" />
-                  <div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-muted">
-                    <span>
-                      {lastBoughtLabel(rhythm)} ·{" "}
-                      {formatShortDate(rhythm.lastBoughtOn)}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1 font-semibold text-accent">
-                      View history
-                      <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                  </div>
-                </Card>
+              {needs.shopping.map((group, index) => (
+                <ShoppingCard
+                  key={group.category}
+                  group={group}
+                  icon={getCategoryIcon(categories, group.category)}
+                  featured={index === 0}
+                  onSelect={setSelectedKey}
+                />
               ))}
             </div>
           ) : (
-            <EmptyState
-              icon={CalendarClock}
-              title="No repeat interval yet"
-              description="The first purchases are below. One more logged buy will show how long each item lasted."
-              className="py-7"
-            />
-          )}
-
-          {next.length > 0 && next.every((rhythm) => rhythm.timing === "later") && (
-            <Card className="flex items-center gap-3 border-success-border bg-success-soft p-4">
+            <Card className="flex items-start gap-3 border-success-border bg-success-soft p-4">
               <CheckCircle2
-                className="h-5 w-5 shrink-0 text-success"
+                className="mt-0.5 h-5 w-5 shrink-0 text-success"
                 aria-hidden="true"
               />
-              <p className="text-sm text-success">
-                Nothing in the usual household rhythm looks due just yet.
+              <p className="text-sm leading-relaxed text-success">
+                Nothing looks due in the next few days.
+                {needs.nextUp &&
+                  ` Next up: ${needs.nextUp.name}, around ${formatShortDate(needs.nextUp.nextDueOn)}.`}
               </p>
             </Card>
           )}
         </section>
 
-        {rhythms.length > 0 && (
+        {needs.paymentRounds.length > 0 && (
           <section className="flex flex-col gap-3">
             <div>
               <h2 className="font-display text-2xl font-semibold text-foreground">
-                How long things last
+                Regular payments
               </h2>
               <p className="mt-1 text-[15px] leading-relaxed text-muted">
-                For a cylinder this is time between refills; for groceries, time
-                between buys.
+                Staff, bills and anything else paid on a steady cycle.
+                {needs.paymentsTotal > 0 &&
+                  ` A full round of them comes to about ${formatCurrency(needs.paymentsTotal)}.`}
               </p>
             </div>
 
-            <Card className="divide-y divide-border overflow-hidden">
-              {rhythms.map((rhythm) => (
-                <button
-                  key={rhythm.key}
-                  type="button"
-                  aria-label={`View purchase history for ${rhythm.name}`}
-                  onClick={() => setSelectedKey(rhythm.key)}
-                  className="block w-full cursor-pointer px-5 py-4 text-left transition-colors hover:bg-accent-soft/45 focus-visible:bg-accent-soft/45 focus-visible:outline-none"
+            {needs.paymentRounds.map((round) => (
+              <Card key={round.dueOn ?? "lapsed"} className="overflow-hidden">
+                <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
+                  <h3 className="font-display text-lg font-semibold text-foreground">
+                    {roundTitle(round)}
+                  </h3>
+                  {round.dueOn && (
+                    <span className="shrink-0 font-semibold tabular-nums text-foreground">
+                      {formatCurrency(round.total)}
+                    </span>
+                  )}
+                </div>
+                <p
+                  className={cn(
+                    "px-5 text-[13px]",
+                    round.timing === "now" || round.timing === "soon"
+                      ? "font-semibold text-accent-strong"
+                      : "text-muted"
+                  )}
                 >
-                  <span className="flex items-start justify-between gap-4">
-                    <span className="flex min-w-0 items-start gap-3">
-                      <TimerReset
-                        className="mt-0.5 h-5 w-5 shrink-0 text-accent"
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0">
-                        <span className="block truncate text-base font-semibold text-foreground">
-                          {rhythm.name}
+                  {roundDetail(round)}
+                </p>
+
+                <ul className="mt-2 divide-y divide-border border-t border-border">
+                  {round.payments.map((payment) => (
+                    <li key={payment.key}>
+                      <button
+                        type="button"
+                        aria-label={`View payment history for ${payment.name}`}
+                        onClick={() => setSelectedKey(payment.key)}
+                        className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-3 text-left transition-colors hover:bg-accent-soft/45 focus-visible:bg-accent-soft/45 focus-visible:outline-none"
+                      >
+                        <span
+                          className={cn(
+                            "min-w-0 truncate text-base font-semibold",
+                            round.dueOn ? "text-foreground" : "text-muted"
+                          )}
+                        >
+                          <span aria-hidden="true">
+                            {getCategoryIcon(categories, payment.category)}
+                          </span>{" "}
+                          {payment.name}
                         </span>
-                        <span className="mt-0.5 block text-[13px] text-muted">
-                          {evidenceLabel(rhythm)}
-                        </span>
-                        {rhythm.typicalQuantity !== null && (
-                          <span className="mt-0.5 block text-[13px] text-muted">
-                            Usually{" "}
-                            {formatQuantity(rhythm.typicalQuantity, rhythm.unit)} at a
-                            time
+                        <span className="flex shrink-0 items-center gap-2">
+                          <span className="tabular-nums text-foreground">
+                            {formatCurrency(payment.typicalAmount)}
                           </span>
-                        )}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2 text-right">
-                      <span>
-                        <span className="block font-display text-2xl font-semibold tabular-nums text-foreground">
-                          {rhythm.typicalDays}
+                          <ChevronRight className="h-4 w-4 text-accent" aria-hidden="true" />
                         </span>
-                        <span className="block text-xs text-muted">
-                          {rhythm.typicalDays === 1 ? "day" : "days"}
-                        </span>
-                      </span>
-                      <ChevronRight
-                        className="h-4 w-4 text-accent"
-                        aria-hidden="true"
-                      />
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </Card>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            ))}
           </section>
         )}
 
-        {learningItems.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <div>
-              <h2 className="font-display text-2xl font-semibold text-foreground">
-                Still learning
-              </h2>
-              <p className="mt-1 text-[15px] leading-relaxed text-muted">
-                Bought once so far. The next buy will reveal how long it lasted.
-              </p>
-            </div>
-
-            <Card className="divide-y divide-border overflow-hidden">
-              {learningItems.map((item) => {
-                const event = item.history[0];
-
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    aria-label={`View purchase details for ${item.name}`}
-                    onClick={() => setSelectedKey(item.key)}
-                    className="block w-full cursor-pointer px-5 py-4 text-left transition-colors hover:bg-accent-soft/45 focus-visible:bg-accent-soft/45 focus-visible:outline-none"
-                  >
-                    <span className="flex items-start justify-between gap-4">
-                      <span className="flex min-w-0 items-start gap-3">
-                        <CalendarClock
-                          className="mt-0.5 h-5 w-5 shrink-0 text-accent"
-                          aria-hidden="true"
-                        />
-                        <span className="min-w-0">
-                          <span className="block truncate text-base font-semibold text-foreground">
-                            {item.name}
-                          </span>
-                          <span className="mt-0.5 block text-[13px] text-muted">
-                            Bought {formatShortDate(item.lastBoughtOn)}
-                          </span>
-                          <span className="mt-0.5 block text-[13px] text-muted">
-                            One more buy will show its rhythm
-                          </span>
-                        </span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2 text-right">
-                        <span>
-                          <span className="block font-semibold tabular-nums text-foreground">
-                            {event ? formatCurrency(event.amount) : ""}
-                          </span>
-                          {event?.quantity !== null && event?.quantity !== undefined && (
-                            <span className="block text-xs text-muted">
-                              {formatQuantity(event.quantity, event.unit)}
-                            </span>
-                          )}
-                        </span>
-                        <ChevronRight className="h-4 w-4 text-accent" aria-hidden="true" />
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </Card>
-          </section>
+        {needs.lasting.length > 0 && (
+          <LastingGroups
+            groups={needs.lasting}
+            categories={categories}
+            onSelect={setSelectedKey}
+          />
         )}
       </div>
 
       <RhythmDetailsDialog
-        item={selectedItem}
+        item={findItem(needs, selectedKey)}
         categories={categories}
         onClose={() => setSelectedKey(null)}
       />
     </>
+  );
+}
+
+function ShoppingCard({
+  group,
+  icon,
+  featured,
+  onSelect,
+}: {
+  group: ShoppingGroup;
+  icon: string;
+  featured: boolean;
+  onSelect: (key: string) => void;
+}) {
+  return (
+    <Card
+      className={cn(
+        "overflow-hidden",
+        featured &&
+          "border-accent/35 bg-linear-to-br from-accent-soft via-surface to-surface sm:col-span-2"
+      )}
+    >
+      <div className="flex items-baseline justify-between gap-3 px-5 pt-4 pb-2">
+        <h3
+          className={cn(
+            "font-display font-semibold text-foreground",
+            featured ? "text-xl" : "text-lg"
+          )}
+        >
+          {icon} {group.category}
+        </h3>
+        {group.estimatedAmount > 0 && (
+          <span className="shrink-0 text-sm text-muted">
+            about{" "}
+            <span className="font-semibold tabular-nums text-foreground">
+              {formatCurrency(group.estimatedAmount)}
+            </span>
+          </span>
+        )}
+      </div>
+
+      <ul className="pb-2">
+        {group.items.map((rhythm) => (
+          <li key={rhythm.key}>
+            <button
+              type="button"
+              aria-label={`View purchase history for ${rhythm.name}`}
+              onClick={() => onSelect(rhythm.key)}
+              className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-2.5 text-left transition-colors hover:bg-accent-soft/45 focus-visible:bg-accent-soft/45 focus-visible:outline-none"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-base font-semibold text-foreground">
+                  {rhythm.name}
+                </span>
+                {rhythm.typicalQuantity !== null && (
+                  <span className="block text-[13px] text-muted">
+                    {usualQuantityLabel(rhythm)}
+                  </span>
+                )}
+              </span>
+              <span
+                className={cn(
+                  "shrink-0 text-sm",
+                  rhythm.timing === "now"
+                    ? "font-semibold text-accent-strong"
+                    : "text-muted"
+                )}
+              >
+                {dueLabel(rhythm)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

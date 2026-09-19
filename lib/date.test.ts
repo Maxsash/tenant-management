@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addMonths,
+  addCalendarMonths,
+  addDays,
   currentDate,
   currentMonth,
   daysBetween,
@@ -111,5 +113,30 @@ describe("daysBetween", () => {
 
   it("counts a leap day", () => {
     expect(daysBetween("2028-02-28", "2028-03-01")).toBe(2);
+  });
+});
+
+describe("addDays", () => {
+  it("crosses month and year ends, both ways", () => {
+    expect(addDays("2026-09-02", 30)).toBe("2026-10-02");
+    expect(addDays("2026-12-30", 3)).toBe("2027-01-02");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+  });
+
+  it("agrees with daysBetween", () => {
+    expect(daysBetween("2028-02-20", addDays("2028-02-20", 26))).toBe(26);
+  });
+});
+
+describe("addCalendarMonths", () => {
+  it("keeps the day of the month", () => {
+    expect(addCalendarMonths("2026-09-02", 1)).toBe("2026-10-02");
+    expect(addCalendarMonths("2026-12-15", 1)).toBe("2027-01-15");
+  });
+
+  it("holds to the end of a shorter month", () => {
+    expect(addCalendarMonths("2026-01-31", 1)).toBe("2026-02-28");
+    expect(addCalendarMonths("2028-01-31", 1)).toBe("2028-02-29");
+    expect(addCalendarMonths("2026-08-31", 1)).toBe("2026-09-30");
   });
 });

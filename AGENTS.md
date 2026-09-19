@@ -221,20 +221,11 @@ whatsapp-worker/            Separate Node/Express service, NOT part of the
 - `lib/expense-analytics.ts` — everything behind `/expense`:
   `buildExpenseAnalytics` turns the raw rows into month/category/item series
   plus the per-month narrative (deltas, run rate, coverage, price moves,
-  recurring gaps). `buildPurchaseRhythms` answers the default, practical view:
-  how many days usually pass between buys or refills, what may be needed next,
-  and how much is normally bought at once. It uses recent median gaps, merges
-  repeat lines from the same day, and drops items absent for several of their
-  own cycles so an abandoned routine is not eternally "due." Each rhythm also
-  carries a capped, newest-first purchase log with the actual gaps, quantities,
-  spend and biggest same-day companion items; the clickable cards render that
-  in a detail sheet without doing any new derivation client-side. A recent,
-  measured first purchase (notably the first recorded LPG cylinder) appears as
-  "Still learning" with its log; it only becomes an estimate after the second
-  purchase supplies a real interval. Series are built across every month that
-  has data and only
-  sliced to the requested window at the end, so a delta at the left edge still
-  compares against the real previous month. Quantities are only summed when an
+  recurring gaps). `buildPurchasePatterns` builds the default Need again tab —
+  see "Need again: what counts, and how it is grouped" below. Series are built
+  across every month that has data and only sliced to the requested window at
+  the end, so a delta at the left edge still compares against the real
+  previous month. Quantities are only summed when an
   item has been logged in a single unit — see `dominantUnit`. The tuning
   constants for the "usually logged, missing here" check are exported rather
   than inlined, since the heuristic is a judgement call worth seeing.
@@ -544,6 +535,51 @@ a standalone PWA. These things in this flow exist only because of that:
   not `type="number"` — it brings up the numeric keypad without the spinner
   and scroll-to-change behaviour that makes a number field hazardous on a
   touchscreen.
+
+## Need again: what counts, and how it is grouped
+
+The default expense tab answers three household questions, in this order:
+what to buy soon, which regular payments are coming up, and how long things
+last. `lib/expense-analytics.ts#buildPurchasePatterns` returns all three
+already arranged (`HouseholdNeeds`); the components only render.
+
+**What counts is decided by the data, not by a repeat alone.** An earlier
+version showed any item bought twice, sorted most-overdue first and capped at
+twelve, so "Photocopy" (twice in a fortnight) led the screen while the LPG
+cylinder, merely due in nine days, fell off the end. Now:
+
+- **Stock** is anything ever logged with a quantity or a unit — a cylinder is
+  a unitless `1`, fuel often has its unit with the litres blank. Stock is what
+  "lasts".
+- **A payment** is never measured and repeats no faster than
+  `REGULAR_PAYMENT_MIN_DAYS`: staff, bills, monthly medicines. Monthly ones
+  (`MONTHLY_PAYMENT_DAYS`) are due on the same date next month, because
+  salaries follow the calendar; stock keeps counting days, because a cylinder
+  runs out when it is used up.
+- **Neither** — an unmeasured thing repeating fast, like a massage every other
+  day or a takeaway — is left out. So is everything in `OCCASION_CATEGORIES`
+  (Eating Out, Gifts & Social, Religious, Other), where a repeat is
+  coincidence. Those names match the category catalogue; renaming one of those
+  categories means updating the constant.
+
+**Grouped by category, because a category is roughly a shop** and groceries
+are bought in trips: twenty items on one slip share a date, so the useful
+answer is the next trip's list, not twenty countdowns.
+
+- `shopping` — stock due now or soon, one card per category with a rough cost
+  (the items' median spend added up), costliest trip first. "Soon" is the last
+  `RHYTHM_SOON_FRACTION` of a cycle: two days' notice for vegetables, nine for
+  a cylinder that has to be booked.
+- `paymentRounds` — payments grouped by due date, so the 1st reads as one sum.
+- `lasting` — every stock item by category in the **catalogue's own order**
+  (the route reads `expense_categories` for it; losing that read only loses
+  the order), regulars first. Bought-once items sit in their category as
+  chips rather than a separate "Still learning" list.
+
+**"Lapsed" is not "most due".** Past `RHYTHM_LAPSED_CYCLES` without a purchase
+an item reads "not bought for a while": still listed, muted and last, but off
+the shopping list and out of the payment total. The most overdue item is
+usually the dropped one. Past `RHYTHM_ACTIVE_CYCLES` it disappears.
 
 ## Rent insights
 

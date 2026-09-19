@@ -2,17 +2,28 @@ import type {
   CategorySeries,
   ConsumptionSeries,
   ExpenseAnalytics,
+  HouseholdNeeds,
   ItemSeries,
+  LastingGroup,
   MonthInsight,
+  PaymentRound,
   PriceMove,
   PurchaseLearningItem,
   PurchaseRhythm,
   PurchaseRhythmEvent,
+  PurchaseTiming,
   RecurringGap,
+  ShoppingGroup,
   TopItem,
 } from "@/types/expense";
 import type { Expense } from "@/types/expense";
-import { daysBetween, isValidDate as isValidCalendarDate, monthRange } from "@/lib/date";
+import {
+  addCalendarMonths,
+  addDays,
+  daysBetween,
+  isValidDate as isValidCalendarDate,
+  monthRange,
+} from "@/lib/date";
 import { median, round, sum } from "@/lib/numbers";
 
 /**
@@ -51,11 +62,35 @@ export const RHYTHM_MAX_GAPS = 6;
  * LPG cylinder get a wider absolute window than fast groceries. */
 export const RHYTHM_MIN_ACTIVE_DAYS = 30;
 export const RHYTHM_ACTIVE_CYCLES = 2.5;
-export const MAX_PURCHASE_RHYTHMS = 12;
+/** An item turns "soon" once this share of its cycle is left: a couple of
+ * days' notice for vegetables, over a week for a cylinder that has to be
+ * booked before it runs out. */
+export const RHYTHM_SOON_FRACTION = 1 / 3;
+/** Past this many cycles without a purchase an item is no longer "due", it
+ * is "not bought for a while". It stays in the list but leaves the shopping
+ * list, because the most overdue item is usually the one that was dropped,
+ * not the one most needed. */
+export const RHYTHM_LAPSED_CYCLES = 2;
 export const MAX_RHYTHM_HISTORY = 12;
 export const MAX_RHYTHM_COMPANIONS = 4;
 export const RHYTHM_LEARNING_ACTIVE_DAYS = 90;
-export const MAX_RHYTHM_LEARNING_ITEMS = 6;
+/** Categories whose spending follows occasions rather than a stock running
+ * down: a sweet for a festival, a gift, prasad, a photocopy. A repeat found
+ * there is coincidence, so they stay off the Need again tab entirely. Names
+ * match the category catalogue, ignoring case. */
+export const OCCASION_CATEGORIES = [
+  "Eating Out",
+  "Gifts & Social",
+  "Religious",
+  "Other",
+];
+/** An unmeasured expense that repeats faster than this is a habit or a
+ * service (a massage every other day, a takeaway), not a bill to plan for. */
+export const REGULAR_PAYMENT_MIN_DAYS = 20;
+/** A payment whose usual gap falls in this range is monthly, and monthly
+ * payments follow the calendar: salaries paid on the 1st are due on the 1st
+ * again, not 31 days later. Things that get used up keep counting days. */
+export const MONTHLY_PAYMENT_DAYS = { min: 26, max: 35 };
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -171,6 +206,8 @@ export interface BuildAnalyticsOptions {
   /** Line-item detail (items, consumption, price moves, recurring gaps) is
    *  user-level information, mirroring GET /api/expenses. */
   unlocked: boolean;
+  /** Category names in catalogue order, for the Need again tab's groups. */
+  categoryOrder?: string[];
 }
 
 /**
@@ -184,7 +221,7 @@ export function buildExpenseAnalytics(
   expenses: Expense[],
   options: BuildAnalyticsOptions
 ): ExpenseAnalytics {
-  const { today, windowMonths, unlocked } = options;
+  const { today, windowMonths, unlocked, categoryOrder = [] } = options;
   const rows = expenses.filter((e) => isValidDate(e.expense_date));
   const nowMonth = isValidDate(today) ? monthOf(today) : "";
 
@@ -194,8 +231,7 @@ export function buildExpenseAnalytics(
       categories: [],
       items: [],
       consumption: [],
-      rhythms: [],
-      learningItems: [],
+      needs: EMPTY_NEEDS,
       unlocked,
     };
   }
@@ -415,17 +451,14 @@ export function buildExpenseAnalytics(
     };
   });
 
-  const purchasePatterns = unlocked
-    ? buildPurchasePatterns(rows, today)
-    : { rhythms: [], learningItems: [] };
-
   return {
     months: monthInsights,
     categories,
     items: unlocked ? itemSeries : [],
     consumption: unlocked ? consumption : [],
-    rhythms: purchasePatterns.rhythms,
-    learningItems: purchasePatterns.learningItems,
+    needs: unlocked
+      ? buildPurchasePatterns(rows, today, categoryOrder)
+      : EMPTY_NEEDS,
     unlocked,
   };
 }
@@ -441,11 +474,21 @@ interface RhythmDraft {
   unitsByDate: Map<string, Set<string>>;
   quantitiesByDate: Map<string, number>;
   amountsByDate: Map<string, number>;
+  /** Some row carried a quantity or a unit. See collectPurchasePatterns. */
+  measured: boolean;
 }
 
 interface PurchasePatterns {
   rhythms: PurchaseRhythm[];
   learningItems: PurchaseLearningItem[];
+}
+
+const OCCASION_CATEGORY_KEYS = new Set(
+  OCCASION_CATEGORIES.map((category) => category.toLowerCase())
+);
+
+export function isOccasionCategory(category: string): boolean {
+  return OCCASION_CATEGORY_KEYS.has(category.trim().toLowerCase());
 }
 
 function buildRhythmHistory(
@@ -483,13 +526,23 @@ function buildRhythmHistory(
   });
 }
 
+/** Days with no price written (a slip that noted only the weight) would drag
+ *  the usual cost towards zero, so only priced days count. */
+function typicalAmountOf(draft: RhythmDraft): number {
+  const priced = [...draft.amountsByDate.values()].filter((a) => a > 0);
+  return priced.length > 0 ? Math.round(median(priced)) : 0;
+}
+
 /**
- * Finds repeat-purchase rhythms such as potatoes every few days or a gas
- * cylinder every few weeks. Multiple lines for the same item on one day are
- * one purchase event, and the median of recent intervals keeps a single odd
- * trip from distorting the answer.
+ * Every item with a usable repeat-purchase story, unordered: the rhythms of
+ * things bought at least twice, and the recent first purchases that will
+ * become rhythms after the next buy.
+ *
+ * Multiple lines for the same item on one day are one purchase event, and the
+ * median of recent intervals keeps a single odd trip from distorting the
+ * answer.
  */
-export function buildPurchasePatterns(
+function collectPurchasePatterns(
   expenses: Expense[],
   today: string
 ): PurchasePatterns {
@@ -533,6 +586,7 @@ export function buildPurchasePatterns(
         unitsByDate: new Map(),
         quantitiesByDate: new Map(),
         amountsByDate: new Map(),
+        measured: false,
       };
       drafts.set(key, draft);
     }
@@ -550,7 +604,9 @@ export function buildPurchasePatterns(
     );
 
     const quantity = Number(row.quantity);
+    if (row.unit) draft.measured = true;
     if (Number.isFinite(quantity) && quantity > 0) {
+      draft.measured = true;
       if (row.unit) {
         draft.units.add(row.unit);
         let dateUnits = draft.unitsByDate.get(row.expense_date);
@@ -573,21 +629,22 @@ export function buildPurchasePatterns(
   const learningItems: PurchaseLearningItem[] = [];
 
   for (const draft of drafts.values()) {
+    // The category is the latest row's, so recategorising an item moves it.
+    if (isOccasionCategory(draft.category)) continue;
+
+    // Having been bought by the kilo, litre or piece is what separates a thing
+    // that gets used up from a service or a bill, which is paid and never
+    // measured. Either half is enough: a cylinder is logged as a unitless
+    // "1", and fuel often carries its unit with the litres left blank.
+    const { measured } = draft;
     const dates = [...draft.dates].sort();
     const fullHistory = buildRhythmHistory(draft, dates, basketItemsByDate);
 
     if (dates.length === 1) {
       const lastBoughtOn = dates[0];
       const daysSinceLast = daysBetween(lastBoughtOn, today);
-      const firstEvent = fullHistory[0];
 
-      // A measured item has a plausible repeat-use story (including a
-      // unitless "1" for an LPG cylinder). Unmeasured one-off bills and help
-      // payments stay out of a household replenishment screen.
-      if (
-        daysSinceLast <= RHYTHM_LEARNING_ACTIVE_DAYS &&
-        firstEvent.quantity !== null
-      ) {
+      if (measured && daysSinceLast <= RHYTHM_LEARNING_ACTIVE_DAYS) {
         learningItems.push({
           key: draft.key,
           name: draft.name,
@@ -610,6 +667,8 @@ export function buildPurchasePatterns(
 
     const recentGaps = gaps.slice(-RHYTHM_MAX_GAPS);
     const typicalDays = Math.max(1, Math.round(median(recentGaps)));
+    if (!measured && typicalDays < REGULAR_PAYMENT_MIN_DAYS) continue;
+
     const lastBoughtOn = dates.at(-1) as string;
     const daysSinceLast = daysBetween(lastBoughtOn, today);
 
@@ -621,9 +680,26 @@ export function buildPurchasePatterns(
     );
     if (daysSinceLast > activeForDays) continue;
 
-    const dueInDays = typicalDays - daysSinceLast;
-    const soonWithinDays = Math.max(2, Math.ceil(typicalDays * 0.2));
-    const timing = dueInDays <= 0 ? "now" : dueInDays <= soonWithinDays ? "soon" : "later";
+    const calendarMonthly =
+      !measured &&
+      typicalDays >= MONTHLY_PAYMENT_DAYS.min &&
+      typicalDays <= MONTHLY_PAYMENT_DAYS.max;
+    const nextDueOn = calendarMonthly
+      ? addCalendarMonths(lastBoughtOn, 1)
+      : addDays(lastBoughtOn, typicalDays);
+    const dueInDays = daysBetween(today, nextDueOn);
+    const soonWithinDays = Math.max(
+      2,
+      Math.ceil(typicalDays * RHYTHM_SOON_FRACTION)
+    );
+    const timing: PurchaseTiming =
+      dueInDays > soonWithinDays
+        ? "later"
+        : dueInDays > 0
+          ? "soon"
+          : daysSinceLast > typicalDays * RHYTHM_LAPSED_CYCLES
+            ? "lapsed"
+            : "now";
     const hasUnitlessQuantities = draft.unitlessQuantityDates.size > 0;
     const quantitiesAgree =
       (draft.units.size === 1 && !hasUnitlessQuantities) ||
@@ -640,6 +716,7 @@ export function buildPurchasePatterns(
       key: draft.key,
       name: draft.name,
       category: draft.category,
+      kind: measured ? "stock" : "payment",
       typicalDays,
       lastGapDays: gaps.at(-1) as number,
       recentMinDays: Math.min(...recentGaps),
@@ -647,6 +724,8 @@ export function buildPurchasePatterns(
       lastBoughtOn,
       daysSinceLast,
       dueInDays,
+      nextDueOn,
+      monthly: calendarMonthly,
       timing,
       cycleProgressPct: Math.min(
         100,
@@ -657,41 +736,167 @@ export function buildPurchasePatterns(
       typicalQuantity:
         quantities.length > 0 ? round(median(quantities), 2) : null,
       unit,
+      typicalAmount: typicalAmountOf(draft),
       history: fullHistory.slice(-MAX_RHYTHM_HISTORY).reverse(),
       historyTruncated: fullHistory.length > MAX_RHYTHM_HISTORY,
     });
   }
 
-  const timingRank = { now: 0, soon: 1, later: 2 } as const;
+  return { rhythms, learningItems };
+}
 
-  const rankedRhythms = rhythms
+function groupByCategory<T extends { category: string }>(
+  entries: T[]
+): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const entry of entries) {
+    const group = groups.get(entry.category);
+    if (group) group.push(entry);
+    else groups.set(entry.category, [entry]);
+  }
+  return groups;
+}
+
+function isDue(rhythm: PurchaseRhythm): boolean {
+  return rhythm.timing === "now" || rhythm.timing === "soon";
+}
+
+/**
+ * The Need again tab, arranged: what to buy soon, which regular payments are
+ * coming up, and how long each category's things last.
+ *
+ * Grouping is by category because a category is roughly a shop — the sabzi
+ * cart, the kirana, the gas agency — and because groceries and vegetables are
+ * bought in trips: twenty items on one slip share one date, so the useful
+ * answer is the list for the next trip, not twenty separate countdowns.
+ *
+ * `categoryOrder` is the catalogue's own order, so "How long things last"
+ * reads the same way as every category picker in the app, and a category is
+ * always in the same place when someone comes back to look something up.
+ */
+export function buildPurchasePatterns(
+  expenses: Expense[],
+  today: string,
+  categoryOrder: string[] = []
+): HouseholdNeeds {
+  const { rhythms, learningItems } = collectPurchasePatterns(expenses, today);
+  const stock = rhythms.filter((rhythm) => rhythm.kind === "stock");
+
+  const shopping: ShoppingGroup[] = [
+    ...groupByCategory(stock.filter(isDue)).entries(),
+  ]
+    .map(([category, items]) => ({
+      category,
+      // Due now before due soon, then the costliest first. Not most overdue
+      // first: the item skipped on the last two trips is rarely the one most
+      // needed on the next.
+      items: items.sort(
+        (a, b) =>
+          Number(a.timing === "soon") - Number(b.timing === "soon") ||
+          b.typicalAmount - a.typicalAmount ||
+          a.name.localeCompare(b.name)
+      ),
+      estimatedAmount: sum(items.map((item) => item.typicalAmount)),
+    }))
+    // The biggest trip first: running out of gas or the month's rations needs
+    // planning (a booking, cash in hand) in a way a bunch of coriander does not.
     .sort(
       (a, b) =>
-        timingRank[a.timing] - timingRank[b.timing] ||
-        a.dueInDays - b.dueInDays ||
-        b.purchaseCount - a.purchaseCount ||
-        a.name.localeCompare(b.name)
-    )
-    .slice(0, MAX_PURCHASE_RHYTHMS);
+        b.estimatedAmount - a.estimatedAmount ||
+        a.category.localeCompare(b.category)
+    );
 
-  const rankedLearningItems = learningItems
-    .sort(
+  const nextUp =
+    shopping.length > 0
+      ? null
+      : (stock
+          .filter((rhythm) => rhythm.timing === "later")
+          .sort(
+            (a, b) =>
+              a.dueInDays - b.dueInDays || b.typicalAmount - a.typicalAmount
+          )[0] ?? null);
+
+  // Grouped by the day they fall due, because that is how they are paid:
+  // everyone on the 1st, so the question is how much cash the 1st needs.
+  const payments = rhythms.filter((rhythm) => rhythm.kind === "payment");
+  const roundsByDue = new Map<string, PurchaseRhythm[]>();
+  for (const payment of payments) {
+    const due = payment.timing === "lapsed" ? "lapsed" : payment.nextDueOn;
+    const round = roundsByDue.get(due);
+    if (round) round.push(payment);
+    else roundsByDue.set(due, [payment]);
+  }
+  const paymentRounds: PaymentRound[] = [...roundsByDue.entries()]
+    .map(([due, round]) => ({
+      dueOn: due === "lapsed" ? null : due,
+      timing: round[0].timing,
+      total: sum(round.map((payment) => payment.typicalAmount)),
+      payments: round.sort(
+        (a, b) => b.typicalAmount - a.typicalAmount || a.name.localeCompare(b.name)
+      ),
+    }))
+    .sort((a, b) =>
+      a.dueOn === null ? 1 : b.dueOn === null ? -1 : a.dueOn.localeCompare(b.dueOn)
+    );
+
+  const rank = new Map(categoryOrder.map((name, index) => [name, index]));
+  const lastingByCategory = groupByCategory(stock);
+  const learningByCategory = groupByCategory(learningItems);
+  const lastingCategories = [
+    ...new Set([...lastingByCategory.keys(), ...learningByCategory.keys()]),
+  ].sort(
+    (a, b) =>
+      (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity) ||
+      a.localeCompare(b)
+  );
+
+  const lasting: LastingGroup[] = lastingCategories.map((category) => ({
+    category,
+    rhythms: (lastingByCategory.get(category) ?? []).sort(
+      (a, b) =>
+        Number(a.timing === "lapsed") - Number(b.timing === "lapsed") ||
+        b.purchaseCount - a.purchaseCount ||
+        b.typicalAmount - a.typicalAmount ||
+        a.name.localeCompare(b.name)
+    ),
+    learningItems: (learningByCategory.get(category) ?? []).sort(
       (a, b) =>
         (b.history[0]?.amount ?? 0) - (a.history[0]?.amount ?? 0) ||
         b.lastBoughtOn.localeCompare(a.lastBoughtOn) ||
         a.name.localeCompare(b.name)
-    )
-    .slice(0, MAX_RHYTHM_LEARNING_ITEMS);
+    ),
+  }));
 
-  return { rhythms: rankedRhythms, learningItems: rankedLearningItems };
+  return {
+    shopping,
+    nextUp,
+    paymentRounds,
+    paymentsTotal: sum(
+      payments
+        .filter((payment) => payment.timing !== "lapsed")
+        .map((payment) => payment.typicalAmount)
+    ),
+    lasting,
+  };
 }
 
+/** Every item's rhythm, flat and by name — stock and payments alike. */
 export function buildPurchaseRhythms(
   expenses: Expense[],
   today: string
 ): PurchaseRhythm[] {
-  return buildPurchasePatterns(expenses, today).rhythms;
+  return collectPurchasePatterns(expenses, today).rhythms.sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 }
+
+export const EMPTY_NEEDS: HouseholdNeeds = {
+  shopping: [],
+  nextUp: null,
+  paymentRounds: [],
+  paymentsTotal: 0,
+  lasting: [],
+};
 
 /**
  * Things that look like a monthly commitment (a salary, a bill, the milk) and
